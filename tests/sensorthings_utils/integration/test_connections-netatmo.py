@@ -39,6 +39,8 @@ class TestNetatmoConnectionAuthentication:
             - bad tokens, 
             - no tokens,
     """
+    @pytest.mark.real
+    @pytest.mark.online
     def test_auth_good_tokens(self, valid_netatmo_connection: NetatmoConnection):
         """Happy path testing: good tokens should return a ClientAuthObject."""
         assert isinstance(valid_netatmo_connection._auth(), lnetatmo.ClientAuth)
