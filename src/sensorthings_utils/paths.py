@@ -12,7 +12,6 @@ __all__ = [
     "VARIABLE_SENSOR_CONFIG_PATH",
     "CREDENTIALS_DIR",
     "TOKENS_DIR",
-    "TEST_DATA_DIR",
     "VARIABLE_APPLICATION_CONFIG_FILE",
     "START_SCRIPT",
     "STOP_SCRIPT"
@@ -27,7 +26,6 @@ STOP_SCRIPT = DEPLOY_DIR / "stop-production.sh"
 LOGS_DIR = ROOT_DIR / "logs"
 CREDENTIALS_DIR = DEPLOY_DIR / "secrets" / "credentials"
 TOKENS_DIR = DEPLOY_DIR / "secrets" / "tokens"
-TEST_DATA_DIR = ROOT_DIR / "tests" / "sensorthings_utils" / "data"
 
 # it is suggested that the sensor and application configuration files live 
 # outside the st-utils codebase and are tracked independently. For this reason,

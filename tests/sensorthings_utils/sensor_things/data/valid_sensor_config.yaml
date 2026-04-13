@@ -1,0 +1,65 @@
+sensors:
+  netatmo.nws03:
+    name: sensor-001
+    description: Netatmo NWS03
+    metadata: none
+    encodingType: text
+    properties:
+      connectivity: wifi
+    iot_links:
+      datastreams:
+        - temperature_indoor
+
+things:
+  room-120:
+    name: room-120
+    description: Test room
+    properties: null
+    iot_links:
+      datastreams:
+        - temperature_indoor
+      locations:
+        - loc-120
+
+locations:
+  loc-120:
+    name: loc-120
+    description: Test location
+    properties: null
+    encodingType: application/geo+json
+    location:
+      type: Point
+      coordinates: [52.0, 4.3]
+    iot_links:
+      things:
+        - room-120
+
+datastreams:
+  temperature_indoor:
+    name: temperature_indoor
+    description: Indoor temperature datastream
+    observationType: instant
+    unitOfMeasurement:
+      name: degree Celsius
+      symbol: C
+      definition: https://unitsofmeasure.org/ucum#para-30
+    observedArea:
+      type: Polygon
+      coordinates: null
+    phenomenon_time: null
+    result_time: null
+    properties: null
+    iot_links:
+      observedProperties:
+        - indoor_temperature
+      sensors:
+        - sensor-001
+      things:
+        - room-120
+
+observedProperties:
+  indoor_temperature:
+    name: indoor_temperature
+    definition: https://dbpedia.org/page/Temperature
+    description: Temperature at sensor location
+    properties: null
