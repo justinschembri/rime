@@ -1,7 +1,7 @@
+# Run all the tests that don't need authentication with real application servers
 name: Non-auth tests
 
 on:
-  push:
   pull_request:
 
 jobs:
