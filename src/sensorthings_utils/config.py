@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import List
 import os
 import base64
+from functools import lru_cache
 import dotenv
 from .paths import (
         RUNTIME_SENSOR_CONFIG_PATH,
@@ -37,11 +38,13 @@ def get_frost_credentials() -> tuple[str, str]:
     return (credentials["frost_username"], credentials["frost_password"])
 
 
-# Use it:
-FROST_USER, FROST_PASSWORD = get_frost_credentials()
-FROST_CREDENTIALS = base64.b64encode(f"{FROST_USER}:{FROST_PASSWORD}".encode()).decode(
-    "utf-8"
-)
+@lru_cache(maxsize=1)
+def get_frost_auth_header() -> str:
+    """Return base64-encoded credentials for FROST authorization headers."""
+    frost_user, frost_password = get_frost_credentials()
+    return base64.b64encode(f"{frost_user}:{frost_password}".encode()).decode("utf-8")
+
+
 FROST_ENDPOINT_DEFAULT = "http://localhost:8080/FROST-Server/v1.1"
 
 

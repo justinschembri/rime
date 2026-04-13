@@ -15,7 +15,7 @@ import re
 from sensorthings_utils.config import (
     CONTAINER_ENVIRONMENT,
     FROST_ENDPOINT_DEFAULT,
-    FROST_CREDENTIALS,
+    get_frost_auth_header,
 )
 from sensorthings_utils.exceptions import FrostUploadFailure
 from sensorthings_utils.sensor_things.core import (
@@ -264,7 +264,7 @@ def make_frost_object(
         method="POST",
     )
     post_request.add_header("Content-Type", "application/json")
-    post_request.add_header("Authorization", f"Basic {FROST_CREDENTIALS}")
+    post_request.add_header("Authorization", f"Basic {get_frost_auth_header()}")
 
     try:
         with request.urlopen(post_request) as response:
@@ -313,7 +313,7 @@ def make_frost_datastream(
     data = json.dumps(data).encode()
     post_request = request.Request(url=url, data=data, method="POST")
     post_request.add_header("Content-Type", "application/json")
-    post_request.add_header("Authorization", f"Basic {FROST_CREDENTIALS}")
+    post_request.add_header("Authorization", f"Basic {get_frost_auth_header()}")
     try:
         with request.urlopen(post_request) as response:
             new_object_url = response.getheader(
