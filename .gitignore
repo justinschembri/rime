@@ -22,3 +22,5 @@ docker-compose.override.yml
 *.csv
 # Logs
 *logs/
+# Local secret used for integration tests
+deploy/secrets/tokens/netatmo-test-application.json
