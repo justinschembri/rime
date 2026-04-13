@@ -1,0 +1,28 @@
+name: Non-auth tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  tests-no-auth:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --group dev
+
+      - name: Run non-auth tests
+        run: uv run pytest -m "not real and not online"
