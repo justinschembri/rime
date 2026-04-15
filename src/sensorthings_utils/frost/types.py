@@ -19,3 +19,14 @@ class FrostEndpoints(Enum):
     Sensors = "/Sensors"
     Things = "/Things"
 
+class FrostParams(Enum):
+    """FROST Server query params."""
+    TOP="$top"
+    SKIP="$skip"
+    COUNT="$count"
+    ORDER="$orderBy"
+    EXPAND="$expand"
+    SELECT="$select"
+    FILTER="$filter"
+    
+

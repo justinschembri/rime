@@ -10,14 +10,14 @@ from .errors import FrostConnectionError
 
 event_logger = logging.getLogger("events")
 
-def _check_frost_connection(root_url:str, version:str) -> bool:
+def check_frost_connection(root_url:str, version:str) -> bool:
     """Check connectivity and accessibility of a FROST srever instance."""
 
     root_url = root_url.rstrip("/")
     version = version.lstrip("v")
-    v = FrostVersions(version)
+    ver = FrostVersions(version)
 
-    base_url = root_url + "/v" + v.value
+    base_url = root_url + "/v" + ver.value
     try:
         for endpoint in FrostEndpoints:
             url = base_url + endpoint.value    
@@ -28,4 +28,5 @@ def _check_frost_connection(root_url:str, version:str) -> bool:
 
     event_logger.info(f"FROST read connectivity confirmed at {base_url}")
     return True
+
 

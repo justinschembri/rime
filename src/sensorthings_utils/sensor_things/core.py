@@ -6,7 +6,7 @@ Pure OGC SensorThings dataclasses.
 from typing import Optional, Any, Dict, List, Literal
 from typing_extensions import Annotated, Self
 from datetime import datetime
-
+from enum import Enum
 # external
 from pydantic import (
     BaseModel,
@@ -26,6 +26,20 @@ SENSOR_THINGS_OBJECTS = [
     "observedProperties",
 ]
 
+class SensorThingsEntities(Enum):
+    """Entities in the SensorThings information model. Retained casing."""
+    SENSORS = "Sensors"
+    SENSOR = "Sensor"
+    THINGS = "Things"
+    THING = "Thing"
+    LOCATIONS = "Locations"
+    LOCATION = "Location"
+    DATASTREAMS = "Datastreams"
+    DATASTREAM = "Datastream"
+    OBSERVATIONS = "Observations"
+    OBSERVATION = "Observation"
+    OBSERVEDPROPERTIES = "ObservedProperties"
+    OBSERVEDPROPERTY = "ObservedProperty"
 
 class SensorThingsObject(BaseModel):
     """
