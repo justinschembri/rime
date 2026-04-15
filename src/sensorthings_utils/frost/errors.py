@@ -13,3 +13,6 @@ class FrostRequestError(FrostConnectionError):
         super().__init__(message)
         self.url = url
 
+class FrostWriterError(ValueError):
+    """Raised when a FROST response cannot be serialized cleanly."""
+

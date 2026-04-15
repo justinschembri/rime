@@ -65,14 +65,13 @@ def get_frost_values(
         second_entity=second_entity,
     )
     
-    # e.g.: https://multicare.bk.tudelft.nl/FROST-Server/v1.1/Locations(1)/Things
     data = {} # nesting to maintain FROST structure
     try:
         response = _general_request(url, params)
         data["value"] = response["value"]
         while response.get("@iot.nextLink"):
             response = _general_request(response["@iot.nextLink"])
-            data["value"].append(response["value"])
+            data["value"].extend(response["value"])
     except Exception as e:
         raise FrostRequestError(e, url)
 
@@ -82,6 +81,7 @@ def get_frost_datastream_observations(
         root_url: str,
         version: str | float | int | FrostVersions,
         datastream_id: int | str,
+        verbose: bool = False,
         *,
         time_start: Optional[datetime | str] = None,
         time_end: Optional[datetime | str] = None,
@@ -98,8 +98,10 @@ def get_frost_datastream_observations(
     """
 
     params_map: dict[str, Any] = {}
-    filter_clauses: list[str] = []
+    if not verbose:
+        params_map["$select"] = "@iot.id,phenomenonTime,resultTime,result"
 
+    filter_clauses: list[str] = []
     if time_start is not None:
         filter_clauses.append(f"phenomenonTime ge {to_odata_datetime(time_start)}")
     if time_end is not None:
