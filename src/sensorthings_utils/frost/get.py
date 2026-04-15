@@ -1,11 +1,18 @@
 """Execute GET requests with local or external FROST servers."""
 #standard
+from datetime import datetime
 #external
 #internal
 from typing import Optional, Mapping, Any
 
 import requests
 from sensorthings_utils.frost.errors import FrostRequestError
+from sensorthings_utils.frost.sanitization import (
+    merge_filter,
+    merge_order_by,
+    sanitize_request,
+    to_odata_datetime,
+)
 from sensorthings_utils.frost.types import FrostParams, FrostVersions
 from sensorthings_utils.sensor_things.core import SensorThingsEntities
 
@@ -49,19 +56,14 @@ def get_frost_values(
         JSON like data returned from the FROST server, one-level deep:
             {"values": list[dict[str, Any]]}
     """
-    # sanitize
-    root_url = root_url.rstrip("/")
-    first_entity = SensorThingsEntities(first_entity).value
-    version = FrostVersions(str(version).lstrip("v")).value
-    if params:
-        params = {FrostParams(i).value:j for i,j in params.items()}
-    if second_entity and first_entity_id:
-        second_entity = SensorThingsEntities(second_entity).value
-        first_entity_id = f"({str(first_entity_id).strip('()')})"
-
-    url = (
-            f"{root_url}/v{version}/{first_entity}{first_entity_id}/{second_entity}"
-            ).rstrip("/")
+    url, params = sanitize_request(
+        root_url=root_url,
+        version=version,
+        first_entity=first_entity,
+        params=params,
+        first_entity_id=first_entity_id,
+        second_entity=second_entity,
+    )
     
     # e.g.: https://multicare.bk.tudelft.nl/FROST-Server/v1.1/Locations(1)/Things
     data = {} # nesting to maintain FROST structure
@@ -76,3 +78,48 @@ def get_frost_values(
 
     return data
 
+def get_frost_datastream_observations(
+        root_url: str,
+        version: str | float | int | FrostVersions,
+        datastream_id: int | str,
+        *,
+        time_start: Optional[datetime | str] = None,
+        time_end: Optional[datetime | str] = None,
+        result_min: Optional[int | float] = None,
+        result_max: Optional[int | float] = None,
+        result_eq: Optional[int | float] = None,
+        order_by: Optional[str] = None,
+        descending: bool = False,
+        ) -> dict[str, Any]:
+    """
+    Query `Datastreams(<id>)/Observations` with optional convenience filters.
+
+    All filter helper arguments are optional.
+    """
+
+    params_map: dict[str, Any] = {}
+    filter_clauses: list[str] = []
+
+    if time_start is not None:
+        filter_clauses.append(f"phenomenonTime ge {to_odata_datetime(time_start)}")
+    if time_end is not None:
+        filter_clauses.append(f"phenomenonTime le {to_odata_datetime(time_end)}")
+    if result_min is not None:
+        filter_clauses.append(f"result ge {result_min}")
+    if result_max is not None:
+        filter_clauses.append(f"result le {result_max}")
+    if result_eq is not None:
+        filter_clauses.append(f"result eq {result_eq}")
+
+    if filter_clauses:
+        params_map = merge_filter(params_map, " and ".join(filter_clauses))
+    params_map = merge_order_by(params_map, order_by=order_by, descending=descending)
+
+    return get_frost_values(
+        root_url=root_url,
+        version=version,
+        first_entity=SensorThingsEntities.DATASTREAMS,
+        first_entity_id=datastream_id,
+        second_entity=SensorThingsEntities.OBSERVATIONS,
+        params=params_map,
+    )
