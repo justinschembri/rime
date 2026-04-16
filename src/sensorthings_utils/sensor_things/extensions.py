@@ -22,7 +22,6 @@ from .core import (
     Location,
     ObservedProperty,
     SensorThingsObject,
-    SENSOR_THINGS_OBJECTS,
 )
 from ..monitor import netmon
 
@@ -35,7 +34,8 @@ __all__ = ["SensorConfig", "SensorArrangement"]
 
 main_logger = logging.getLogger("main")
 
-
+#TODO: this is a mammoth of a class, and a confusing one at that that could do 
+#with a refactor.
 class SensorConfig:
     """
     Dict-like sensor-configuration structure.

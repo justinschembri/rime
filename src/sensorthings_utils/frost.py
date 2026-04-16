@@ -18,13 +18,16 @@ from sensorthings_utils.config import (
     get_frost_auth_header,
 )
 from sensorthings_utils.exceptions import FrostUploadFailure
+from sensorthings_utils.frosty.errors import FrostConnectionError
 from sensorthings_utils.sensor_things.core import (
     Datastream,
+    SensorThingsEntity,
     SensorThingsObject,
     Observation,
 )
 from sensorthings_utils.monitor import netmon
 from sensorthings_utils.transformers.types import ObservedProperties, SensorID
+from sensorthings_utils.frosty.helpers import check_frost_connection 
 
 # typing
 if TYPE_CHECKING:
@@ -47,47 +50,27 @@ ENTITY_ENDPOINTS: Dict[str, str] = {
 }
 
 
-def _check_frost_connection() -> None:
-    """Check that FROST is functionally active."""
-
-    frost_endpoint = os.getenv("FROST_ENDPOINT") or FROST_ENDPOINT_DEFAULT
-    datastream_url = frost_endpoint + "/Datastreams"
-    general_error_msg = (
-        f"FROST server at {frost_endpoint} not active. "
-        + "If you believe the server is up, check the environment "
-        + "variable $FROST_ENDPOINT."
-    )
-    try:
-        with request.urlopen(datastream_url) as _:
-            logger.info("FROST connectivity confirmed.")
-            return None
-    except error.HTTPError as e:
-        raise ConnectionError(f"{e}. {general_error_msg}") from None
-    except error.URLError as e:
-        raise ConnectionError(f"{e}. {general_error_msg}") from None
-
-
 def check_existing_object(
     entity: "SensorThingsObject", container_environment: bool
 ) -> bool:
     """
     Check if an existing SensorThingsObject already exists.
     """
-    match entity.st_type:
+    match entity.as_entity:
         case (
-            "Sensor"
-            | "Thing"
-            | "ObservedProperty"
-            | "Locations"
+            SensorThingsEntity.SENSOR |
+            SensorThingsEntity.THING |
+            SensorThingsEntity.OBSERVEDPROPERTY |
+            SensorThingsEntity.LOCATION
         ):  # TODO: #5 Sort out references, sometimes plural, sometimes singular.
             if filter_query(
-                entity=ENTITY_ENDPOINTS[entity.st_type],
+                entity=ENTITY_ENDPOINTS[entity.as_entity],
                 filter_string=f"name eq '{entity.name}'",
                 url=None,
                 container_environment=CONTAINER_ENVIRONMENT,
             )["value"]:
                 return True
-        case "Datastream":
+        case SensorThingsEntity.DATASTREAM:
             # first, check if a datastream with a common name exists:
             initial_response = filter_query(
                 entity="/Datastreams",
@@ -167,7 +150,8 @@ def initial_setup(sensor_arrangement: "SensorArrangement") -> str:
     when setting up an arranagement for the first time.
     """
 
-    _check_frost_connection()
+    if not check_frost_connection():
+        raise FrostConnectionError()
     debug_logger.debug(sensor_arrangement.get_entities("Thing"))
     for thing in sensor_arrangement.get_entities("Thing"):
         make_thing = make_frost_object(thing)
@@ -236,7 +220,7 @@ def make_frost_object(
 
     frost_endpoint = os.getenv("FROST_ENDPOINT") or FROST_ENDPOINT_DEFAULT
     if check_existing_object(entity, CONTAINER_ENVIRONMENT):
-        logger.info(f"Creation Skipped: {entity.st_type} {entity.name} already exists.")
+        logger.info(f"Creation Skipped: {entity.as_entity} {entity.name} already exists.")
         return {}
 
     expected_links_map: Dict[str, Tuple[str, ...]] = {
@@ -251,8 +235,8 @@ def make_frost_object(
     }
 
     application_name = application_name or ""
-    expected_links = expected_links_map[entity.st_type]
-    url = iot_url or (frost_endpoint + ENTITY_ENDPOINTS[entity.st_type])
+    expected_links = expected_links_map[entity.as_entity]
+    url = iot_url or (frost_endpoint + ENTITY_ENDPOINTS[entity.as_entity])
     if CONTAINER_ENVIRONMENT:
         url = url.replace("localhost", "web")
 
@@ -271,7 +255,7 @@ def make_frost_object(
             new_object_url = response.getheader(
                 "Location"
             )  # "Location" does not refer to a SensorThings Location
-            logger.info(f"New {entity.st_type} created at {new_object_url}")
+            logger.info(f"New {entity.as_entity} created at {new_object_url}")
     except error.HTTPError as e:
         if isinstance(entity, Observation):
             pass
@@ -300,7 +284,7 @@ def make_frost_datastream(
 ) -> None:
     frost_endpoint = os.getenv("FROST_ENDPOINT") or FROST_ENDPOINT_DEFAULT
     if check_existing_object(entity, CONTAINER_ENVIRONMENT):
-        logger.info(f"Creation Skipped: {entity.st_type} {entity.name} already exists.")
+        logger.info(f"Creation Skipped: {entity.as_entity} {entity.name} already exists.")
         return None
     url = frost_endpoint + "/Datastreams"
     data = entity.model_dump(exclude={"iot_links", "id", "st_type"})

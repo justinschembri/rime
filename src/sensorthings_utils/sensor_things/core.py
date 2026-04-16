@@ -3,7 +3,7 @@ Pure OGC SensorThings dataclasses.
 """
 
 # standard
-from typing import Optional, Any, Dict, List, Literal
+from typing import Optional, Any, Dict, List, Literal, Tuple, Union
 from typing_extensions import Annotated, Self
 from datetime import datetime
 from enum import Enum
@@ -48,6 +48,56 @@ class SensorThingsEntityGroups(Enum):
     OBSERVEDPROPERTIES = "ObservedProperties"
     FEATURESOFINTEREST = "FeaturesOfInterest"
 
+ENTITY_GROUPS_TO_ENTITIES: Dict[SensorThingsEntityGroups, SensorThingsEntity] = {
+    SensorThingsEntityGroups.SENSORS: SensorThingsEntity.SENSOR,
+    SensorThingsEntityGroups.THINGS: SensorThingsEntity.THING,
+    SensorThingsEntityGroups.LOCATIONS: SensorThingsEntity.LOCATION,
+    SensorThingsEntityGroups.HISTORICALLOCATIONS: SensorThingsEntity.HISTORICALLOCATIONS,
+    SensorThingsEntityGroups.DATASTREAMS: SensorThingsEntity.DATASTREAM,
+    SensorThingsEntityGroups.OBSERVATIONS: SensorThingsEntity.OBSERVATION,
+    SensorThingsEntityGroups.OBSERVEDPROPERTIES: SensorThingsEntity.OBSERVEDPROPERTY,
+    SensorThingsEntityGroups.FEATURESOFINTEREST: SensorThingsEntity.FEATUREOFINTEREST,
+}
+
+# all entities which require can exist WITHOUT an IOT link:
+
+SENSOR_THINGS_ENTITY_FIELDS: Dict[
+    SensorThingsEntity, Tuple[str, ...]
+] = {
+    SensorThingsEntity.THING: (
+        "name",
+        "description",
+        "properties",
+    ),
+    SensorThingsEntity.LOCATION: (
+        "name",
+        "description",
+        "encodingType",
+        "location",
+        "properties",
+    ),
+    SensorThingsEntity.SENSOR: (
+        "name",
+        "description",
+        "encodingType",
+        "metadata",
+        "properties",
+    ),
+    SensorThingsEntity.FEATUREOFINTEREST: (
+        "name",
+        "description",
+        "encodingType",
+        "feature",
+        "properties",
+    ),
+    SensorThingsEntity.OBSERVEDPROPERTY: (
+        "name",
+        "description",
+        "definition",
+        "properties",
+    ),
+}
+
 # these are the multiciplity relations between SensorThings entities. For example
 # a Thing can have HistoricalLocations, Locations and Datastreams:
 SENSOR_THINGS_MULTIPLICITIES = {
@@ -85,6 +135,7 @@ SENSOR_THINGS_MULTIPLICITIES = {
             ]
         }
 
+
 class SensorThingsObject(BaseModel):
     """
     Parent dataclass for all non-observation OGC Sensor Things Objects.
@@ -107,8 +158,9 @@ class SensorThingsObject(BaseModel):
 
     @computed_field
     @property
-    def st_type(self) -> str:
-        return self.__class__.__name__
+    def as_entity(self) -> SensorThingsEntity:
+        st_type = SensorThingsEntity(self.__class__.__name__).value
+        return st_type 
 
     # TODO: #4 The state of iot_links as 'str' should be temporary or stored in another attribute.
     def __hash__(self) -> int:
@@ -172,8 +224,9 @@ class Observation(BaseModel):
 
     @computed_field
     @property
-    def st_type(self) -> str:
-        return self.__class__.__name__
+    def as_entity(self) -> SensorThingsEntity:
+        st_type = SensorThingsEntity(self.__class__.__name__).value
+        return st_type 
 
 
 class TimePeriod(BaseModel):
@@ -185,3 +238,9 @@ class TimePeriod(BaseModel):
         if self.end < self.start:
             raise ValueError("End period before start period.")
         return self
+
+# all these non-observation STA objects do NOT need an iot link:
+UnLinkedSensorThingsObjects = Union[Thing, Location, Sensor, ObservedProperty]
+# ... these must, or usually do have a linkage. Technically Observation can be 
+# unlinked, but we choose not to enforce this.
+LinkedSensorThingsObjects = Union[Datastream, Observation]

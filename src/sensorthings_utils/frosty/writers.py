@@ -9,14 +9,14 @@ from urllib.parse import urlparse
 #internal
 from typing import Any, Mapping, Sequence, Optional, Iterable, Literal
 
-from sensorthings_utils.frost.constants import (
+from .constants import (
     COMMON_IOT_FIELDS,
     EXTRA_STANDARD_FIELDS_MAP,
     MODEL_FIELDS_MAP,
     NAVIGATION_HEADERS_MAP,
     EntityName,
 )
-from sensorthings_utils.frost.errors import FrostWriterError
+from .errors import FrostWriterError
 from sensorthings_utils.paths import DOWNLOADS_DIR
 
 VERSION_PATTERN = re.compile(r"^v\d+(?:\.\d+)?$", flags=re.IGNORECASE)

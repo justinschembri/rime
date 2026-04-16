@@ -45,6 +45,8 @@ def get_frost_auth_header() -> str:
     return base64.b64encode(f"{frost_user}:{frost_password}".encode()).decode("utf-8")
 
 
+FROST_ROOT_DEFAULT = "http://localhost:8080/FROST-Server"
+FROST_VERSION_DEFAULT = "v1.1"
 FROST_ENDPOINT_DEFAULT = "http://localhost:8080/FROST-Server/v1.1"
 
 

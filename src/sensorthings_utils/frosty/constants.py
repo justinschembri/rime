@@ -65,3 +65,4 @@ NAVIGATION_HEADERS_MAP: dict[EntityName, list[str]] = {
         "FeatureOfInterest@iot.navigationLink",
     ],
 }
+
