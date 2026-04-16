@@ -16,6 +16,7 @@ from sensorthings_utils.transformers.types import SensorID, SupportedSensors
 # internal
 from .core import (
     Sensor,
+    SensorThingsEntityGroups,
     Thing,
     Datastream,
     Location,
@@ -351,12 +352,21 @@ class SensorArrangement:
         """
         unlinked_arrangement = []
         arrangement_map = self._sensor_config
-        for entity in SENSOR_THINGS_OBJECTS:
-            names = [_ for _ in arrangement_map[entity].keys()]
+        for entity_group in SensorThingsEntityGroups:
+            #TODO: this is a legacy requirement; yaml keys in arranagement maps
+            # use leading-lowercase SensorThings group keys used in configs, 
+            # including camelCase for featuresOfInterest!
+            entity_group = entity_group.value[0].lower() + entity_group.value[1:]
+            if entity_group in [
+                    "historicalLocations", "observations", "featuresOfInterest"
+                    ]:
+                continue
+            ####################################################################
+            names = [_ for _ in arrangement_map[entity_group].keys()]
             for i in names:
                 unlinked_arrangement.append(
-                    SensorArrangement.class_mappings[entity](
-                        **arrangement_map[entity][i]
+                    SensorArrangement.class_mappings[entity_group](
+                        **arrangement_map[entity_group][i]
                     )
                 )
         return unlinked_arrangement

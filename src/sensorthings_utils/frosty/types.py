@@ -1,5 +1,6 @@
 """FROST server types."""
 #standard
+from typing import Iterator, Any
 from enum import Enum
 #internal
 #external
@@ -29,4 +30,5 @@ class FrostParams(Enum):
     SELECT="$select"
     FILTER="$filter"
     
+FrostResultPageIterator = Iterator[list[dict[str, Any]]]
 

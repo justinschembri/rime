@@ -17,7 +17,6 @@ from pydantic import (
 )
 
 # internal
-# TODO: #1 consider the implementation of ENUMS for SensorThingsObjects throughout?
 SENSOR_THINGS_OBJECTS = [
     "sensors",
     "things",
@@ -26,20 +25,65 @@ SENSOR_THINGS_OBJECTS = [
     "observedProperties",
 ]
 
-class SensorThingsEntities(Enum):
-    """Entities in the SensorThings information model. Retained casing."""
+#TODO: split these into SensorThingSingleEntity and groups:
+class SensorThingsEntity(Enum):
+    """Single entities from the SensorThings information model."""
+    SENSOR="Sensor"
+    THING="Thing"
+    LOCATION="Location"
+    HISTORICALLOCATIONS="HistoricalLocation"
+    DATASTREAM="Datastream"
+    OBSERVATION="Observation"
+    OBSERVEDPROPERTY="ObservedProperty"
+    FEATUREOFINTEREST="FeatureOfInterest"
+
+class SensorThingsEntityGroups(Enum):
+    """Entity groups from the SensorThings information model."""
     SENSORS = "Sensors"
-    SENSOR = "Sensor"
     THINGS = "Things"
-    THING = "Thing"
     LOCATIONS = "Locations"
-    LOCATION = "Location"
+    HISTORICALLOCATIONS = "HistoricalLocations"
     DATASTREAMS = "Datastreams"
-    DATASTREAM = "Datastream"
     OBSERVATIONS = "Observations"
-    OBSERVATION = "Observation"
     OBSERVEDPROPERTIES = "ObservedProperties"
-    OBSERVEDPROPERTY = "ObservedProperty"
+    FEATURESOFINTEREST = "FeaturesOfInterest"
+
+# these are the multiciplity relations between SensorThings entities. For example
+# a Thing can have HistoricalLocations, Locations and Datastreams:
+SENSOR_THINGS_MULTIPLICITIES = {
+        SensorThingsEntity.SENSOR:[
+            SensorThingsEntityGroups.DATASTREAMS
+            ],
+        SensorThingsEntity.THING:[
+            SensorThingsEntityGroups.HISTORICALLOCATIONS,
+            SensorThingsEntityGroups.LOCATIONS,
+            SensorThingsEntityGroups.DATASTREAMS
+            ],
+        SensorThingsEntity.LOCATION:[
+            SensorThingsEntityGroups.HISTORICALLOCATIONS,
+            SensorThingsEntityGroups.THINGS,
+            ],
+        SensorThingsEntity.HISTORICALLOCATIONS:[
+            SensorThingsEntity.THING,
+            SensorThingsEntityGroups.LOCATIONS
+            ],
+        SensorThingsEntity.DATASTREAM:[
+            SensorThingsEntity.OBSERVEDPROPERTY,
+            SensorThingsEntity.SENSOR,
+            SensorThingsEntity.THING,
+            SensorThingsEntityGroups.OBSERVATIONS
+            ],
+        SensorThingsEntity.OBSERVATION:[
+            SensorThingsEntity.DATASTREAM,
+            SensorThingsEntity.FEATUREOFINTEREST
+            ],
+        SensorThingsEntity.OBSERVEDPROPERTY:[
+            SensorThingsEntityGroups.DATASTREAMS
+            ],
+        SensorThingsEntity.FEATUREOFINTEREST:[
+            SensorThingsEntityGroups.OBSERVATIONS
+            ]
+        }
 
 class SensorThingsObject(BaseModel):
     """

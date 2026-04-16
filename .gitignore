@@ -8,6 +8,11 @@ downloads/*
 deploy/secrets/tokens/netatmo-test-application.json
 # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< st-utils specific
 
+# tooling >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+.cursor/*
+# <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< tooling
+
+# cursor
 # Python-generated files
 __pycache__/
 *.py[oc]

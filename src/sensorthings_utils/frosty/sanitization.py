@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import Optional, Mapping, Any
 
 from sensorthings_utils.frost.types import FrostParams, FrostVersions
-from sensorthings_utils.sensor_things.core import SensorThingsEntities
+from sensorthings_utils.sensor_things.core import SensorThingsEntityGroups
 
 def to_odata_datetime(value: datetime | str) -> str:
     """Convert datetime-like values into OData datetime string format."""
@@ -17,22 +17,22 @@ def to_odata_datetime(value: datetime | str) -> str:
 def sanitize_request(
     root_url: str,
     version: str | float | int | FrostVersions,
-    first_entity: str | SensorThingsEntities,
+    first_entity: str | SensorThingsEntityGroups,
     params: Optional[Mapping[str | FrostParams, Any]] = None,
     *,
     first_entity_id: Optional[int | str] = "",
-    second_entity: Optional[str | SensorThingsEntities] = "",
+    second_entity: Optional[str | SensorThingsEntityGroups] = "",
 ) -> tuple[str, dict[str, Any] | None]:
     """Normalize request URL and parameter keys for FROST queries."""
 
     normalized_root = root_url.rstrip("/")
-    normalized_first_entity = SensorThingsEntities(first_entity).value
+    normalized_first_entity = SensorThingsEntityGroups(first_entity).value
     normalized_version = FrostVersions(str(version).lstrip("v")).value
     normalized_second_entity = ""
     normalized_first_entity_id = ""
 
     if second_entity:
-        normalized_second_entity = SensorThingsEntities(second_entity).value
+        normalized_second_entity = SensorThingsEntityGroups(second_entity).value
     if first_entity_id not in ("", None):
         normalized_first_entity_id = f"({str(first_entity_id).strip('()')})"
 
