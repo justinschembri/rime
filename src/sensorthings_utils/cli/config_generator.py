@@ -142,8 +142,8 @@ def generate_config_from_template(
     )
     
     # Coordinates should already be replaced by _replace_placeholders, but ensure they're correct
-    if "locations" in config:
-        for loc_name, loc_data in config["locations"].items():
+    if "Locations" in config:
+        for loc_name, loc_data in config["Locations"].items():
             if "location" in loc_data and "coordinates" in loc_data["location"]:
                 coords = loc_data["location"]["coordinates"]
                 # Ensure coordinates are a list of numbers
@@ -155,19 +155,19 @@ def generate_config_from_template(
                     loc_data["location"]["coordinates"] = [longitude, latitude]
     
     # Also replace in datastream iot_links
-    if "datastreams" in config:
-        for ds_name, ds_data in config["datastreams"].items():
+    if "Datastreams" in config:
+        for ds_name, ds_data in config["Datastreams"].items():
             if "iot_links" in ds_data:
-                if "sensors" in ds_data["iot_links"]:
-                    ds_data["iot_links"]["sensors"] = [sensor_id]
-                if "things" in ds_data["iot_links"]:
-                    ds_data["iot_links"]["things"] = [thing_name]
+                if "Sensors" in ds_data["iot_links"]:
+                    ds_data["iot_links"]["Sensors"] = [sensor_id]
+                if "Things" in ds_data["iot_links"]:
+                    ds_data["iot_links"]["Things"] = [thing_name]
     
     # Update sensor name in sensors section
-    if "sensors" in config:
+    if "Sensors" in config:
         sensor_key = sensor_model.value
-        if sensor_key in config["sensors"]:
-            config["sensors"][sensor_key]["name"] = sensor_id
+        if sensor_key in config["Sensors"]:
+            config["Sensors"][sensor_key]["name"] = sensor_id
     
     # Determine output path
     if output_path is None:

@@ -16,12 +16,19 @@ from sensorthings_utils.transformers.types import SensorID, SupportedSensors
 # internal
 from .core import (
     Sensor,
-    SensorThingsEntityGroups,
     Thing,
     Datastream,
     Location,
     ObservedProperty,
     SensorThingsObject,
+)
+from .schema import (
+    CONFIG_YAML_EXPECTED_CLASS_FIELDS,
+    CONFIG_YAML_EXPECTED_IOT_LINK_GROUPS,
+    CONFIG_YAML_REQUIRED_ENTITY_GROUPS,
+    ENTITY_GROUPS_TO_ENTITIES,
+    SensorThingsEntity,
+    SensorThingsEntityGroups,
 )
 from ..monitor import netmon
 
@@ -60,9 +67,9 @@ class SensorConfig:
 
     def _set_metadata(self) -> None:
         """Set sensor metadata attrs."""
-        model = next(iter(self.data["sensors"]))
+        model = next(iter(self.data["Sensors"]))
         self.model = SupportedSensors(model)
-        self.name = self.data["sensors"][self.model.value]["name"]
+        self.name = self.data["Sensors"][self.model.value]["name"]
 
     def _load(self) -> Dict:
         """Safely load configuration file."""
@@ -80,6 +87,8 @@ class SensorConfig:
                 + " Passing to other functions may cuase unexpected "
                 + " behaviour."
             )
+        if isinstance(key, SensorThingsEntityGroups):
+            return self.data.get(key.value)
         return self.data.get(key)
 
     def check_validity(self) -> Tuple[bool, list[str]]:
@@ -120,58 +129,11 @@ class SensorConfig:
         self, unvalidated_data: Dict
     ) -> Tuple[bool, List[str]]:
         "Check that primary sensor things keys are there, and that the contents are as expected."
-        expected_top_level_keys = [
-            "sensors",
-            "things",
-            "locations",
-            "datastreams",
-            "observedProperties",
-        ]
-        expected_class_fields = {
-            "sensors": {
-                "name": str,
-                "description": (str, dict),
-                "properties": (str, dict),
-                "encodingType": str,
-                "metadata": str,
-                "iot_links": dict,
-            },
-            "things": {
-                "name": str,
-                "description": str,
-                "properties": (str, dict, type(None)),
-                "iot_links": dict,
-            },
-            "locations": {
-                "name": str,
-                "description": str,
-                "properties": (str, dict, type(None)),
-                "encodingType": str,
-                "location": dict,
-                "iot_links": dict,
-            },
-            "datastreams": {
-                "name": str,
-                "description": str,
-                "observationType": str,
-                "unitOfMeasurement": dict,
-                "observedArea": dict,
-                "phenomenon_time": (str, type(None)),
-                "result_time": (str, type(None)),
-                "properties": (dict, type(None)),
-                "iot_links": dict,
-            },
-            "observedProperties": {
-                "name": str,
-                "definition": str,
-                "description": str,
-                "properties": (str, type(None)),
-            },
-        }
         # entity is going to be sensors, things, locations, etc.
         invalid = False
         error_list = []
-        for key in expected_top_level_keys:
+        for entity_group in CONFIG_YAML_REQUIRED_ENTITY_GROUPS:
+            key = entity_group.value
             # Check if all top level keys are there:
             if (actual_entity := unvalidated_data.get(key)) is None:
                 error = f"{self._filepath.stem} is missing primary key: {key}. \
@@ -187,7 +149,7 @@ class SensorConfig:
                 error_list.append(error)
                 return (False, error_list)
             # item is going to be each entry, e.g., 70:33:50.. (sensor), "apartment" (location)
-            expected_field_keys = set(expected_class_fields[key].keys())
+            expected_field_keys = set(CONFIG_YAML_EXPECTED_CLASS_FIELDS[entity_group].keys())
             for field_key in actual_entity:
                 if not isinstance(actual_entity[field_key], dict):
                     error = f"{self._filepath.stem}'s {field_key}'s children are of \
@@ -210,7 +172,7 @@ class SensorConfig:
                     error_list.append(error)
                     invalid = True
                 for field in actual_entity[field_key]:
-                    expected_type = expected_class_fields[key][field]
+                    expected_type = CONFIG_YAML_EXPECTED_CLASS_FIELDS[entity_group][field]
                     if not isinstance(actual_entity[field_key][field], expected_type):
                         error = (
                             f"{key}.{field_key}.{field} is of the wrong type "
@@ -240,14 +202,6 @@ class SensorConfig:
         self, unvalidated_data: Dict[str, Dict[str, Any]]
     ) -> Tuple[bool, List[str]]:
         """Validate a series of expected links between entities."""
-
-        expected_iot_link_groups = {
-            "sensors": ["datastreams"],
-            "things": ["datastreams", "locations"],
-            "locations": ["things"],
-            "datastreams": ["observedProperties", "sensors", "things"],
-        }
-
         invalid = False
         error_list = []
         # These first loops walk through entity groups (sensors, things, etc.)
@@ -255,19 +209,24 @@ class SensorConfig:
         # which are expected to be present in the config file are there.
         for entity_type, entity_instances in unvalidated_data.items():
             try:
+                entity_group = SensorThingsEntityGroups(entity_type)
                 # observedProperties have no iot_links.
-                if entity_type in ["observedProperties"]:
+                if entity_group == SensorThingsEntityGroups.OBSERVEDPROPERTIES:
                     continue
                 for entity, entity_fields in entity_instances.items():
                     passed_links = entity_fields["iot_links"]
-                    exp_links = expected_iot_link_groups[entity_type]
-                    extra_links = set(passed_links) - set(exp_links)
-                    missing_links = set(exp_links) - set(passed_links)
+                    exp_links = set(CONFIG_YAML_EXPECTED_IOT_LINK_GROUPS[entity_group])
+                    passed_link_groups = {
+                        SensorThingsEntityGroups(link_group_name)
+                        for link_group_name in passed_links
+                    }
+                    extra_links = passed_link_groups - exp_links
+                    missing_links = exp_links - passed_link_groups
                     if extra_links:
                         error = (
                             f"{self._filepath.name}.{entity_type}."
                             + f"{entity} has extra iot_links: "
-                            + f"{extra_links}."
+                            + f"{sorted(link.value for link in extra_links)}."
                         )
                         error_list.append(error)
                         main_logger.error(error)
@@ -276,14 +235,14 @@ class SensorConfig:
                         error = (
                             f"{self._filepath.name}.{entity_type}."
                             + f"{entity} is missing iot_link: "
-                            f"{missing_links}."
+                            f"{sorted(link.value for link in missing_links)}."
                         )
                         error_list.append(error)
                         main_logger.error(error)
                         invalid = True
                     # The next loop confirms that the iot_link specified exist
                     # in the config file.
-                    for declared_datastream, link_list in passed_links.items():
+                    for declared_link_group, link_list in passed_links.items():
                         if not link_list:
                             error = (
                                 f"{self._filepath.name}.{entity_type}."
@@ -314,22 +273,12 @@ class SensorArrangement:
     datastreams etc.) although it will always include ONE sensor.
     """
 
-    class_mappings: Dict[str, Type["SensorThingsObject"]] = {
-        "sensors": Sensor,
-        "things": Thing,
-        "locations": Location,
-        "datastreams": Datastream,
-        "observedProperties": ObservedProperty,
-    }
-
-    name_mappings: Dict[
-        str, Literal["Sensor", "Thing", "Location", "Datastream", "ObservedProperty"]
-    ] = {
-        "sensors": "Sensor",
-        "things": "Thing",
-        "locations": "Location",
-        "datastreams": "Datastream",
-        "observedProperties": "ObservedProperty",
+    class_mappings: Dict[SensorThingsEntityGroups, Type["SensorThingsObject"]] = {
+        SensorThingsEntityGroups.SENSORS: Sensor,
+        SensorThingsEntityGroups.THINGS: Thing,
+        SensorThingsEntityGroups.LOCATIONS: Location,
+        SensorThingsEntityGroups.DATASTREAMS: Datastream,
+        SensorThingsEntityGroups.OBSERVEDPROPERTIES: ObservedProperty,
     }
 
     def __init__(self, sensor_config: "SensorConfig"):
@@ -353,12 +302,10 @@ class SensorArrangement:
         unlinked_arrangement = []
         arrangement_map = self._sensor_config
         for entity_group in SensorThingsEntityGroups:
-            #TODO: this is a legacy requirement; yaml keys in arranagement maps
-            # use leading-lowercase SensorThings group keys used in configs, 
-            # including camelCase for featuresOfInterest!
-            entity_group = entity_group.value[0].lower() + entity_group.value[1:]
             if entity_group in [
-                    "historicalLocations", "observations", "featuresOfInterest"
+                    SensorThingsEntityGroups.HISTORICALLOCATIONS,
+                    SensorThingsEntityGroups.OBSERVATIONS,
+                    SensorThingsEntityGroups.FEATURESOFINTEREST,
                     ]:
                 continue
             ####################################################################
@@ -375,10 +322,16 @@ class SensorArrangement:
         """Replace str representations of iot_links with SensorThingsObjects."""
         unlinked_arrangement = self._unlinked_arrangement
         for sensor in unlinked_arrangement:
-            for entity, instances in sensor.iot_links.items():
-                for idx, i in enumerate(instances):
-                    e = self.name_mappings[entity]
-                    sensor.set_iot_link(entity, i, self.get(e, instance=i))
+            for entity_group, instances in sensor.iot_links.items():
+                target_entity: SensorThingsEntity = ENTITY_GROUPS_TO_ENTITIES[entity_group]
+                for instance_name in instances:
+                    if not isinstance(instance_name, str):
+                        continue
+                    sensor.set_iot_link(
+                        entity_group,
+                        instance_name,
+                        self.get(target_entity.value, instance=instance_name),
+                    )
         return tuple(unlinked_arrangement)
 
     def get(

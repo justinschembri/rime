@@ -4,7 +4,7 @@
 # 2 - ONE (1) Sensor per config file,
 # 3 - Filename, sensor key / sensor name attribute should be device MAC address,
 # 4 - iot_links shall use entity NAMES to refer to other entities,
-sensors:
+Sensors:
   milesight.am308l:
     name: <SENSOR_ID>
     description: Milesight AM308L-LoRaWAN Indoor Air Quality Sensor (7 in 1)
@@ -56,7 +56,7 @@ sensors:
           accuracy: 0~100(±10μg/m3) at 100~1000(±10 %) and (-10°C~ 60°C)
           resolution: 1 μg/m3
     iot_links:
-      datastreams: &datastreams
+      Datastreams: &datastreams
         - battery_level
         - co2
         - humidity
@@ -68,7 +68,7 @@ sensors:
         - temperature_indoor
         - total_volatile_organic_compounds
         
-things:
+Things:
   <THING_NAME>:
     name: <THING_NAME>
     description: <THING_DESCRIPTION>
@@ -77,11 +77,11 @@ things:
       floor: fourth
       room_type: living_room
     iot_links:
-      datastreams: *datastreams
-      locations:
+      Datastreams: *datastreams
+      Locations:
         - <LOCATION_NAME>
 
-locations:
+Locations:
   <LOCATION_NAME>:
     name: <LOCATION_NAME>
     description: <LOCATION_DESCRIPTION>
@@ -92,10 +92,10 @@ locations:
       type: Point
       coordinates: [<LONGITUDE>, <LATITUDE>]
     iot_links:
-      things:
+      Things:
         - <THING_NAME>
 
-datastreams:
+Datastreams:
   temperature_indoor:
     name: temperature_indoor
     description: This datastream is measuring the internal room temperature.
@@ -111,11 +111,11 @@ datastreams:
     result_time: null
     properties: null
     iot_links:
-      observedProperties:
+      ObservedProperties:
         - temperature_indoor
-      sensors:
+      Sensors:
         - <SENSOR_ID>
-      things:
+      Things:
         - <THING_NAME>
 
   humidity:
@@ -131,11 +131,11 @@ datastreams:
     properties: null
     result_time: null
     iot_links:
-      observedProperties:
+      ObservedProperties:
         - internal_humidity
-      sensors:
+      Sensors:
         - <SENSOR_ID>
-      things:
+      Things:
         - <THING_NAME>
 
   co2:
@@ -151,11 +151,11 @@ datastreams:
     properties: null
     result_time: null
     iot_links:
-      observedProperties:
+      ObservedProperties:
         - co2_levels
-      sensors:
+      Sensors:
         - <SENSOR_ID>
-      things:
+      Things:
         - <THING_NAME>
 
   gauge_pressure:
@@ -171,11 +171,11 @@ datastreams:
     properties: null
     result_time: null
     iot_links:
-      observedProperties:
+      ObservedProperties:
         - gauge_pressure
-      sensors:
+      Sensors:
         - <SENSOR_ID>
-      things:
+      Things:
         - <THING_NAME>
 
   battery_level:
@@ -191,11 +191,11 @@ datastreams:
     properties: null
     result_time: null
     iot_links:
-      observedProperties:
+      ObservedProperties:
         - battery_level
-      sensors:
+      Sensors:
         - <SENSOR_ID>
-      things:
+      Things:
         - <THING_NAME>
 
   passive_infrared:
@@ -211,11 +211,11 @@ datastreams:
     properties: null
     result_time: null
     iot_links:
-      observedProperties:
+      ObservedProperties:
         - motion 
-      sensors:
+      Sensors:
         - <SENSOR_ID>
-      things:
+      Things:
         - <THING_NAME>
 
   particulate_matter_10:
@@ -231,11 +231,11 @@ datastreams:
     properties: null
     result_time: null
     iot_links:
-      observedProperties:
+      ObservedProperties:
         - coarse_airborne_particles
-      sensors:
+      Sensors:
         - <SENSOR_ID>
-      things:
+      Things:
         - <THING_NAME>
 
   particulate_matter_2_5:
@@ -248,11 +248,11 @@ datastreams:
     properties: null
     result_time: null
     iot_links:
-      observedProperties:
+      ObservedProperties:
         - fine_airborne_particles
-      sensors:
+      Sensors:
         - <SENSOR_ID>
-      things:
+      Things:
         - <THING_NAME>
 
   total_volatile_organic_compounds:
@@ -268,11 +268,11 @@ datastreams:
     properties: null
     result_time: null
     iot_links:
-      observedProperties:
+      ObservedProperties:
         - tvoc
-      sensors:
+      Sensors:
         - <SENSOR_ID>
-      things:
+      Things:
         - <THING_NAME>
 
   light_level:
@@ -288,14 +288,14 @@ datastreams:
     properties: null
     result_time: null
     iot_links:
-      observedProperties:
+      ObservedProperties:
         - light_level
-      sensors:
+      Sensors:
         - <SENSOR_ID>
-      things:
+      Things:
         - <THING_NAME>
 
-observedProperties:
+ObservedProperties:
   temperature_indoor:
     name: temperature_indoor
     definition: https://dbpedia.org/page/Temperature

@@ -22,13 +22,15 @@ from .sanitization import (
 )
 from .types import FrostParams, FrostResultPageIterator, FrostVersions
 from sensorthings_utils.sensor_things.core import (
-        SENSOR_THINGS_ENTITY_FIELDS, 
         Datastream, 
         Observation, 
         UnLinkedSensorThingsObjects, 
-        SensorThingsEntity,
-        SensorThingsEntityGroups
         )
+from sensorthings_utils.sensor_things.schema import (
+    SENSOR_THINGS_ENTITY_FIELDS,
+    SensorThingsEntity,
+    SensorThingsEntityGroups,
+)
 
 
 def _general_request(

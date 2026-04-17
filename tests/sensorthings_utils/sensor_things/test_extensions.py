@@ -8,6 +8,7 @@ from copy import deepcopy
 import yaml
 import pytest
 # internal
+from sensorthings_utils.sensor_things.schema import SensorThingsEntityGroups
 from sensorthings_utils.sensor_things.extensions import SensorConfig, SensorArrangement
 
 TEST_DATA_DIR = Path(__file__).parent / "data"
@@ -41,19 +42,19 @@ class TestSensorConfig:
         location = arrangement.get("Location", instance="loc-120")
         observed_property = arrangement.get("ObservedProperty", instance="indoor_temperature")
 
-        assert sensor.iot_links["datastreams"][0] is datastream
-        assert datastream.iot_links["sensors"][0] is sensor
-        assert datastream.iot_links["things"][0] is thing
-        assert datastream.iot_links["observedProperties"][0] is observed_property
-        assert thing.iot_links["locations"][0] is location
-        assert location.iot_links["things"][0] is thing
+        assert sensor.iot_links[SensorThingsEntityGroups.DATASTREAMS][0] is datastream
+        assert datastream.iot_links[SensorThingsEntityGroups.SENSORS][0] is sensor
+        assert datastream.iot_links[SensorThingsEntityGroups.THINGS][0] is thing
+        assert datastream.iot_links[SensorThingsEntityGroups.OBSERVEDPROPERTIES][0] is observed_property
+        assert thing.iot_links[SensorThingsEntityGroups.LOCATIONS][0] is location
+        assert location.iot_links[SensorThingsEntityGroups.THINGS][0] is thing
 
     def test_guardrail_missing_link_target_raises_keyerror(self, tmp_path):
         with open(GOOD_CONFIG_FILE, "r") as f:
             config_data = yaml.safe_load(f)
 
         bad_data = deepcopy(config_data)
-        bad_data["sensors"]["netatmo.nws03"]["iot_links"]["datastreams"] = [
+        bad_data["Sensors"]["netatmo.nws03"]["iot_links"]["Datastreams"] = [
             "does_not_exist"
         ]
 

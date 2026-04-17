@@ -21,9 +21,12 @@ from sensorthings_utils.exceptions import FrostUploadFailure
 from sensorthings_utils.frosty.errors import FrostConnectionError
 from sensorthings_utils.sensor_things.core import (
     Datastream,
-    SensorThingsEntity,
     SensorThingsObject,
     Observation,
+)
+from sensorthings_utils.sensor_things.schema import (
+    SensorThingsEntity,
+    SensorThingsEntityGroups,
 )
 from sensorthings_utils.monitor import netmon
 from sensorthings_utils.transformers.types import ObservedProperties, SensorID
@@ -64,7 +67,7 @@ def check_existing_object(
             SensorThingsEntity.LOCATION
         ):  # TODO: #5 Sort out references, sometimes plural, sometimes singular.
             if filter_query(
-                entity=ENTITY_ENDPOINTS[entity.as_entity],
+                entity=ENTITY_ENDPOINTS[entity.as_entity.value],
                 filter_string=f"name eq '{entity.name}'",
                 url=None,
                 container_environment=CONTAINER_ENVIRONMENT,
@@ -93,7 +96,7 @@ def check_existing_object(
                     with request.urlopen(sensor_request) as response:
                         response = json.loads(response.read())
                         response = response["name"]
-                        if response == entity.iot_links["sensors"][0].name:  # type: ignore
+                        if response == entity.iot_links[SensorThingsEntityGroups.SENSORS][0].name:  # type: ignore
                             return True
     return False
 
@@ -160,7 +163,7 @@ def initial_setup(sensor_arrangement: "SensorArrangement") -> str:
             break
         iot_url = make_thing["locations_url"]
         # lookup linked locations of the thing and make them:
-        for loc in thing.iot_links["locations"]:
+        for loc in thing.iot_links[SensorThingsEntityGroups.LOCATIONS]:
             # pass URL of newly generated Thing's Locations to the maker:
             debug_logger.debug(make_frost_object(loc, iot_url))
     # Make Sensors, which are associated only with Datastreams, which are linked later
@@ -173,9 +176,9 @@ def initial_setup(sensor_arrangement: "SensorArrangement") -> str:
     # Make Datastreams, linked with a one Sensor, one ObservedProperty and one Thing
     for ds in sensor_arrangement.get_entities("Datastream"):
         # Lookup the names's of the relevant Sensor, ObservedProperty and Thing:
-        sen_name = ds.iot_links["sensors"][0].name  # only 1 object in list
-        oprop_name = ds.iot_links["observedProperties"][0].name
-        thing_name = ds.iot_links["things"][0].name
+        sen_name = ds.iot_links[SensorThingsEntityGroups.SENSORS][0].name  # only 1 object in list
+        oprop_name = ds.iot_links[SensorThingsEntityGroups.OBSERVEDPROPERTIES][0].name
+        thing_name = ds.iot_links[SensorThingsEntityGroups.THINGS][0].name
         # Query server and lookup ids:
         debug_logger.info(locals())
         sen_id = filter_query(
@@ -235,8 +238,8 @@ def make_frost_object(
     }
 
     application_name = application_name or ""
-    expected_links = expected_links_map[entity.as_entity]
-    url = iot_url or (frost_endpoint + ENTITY_ENDPOINTS[entity.as_entity])
+    expected_links = expected_links_map[entity.as_entity.value]
+    url = iot_url or (frost_endpoint + ENTITY_ENDPOINTS[entity.as_entity.value])
     if CONTAINER_ENVIRONMENT:
         url = url.replace("localhost", "web")
 

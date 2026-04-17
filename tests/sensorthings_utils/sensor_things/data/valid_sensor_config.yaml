@@ -1,4 +1,4 @@
-sensors:
+Sensors:
   netatmo.nws03:
     name: sensor-001
     description: Netatmo NWS03
@@ -7,21 +7,21 @@ sensors:
     properties:
       connectivity: wifi
     iot_links:
-      datastreams:
+      Datastreams:
         - temperature_indoor
 
-things:
+Things:
   room-120:
     name: room-120
     description: Test room
     properties: null
     iot_links:
-      datastreams:
+      Datastreams:
         - temperature_indoor
-      locations:
+      Locations:
         - loc-120
 
-locations:
+Locations:
   loc-120:
     name: loc-120
     description: Test location
@@ -31,10 +31,10 @@ locations:
       type: Point
       coordinates: [52.0, 4.3]
     iot_links:
-      things:
+      Things:
         - room-120
 
-datastreams:
+Datastreams:
   temperature_indoor:
     name: temperature_indoor
     description: Indoor temperature datastream
@@ -50,14 +50,14 @@ datastreams:
     result_time: null
     properties: null
     iot_links:
-      observedProperties:
+      ObservedProperties:
         - indoor_temperature
-      sensors:
+      Sensors:
         - sensor-001
-      things:
+      Things:
         - room-120
 
-observedProperties:
+ObservedProperties:
   indoor_temperature:
     name: indoor_temperature
     definition: https://dbpedia.org/page/Temperature

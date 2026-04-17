@@ -1,12 +1,11 @@
 """
-Pure OGC SensorThings dataclasses.
+PyObject representations of the OGC SensorThings API (STA) information model.
 """
 
 # standard
-from typing import Optional, Any, Dict, List, Literal, Tuple, Union
+from typing import Optional, Any, Dict, List, Union
 from typing_extensions import Annotated, Self
 from datetime import datetime
-from enum import Enum
 # external
 from pydantic import (
     BaseModel,
@@ -16,124 +15,7 @@ from pydantic import (
     computed_field,
 )
 
-# internal
-SENSOR_THINGS_OBJECTS = [
-    "sensors",
-    "things",
-    "locations",
-    "datastreams",
-    "observedProperties",
-]
-
-#TODO: split these into SensorThingSingleEntity and groups:
-class SensorThingsEntity(Enum):
-    """Single entities from the SensorThings information model."""
-    SENSOR="Sensor"
-    THING="Thing"
-    LOCATION="Location"
-    HISTORICALLOCATIONS="HistoricalLocation"
-    DATASTREAM="Datastream"
-    OBSERVATION="Observation"
-    OBSERVEDPROPERTY="ObservedProperty"
-    FEATUREOFINTEREST="FeatureOfInterest"
-
-class SensorThingsEntityGroups(Enum):
-    """Entity groups from the SensorThings information model."""
-    SENSORS = "Sensors"
-    THINGS = "Things"
-    LOCATIONS = "Locations"
-    HISTORICALLOCATIONS = "HistoricalLocations"
-    DATASTREAMS = "Datastreams"
-    OBSERVATIONS = "Observations"
-    OBSERVEDPROPERTIES = "ObservedProperties"
-    FEATURESOFINTEREST = "FeaturesOfInterest"
-
-ENTITY_GROUPS_TO_ENTITIES: Dict[SensorThingsEntityGroups, SensorThingsEntity] = {
-    SensorThingsEntityGroups.SENSORS: SensorThingsEntity.SENSOR,
-    SensorThingsEntityGroups.THINGS: SensorThingsEntity.THING,
-    SensorThingsEntityGroups.LOCATIONS: SensorThingsEntity.LOCATION,
-    SensorThingsEntityGroups.HISTORICALLOCATIONS: SensorThingsEntity.HISTORICALLOCATIONS,
-    SensorThingsEntityGroups.DATASTREAMS: SensorThingsEntity.DATASTREAM,
-    SensorThingsEntityGroups.OBSERVATIONS: SensorThingsEntity.OBSERVATION,
-    SensorThingsEntityGroups.OBSERVEDPROPERTIES: SensorThingsEntity.OBSERVEDPROPERTY,
-    SensorThingsEntityGroups.FEATURESOFINTEREST: SensorThingsEntity.FEATUREOFINTEREST,
-}
-
-# all entities which require can exist WITHOUT an IOT link:
-
-SENSOR_THINGS_ENTITY_FIELDS: Dict[
-    SensorThingsEntity, Tuple[str, ...]
-] = {
-    SensorThingsEntity.THING: (
-        "name",
-        "description",
-        "properties",
-    ),
-    SensorThingsEntity.LOCATION: (
-        "name",
-        "description",
-        "encodingType",
-        "location",
-        "properties",
-    ),
-    SensorThingsEntity.SENSOR: (
-        "name",
-        "description",
-        "encodingType",
-        "metadata",
-        "properties",
-    ),
-    SensorThingsEntity.FEATUREOFINTEREST: (
-        "name",
-        "description",
-        "encodingType",
-        "feature",
-        "properties",
-    ),
-    SensorThingsEntity.OBSERVEDPROPERTY: (
-        "name",
-        "description",
-        "definition",
-        "properties",
-    ),
-}
-
-# these are the multiciplity relations between SensorThings entities. For example
-# a Thing can have HistoricalLocations, Locations and Datastreams:
-SENSOR_THINGS_MULTIPLICITIES = {
-        SensorThingsEntity.SENSOR:[
-            SensorThingsEntityGroups.DATASTREAMS
-            ],
-        SensorThingsEntity.THING:[
-            SensorThingsEntityGroups.HISTORICALLOCATIONS,
-            SensorThingsEntityGroups.LOCATIONS,
-            SensorThingsEntityGroups.DATASTREAMS
-            ],
-        SensorThingsEntity.LOCATION:[
-            SensorThingsEntityGroups.HISTORICALLOCATIONS,
-            SensorThingsEntityGroups.THINGS,
-            ],
-        SensorThingsEntity.HISTORICALLOCATIONS:[
-            SensorThingsEntity.THING,
-            SensorThingsEntityGroups.LOCATIONS
-            ],
-        SensorThingsEntity.DATASTREAM:[
-            SensorThingsEntity.OBSERVEDPROPERTY,
-            SensorThingsEntity.SENSOR,
-            SensorThingsEntity.THING,
-            SensorThingsEntityGroups.OBSERVATIONS
-            ],
-        SensorThingsEntity.OBSERVATION:[
-            SensorThingsEntity.DATASTREAM,
-            SensorThingsEntity.FEATUREOFINTEREST
-            ],
-        SensorThingsEntity.OBSERVEDPROPERTY:[
-            SensorThingsEntityGroups.DATASTREAMS
-            ],
-        SensorThingsEntity.FEATUREOFINTEREST:[
-            SensorThingsEntityGroups.OBSERVATIONS
-            ]
-        }
+from .schema import SensorThingsEntity, SensorThingsEntityGroups
 
 
 class SensorThingsObject(BaseModel):
@@ -151,15 +33,17 @@ class SensorThingsObject(BaseModel):
         str, StringConstraints(strip_whitespace=True, min_length=1, max_length=255)
     ]
     properties: Optional[Dict[str, Any]] = Field(default_factory=dict)
+    links: Dict[SensorThingsEntity, List["SensorThingsObject"]] = Field(
+        default_factory=dict
+    )
     iot_links: Dict[
-        Literal["sensors", "things", "locations", "datastreams", "observedProperties"],
-        List[str],
-    ] = {}
+        SensorThingsEntityGroups, List[Union[str, "SensorThingsObject"]]
+    ] = Field(default_factory=dict)
 
     @computed_field
     @property
     def as_entity(self) -> SensorThingsEntity:
-        st_type = SensorThingsEntity(self.__class__.__name__).value
+        st_type = SensorThingsEntity(self.__class__.__name__)
         return st_type 
 
     # TODO: #4 The state of iot_links as 'str' should be temporary or stored in another attribute.
@@ -171,9 +55,7 @@ class SensorThingsObject(BaseModel):
 
     def set_iot_link(
         self,
-        entity: Literal[
-            "sensors", "things", "locations", "datastreams", "observedProperties"
-        ],
+        entity: SensorThingsEntityGroups,
         instance: str,
         sensor_things_object: "SensorThingsObject",
     ) -> None:
@@ -225,7 +107,7 @@ class Observation(BaseModel):
     @computed_field
     @property
     def as_entity(self) -> SensorThingsEntity:
-        st_type = SensorThingsEntity(self.__class__.__name__).value
+        st_type = SensorThingsEntity(self.__class__.__name__)
         return st_type 
 
 

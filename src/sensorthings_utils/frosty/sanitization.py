@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import Optional, Mapping, Any
 
 from .types import FrostParams, FrostVersions
-from sensorthings_utils.sensor_things.core import (
+from sensorthings_utils.sensor_things.schema import (
     ENTITY_GROUPS_TO_ENTITIES,
     SensorThingsEntity,
     SensorThingsEntityGroups,
