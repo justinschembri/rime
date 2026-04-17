@@ -5,7 +5,7 @@ from collections.abc import Iterator
 #external
 #internal
 import json
-from typing import Optional, Mapping, Any, Literal, overload
+from typing import Optional, Mapping, Any, cast
 
 import requests
 from sensorthings_utils.config import (
@@ -16,7 +16,7 @@ from .errors import FrostRequestError
 from .sanitization import (
     merge_filter,
     merge_order_by,
-    sanitize_request,
+    sanitize_get_request,
     to_odata_datetime,
 )
 from .types import FrostParams, FrostResultPageIterator, FrostVersions
@@ -33,53 +33,26 @@ from sensorthings_utils.sensor_things.schema import (
 )
 
 
-def _general_request(
-        url, 
-        params: Optional[Mapping[str | FrostParams, Any]] = None
-        ) -> dict[str, Any]:
+def _general_get(
+    url: str,
+    params: Optional[Mapping[str, Any]] = None,
+) -> dict[str, Any]:
     response = requests.get(url, params=params) #type: ignore
     response.raise_for_status()
     json_response = response.json() 
     return json_response
 
-@overload
-def frost_entity_lookup(
+def frost_entity_lookup_pages(
         first_entity: str | SensorThingsEntityGroups | SensorThingsEntity,
         root_url: str = FROST_ROOT_DEFAULT,
         version: str | float | int | FrostVersions = FROST_VERSION_DEFAULT,
         params: Optional[Mapping[str | FrostParams, Any]] = None,
         *,
-        as_generator: Literal[True] = True,
-        first_entity_id: Optional[int | str] = "",
-        second_entity: Optional[str | SensorThingsEntityGroups | SensorThingsEntity] = "",
-        ) -> FrostResultPageIterator | None:
-    ...
-
-@overload
-def frost_entity_lookup(
-        first_entity: str | SensorThingsEntityGroups | SensorThingsEntity,
-        root_url: str = FROST_ROOT_DEFAULT,
-        version: str | float | int | FrostVersions = FROST_VERSION_DEFAULT,
-        params: Optional[Mapping[str | FrostParams, Any]] = None,
-        *,
-        as_generator: Literal[False],
-        first_entity_id: Optional[int | str] = "",
-        second_entity: Optional[str | SensorThingsEntityGroups | SensorThingsEntity] = "",
-        ) -> list[dict[str, Any]] | None:
-    ...
-
-def frost_entity_lookup(
-        first_entity: str | SensorThingsEntityGroups | SensorThingsEntity,
-        root_url: str = FROST_ROOT_DEFAULT,
-        version: str | float | int | FrostVersions = FROST_VERSION_DEFAULT,
-        params: Optional[Mapping[str | FrostParams, Any]] = None,
-        *,
-        as_generator: bool = True,
         first_entity_id: Optional[int | str] = "",
         second_entity: Optional[str | SensorThingsEntityGroups | SensorThingsEntity] = ""
-        ) -> FrostResultPageIterator | list[dict[str, Any]] | None:
+        ) -> FrostResultPageIterator:
     """
-    Query a FROST server and return data as a dict object.
+    Query a FROST server and return unpacked `value` pages.
     
     This is a general querying tool for FROST over HTTP. Entity names and param
     keys are checked but parameter values are not.
@@ -96,16 +69,13 @@ def frost_entity_lookup(
             want the Locations of Things(1), the first entity would be Things
             and the second would be Locations.
 
-        as_generator: if True, return an iterator over pages; if False, return
-            one merged list from all `value` pages.
-
     Returns:
-        - Generator mode: iterator over each FROST `value` page.
-        - List mode: one merged list from `value`.
-        - None: when no results are returned.
+        Iterator over each FROST `value` page (possibly empty when the server
+        returns no rows). Callers that merge pages should treat an exhausted
+        iterator with no yields as no results.
     """
 
-    url, params = sanitize_request(
+    url, sanitized_params = sanitize_get_request(
         root_url=root_url,
         version=version,
         first_entity=first_entity,
@@ -114,42 +84,52 @@ def frost_entity_lookup(
         second_entity=second_entity,
     )
     try:
-        response = _general_request(url, params)
-        if not response["value"]:
-            return None
+        response = _general_get(url, sanitized_params)
 
-        def _iter_pages(initial_response: dict[str, Any]) -> Iterator[list[dict[str, Any]]]:
-            current_response = initial_response
-            while True:
-                page = current_response.get("value")
-                if not isinstance(page, list):
-                    raise TypeError("Expected FROST page response to contain list `value`.")
-                yield page
+        while True:
+            page = response.get("value")
+            if not page:
+                return
+            yield page 
 
-                next_link = current_response.get("@iot.nextLink")
-                if not next_link:
-                    break
-                current_response = _general_request(next_link)
+            next_link = response.get("@iot.nextLink")
+            if not next_link:
+                break
+            response = _general_get(next_link)
 
-        page_iterator = _iter_pages(response)
-        if as_generator:
-            return page_iterator
-
-        data: list[dict[str, Any]] = []
-        for page in page_iterator:
-            data.extend(page)
-        return data
     except Exception as e:
         raise FrostRequestError(e, url)
 
-def frost_object_lookup(
+def frost_entity_lookup(
+        first_entity: str | SensorThingsEntityGroups | SensorThingsEntity,
+        root_url: str = FROST_ROOT_DEFAULT,
+        version: str | float | int | FrostVersions = FROST_VERSION_DEFAULT,
+        params: Optional[Mapping[str | FrostParams, Any]] = None,
+        *,
+        first_entity_id: Optional[int | str] = "",
+        second_entity: Optional[str | SensorThingsEntityGroups | SensorThingsEntity] = "",
+        ) -> list[dict[str, Any]] | None:
+    """Wrapper over `frost_entity_lookup_pages` that merges all pages into one list."""
+    pages = frost_entity_lookup_pages(
+        first_entity=first_entity,
+        root_url=root_url,
+        version=version,
+        params=params,
+        first_entity_id=first_entity_id,
+        second_entity=second_entity,
+    )
+    data: list[dict[str, Any]] = []
+    for page in pages:
+        data.extend(page)
+    return data if data else None
+
+
+def frost_object_lookup_pages(
         st_object: SensorThingsObject | Observation,
         root_url: str = FROST_ROOT_DEFAULT,
         version: str | float | int | FrostVersions = FROST_VERSION_DEFAULT,
-        *,
-        as_generator: bool = True,
-        ) -> FrostResultPageIterator | list[dict[str, Any]] | None:
-    """Lookup up an equivalent SensorThingsObject in a FROST instance."""
+        ) -> FrostResultPageIterator:
+    """Lookup equivalent SensorThingsObject values and return paged iterator."""
 
     if isinstance(st_object, Observation):
         filter_string = f"phenomenonTime eq {st_object.phenomenonTime}"
@@ -157,23 +137,34 @@ def frost_object_lookup(
         filter_string = f"name eq '{st_object.name}'"
 
     entity = SensorThingsEntity(st_object.as_entity)
-    params = {
-            FrostParams.SELECT:",".join(SENSOR_THINGS_ENTITY_FIELDS[entity]),
-            FrostParams.FILTER:filter_string
-            }
+    params: dict[str | FrostParams, Any] = {
+        FrostParams.SELECT: ",".join(SENSOR_THINGS_ENTITY_FIELDS[entity]),
+        FrostParams.FILTER: filter_string,
+    }
 
-    response = frost_entity_lookup(
+    return frost_entity_lookup_pages(
             entity,
             root_url=root_url,
             version=version,
             params=params,
-            as_generator=as_generator
             )
 
-    if not response:
-        return None
 
-    return response
+def frost_object_lookup(
+        st_object: SensorThingsObject | Observation,
+        root_url: str = FROST_ROOT_DEFAULT,
+        version: str | float | int | FrostVersions = FROST_VERSION_DEFAULT,
+        ) -> list[dict[str, Any]] | None:
+    """Wrapper over `frost_object_lookup_pages` that merges all pages into one list."""
+    pages = frost_object_lookup_pages(
+        st_object=st_object,
+        root_url=root_url,
+        version=version,
+    )
+    data: list[dict[str, Any]] = []
+    for page in pages:
+        data.extend(page)
+    return data if data else None
 
 
 def get_frost_datastream_observations(
@@ -222,13 +213,12 @@ def get_frost_datastream_observations(
         first_entity=SensorThingsEntityGroups.DATASTREAMS,
         first_entity_id=datastream_id,
         second_entity=SensorThingsEntityGroups.OBSERVATIONS,
-        params=params_map,
-        as_generator=False,
+        params=cast(Mapping[str | FrostParams, Any], params_map),
     )
-    if lookup_result is None:
+    if not lookup_result:
         return []
     if not isinstance(lookup_result, list):
-        raise TypeError("Expected list response from frost_entity_lookup with as_generator=False.")
+        raise TypeError("Expected list response from frost_entity_lookup.")
     return lookup_result
 
 def _check_unlinked_object_exists(
@@ -257,15 +247,14 @@ def _check_unlinked_object_exists(
             separators=(",", ":"), 
             default=str
             )
-    for results in response:
-        for r in results:
-            r_dumps = json.dumps(
-                    r, 
-                    sort_keys=True, 
-                    separators=(",", ":"), 
-                    default=str)
-            if r_dumps == st_object_dumps:
-                    return True
+    for r in response:
+        r_dumps = json.dumps(
+                r,
+                sort_keys=True,
+                separators=(",", ":"),
+                default=str)
+        if r_dumps == st_object_dumps:
+                return True
     
     return False
 
@@ -278,12 +267,7 @@ def _check_datastream_object_exists(
     sensor = st_datastream.links[SensorThingsEntity.SENSOR][0]
 
     # lookup candidate datastreams:
-    matches = frost_object_lookup(
-            st_datastream, 
-            root_url, 
-            version, 
-            as_generator=False
-            )
+    matches = frost_object_lookup(st_datastream, root_url, version)
     if not matches:
         return False
 
@@ -299,7 +283,6 @@ def _check_datastream_object_exists(
             version=version,
             first_entity_id=datastream_id,
             second_entity=SensorThingsEntityGroups.SENSORS,
-            as_generator=False,
         )
         if not linked_sensors:
             continue
@@ -316,12 +299,7 @@ def _check_observation_object_exists(
         version: str = FROST_VERSION_DEFAULT
         ):
 
-    matches = frost_object_lookup(
-            st_observation, 
-            root_url, 
-            version, 
-            as_generator=False
-            )
+    matches = frost_object_lookup(st_observation, root_url, version)
     if not matches:
         return False
     

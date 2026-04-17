@@ -18,7 +18,7 @@ def to_odata_datetime(value: datetime | str) -> str:
         return value.isoformat()
     return str(value)
 
-def sanitize_request(
+def sanitize_get_request(
     root_url: str,
     version: str | float | int | FrostVersions,
     first_entity: str | SensorThingsEntityGroups | SensorThingsEntity,
@@ -27,7 +27,7 @@ def sanitize_request(
     first_entity_id: Optional[int | str] = "",
     second_entity: Optional[str | SensorThingsEntityGroups | SensorThingsEntity] = "",
 ) -> tuple[str, dict[str, Any] | None]:
-    """Normalize request URL and parameter keys for FROST queries."""
+    """Normalize GET request URL and parameter keys for FROST queries."""
 
     entity_to_group = {v: k for k, v in ENTITY_GROUPS_TO_ENTITIES.items()}
     normalized_root = root_url.rstrip("/")
