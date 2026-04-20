@@ -3,7 +3,8 @@ PyObject representations of the OGC SensorThings API (STA) information model.
 """
 
 # standard
-from typing import Optional, Any, Dict, List, Union
+from __future__ import annotations
+from typing import Optional, Any, Dict, List, Union, Self
 from typing_extensions import Annotated, Self
 from datetime import datetime
 # external
@@ -33,11 +34,11 @@ class SensorThingsObject(BaseModel):
         str, StringConstraints(strip_whitespace=True, min_length=1, max_length=255)
     ]
     properties: Optional[Dict[str, Any]] = Field(default_factory=dict)
-    links: Dict[SensorThingsEntity, List["SensorThingsObject"]] = Field(
+    links: Optional[Dict[SensorThingsEntity, List["SensorThingsObject"]]] = Field(
         default_factory=dict
     )
-    iot_links: Dict[
-        SensorThingsEntityGroups, List[Union[str, "SensorThingsObject"]]
+    iot_links: Optional[Dict[
+        SensorThingsEntityGroups, List[Union[str, "SensorThingsObject"]]]
     ] = Field(default_factory=dict)
 
     @computed_field
@@ -45,6 +46,10 @@ class SensorThingsObject(BaseModel):
     def as_entity(self) -> SensorThingsEntity:
         st_type = SensorThingsEntity(self.__class__.__name__)
         return st_type 
+
+    @classmethod
+    def from_frost_entity(cls, entity: dict[str, Any]) -> Self:
+        return cls(**entity)
 
     # TODO: #4 The state of iot_links as 'str' should be temporary or stored in another attribute.
     def __hash__(self) -> int:
