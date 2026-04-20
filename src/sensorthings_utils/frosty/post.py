@@ -7,6 +7,11 @@ from typing import Any, Mapping
 # external
 import requests
 
+from sensorthings_utils.config import FROST_ROOT_DEFAULT, FROST_VERSION_DEFAULT
+from sensorthings_utils.frost import UrlStr
+from sensorthings_utils.frosty.types import FrostVersions
+from sensorthings_utils.sensor_things.core import Observation, SensorThingsObject
+
 # internal
 from .errors import FrostRequestError
 
@@ -37,3 +42,9 @@ def _general_post(
     except Exception as exc:
         raise FrostRequestError(exc, url)
 
+def make_frost_entity(
+        payload: Mapping[str, Any] | SensorThingsObject | Observation,
+        root_url: str = FROST_ROOT_DEFAULT,
+        version: str | float | int | FrostVersions = FROST_VERSION_DEFAULT,
+        ) -> UrlStr:
+    ...

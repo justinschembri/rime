@@ -469,13 +469,14 @@ class TestCheckObservationExistence:
         )
 
 
-class TestCheckObjectExistenceKnownLimitations:
-    """Regression pins for former `_check_unlinked_object_exists` bugs.
+class TestCheckObjectExistencePayloadQuirks:
+    """Regression pins for FROST serialization quirks on unlinked objects.
 
-    These exercise payload shapes that used to trip the byte-for-byte JSON
-    dump comparison (missing `properties`, float/int coordinate mismatch).
-    The current implementation compares via `partial_eq` on Pydantic
-    models, so these must pass.
+    Exercises payload shapes that used to trip the old byte-for-byte JSON
+    dump comparison in `_check_unlinked_object_exists` (missing
+    `properties`, float/int coordinate mismatch). The current
+    implementation compares via `partial_eq` on Pydantic models, so these
+    must pass.
     """
 
     def test_thing_without_server_properties(

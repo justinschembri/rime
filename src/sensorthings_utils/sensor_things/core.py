@@ -4,9 +4,9 @@ PyObject representations of the OGC SensorThings API (STA) information model.
 
 # standard
 from __future__ import annotations
-from typing import Optional, Any, Dict, List, Union, Self
-from typing_extensions import Annotated, Self
 from datetime import datetime
+from typing import Optional, Any, Dict, List, Union, Self
+from typing_extensions import Annotated
 # external
 from pydantic import (
     BaseModel,
@@ -15,7 +15,7 @@ from pydantic import (
     model_validator,
     computed_field,
 )
-
+# internal
 from .schema import (
     SENSOR_THINGS_ENTITY_FIELDS,
     SensorThingsEntity,

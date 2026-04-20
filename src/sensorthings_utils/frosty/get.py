@@ -1,15 +1,24 @@
 """Execute GET requests with local or external FROST servers."""
-#standard
+# standard
 from datetime import datetime
-from collections.abc import Iterator
-#external
-#internal
 from typing import Optional, Mapping, Any, cast
-
+# external
 import requests
+# internal
 from sensorthings_utils.config import (
     FROST_ROOT_DEFAULT,
     FROST_VERSION_DEFAULT,
+)
+from sensorthings_utils.sensor_things.core import (
+    Datastream,
+    Observation,
+    SensorThingsObject,
+    UnLinkedSensorThingsObjects,
+)
+from sensorthings_utils.sensor_things.schema import (
+    SENSOR_THINGS_ENTITY_FIELDS,
+    SensorThingsEntity,
+    SensorThingsEntityGroups,
 )
 from .errors import FrostRequestError
 from .sanitization import (
@@ -19,20 +28,9 @@ from .sanitization import (
     to_odata_datetime,
 )
 from .types import FrostParams, FrostResultPageIterator, FrostVersions
-from sensorthings_utils.sensor_things.core import (
-        Datastream,
-        Observation,
-        SensorThingsObject, 
-        UnLinkedSensorThingsObjects, 
-        )
-from sensorthings_utils.sensor_things.schema import (
-    SENSOR_THINGS_ENTITY_FIELDS,
-    SensorThingsEntity,
-    SensorThingsEntityGroups,
-)
 
 
-def _general_get(
+def general_frost_get(
     url: str,
     params: Optional[Mapping[str, Any]] = None,
 ) -> dict[str, Any]:
@@ -83,7 +81,7 @@ def frost_entity_lookup_pages(
         second_entity=second_entity,
     )
     try:
-        response = _general_get(url, sanitized_params)
+        response = general_frost_get(url, sanitized_params)
 
         while True:
             page = response.get("value")
@@ -94,7 +92,7 @@ def frost_entity_lookup_pages(
             next_link = response.get("@iot.nextLink")
             if not next_link:
                 break
-            response = _general_get(next_link)
+            response = general_frost_get(next_link)
 
     except Exception as e:
         raise FrostRequestError(e, url)
@@ -237,10 +235,11 @@ def _check_unlinked_object_exists(
         version: str = FROST_VERSION_DEFAULT
         ) -> bool:
     """
-    Check if an unlinked SensorThings Thing exists in a given FROST instance.
-    
-    This checker only compares the field values of the object do decide if an
-    object already exists. Should not be used for Datastream objects.
+    Check if an unlinked SensorThings object exists in a given FROST instance.
+
+    Compares content fields via `partial_eq` (ignores `id`, `links`,
+    `iot_links`). Should not be used for Datastream or Observation objects;
+    `check_object_existence` dispatches those to dedicated checkers.
     """
     response = frost_object_lookup(st_object, root_url, version)
     if not response:

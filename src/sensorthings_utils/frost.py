@@ -157,7 +157,7 @@ def initial_setup(sensor_arrangement: "SensorArrangement") -> str:
         raise FrostConnectionError()
     debug_logger.debug(sensor_arrangement.get_entities("Thing"))
     for thing in sensor_arrangement.get_entities("Thing"):
-        make_thing = make_frost_object(thing)
+        make_thing = make_frost_entity(thing)
         debug_logger.debug(make_thing)
         if not make_thing:
             break
@@ -165,14 +165,14 @@ def initial_setup(sensor_arrangement: "SensorArrangement") -> str:
         # lookup linked locations of the thing and make them:
         for loc in thing.iot_links[SensorThingsEntityGroups.LOCATIONS]:
             # pass URL of newly generated Thing's Locations to the maker:
-            debug_logger.debug(make_frost_object(loc, iot_url))
+            debug_logger.debug(make_frost_entity(loc, iot_url))
     # Make Sensors, which are associated only with Datastreams, which are linked later
     for sen in sensor_arrangement.get_entities("Sensor"):
-        debug_logger.debug(make_frost_object(sen))
+        debug_logger.debug(make_frost_entity(sen))
         sensor_model = sen.name
     # Make ObservedProperties, also linked later with a Datastream
     for op in sensor_arrangement.get_entities("ObservedProperty"):
-        debug_logger.debug(make_frost_object(op))
+        debug_logger.debug(make_frost_entity(op))
     # Make Datastreams, linked with a one Sensor, one ObservedProperty and one Thing
     for ds in sensor_arrangement.get_entities("Datastream"):
         # Lookup the names's of the relevant Sensor, ObservedProperty and Thing:
@@ -208,7 +208,7 @@ def initial_setup(sensor_arrangement: "SensorArrangement") -> str:
     return sensor_model
 
 
-def make_frost_object(
+def make_frost_entity(
     entity: Union["SensorThingsObject", "Observation"],
     iot_url: str | None = None,
     application_name: str | None = None,
@@ -395,7 +395,7 @@ def frost_observation_upload(
     observation, datastream_name = observation_set
     push_link = find_datastream_url(sensor_name, datastream_name, CONTAINER_ENVIRONMENT)
     try:
-        make_frost_object(observation, push_link, app_name)
+        make_frost_entity(observation, push_link, app_name)
         netmon.add_named_count("push_success", sensor_name, 1)
         netmon.add_named_time("last_push_time", sensor_name, time.time())
     except Exception as e:

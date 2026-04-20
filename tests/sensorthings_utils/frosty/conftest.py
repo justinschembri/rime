@@ -87,14 +87,15 @@ def _wait_for_frost(base_url: str, timeout: float = 180.0) -> None:
     )
 
 
-# The "MATCH" entity tree is constructed so `_check_unlinked_object_exists`
-# can find matches:
-#   - every entity has `properties: {}` set (FROST would drop it otherwise
-#     and the strict JSON-string comparison in the check function would fail),
-#   - coordinates avoid trailing `.0` floats (which FROST serializes as
-#     integers, again breaking the string comparison).
-# The "NOPROPS" and "INTCOORD" entities exercise those failure modes and are
-# covered by `xfail(strict=True)` tests to pin down the bug surface.
+# The primary `SEED_PAYLOAD` tree is the "happy path" match target used by
+# `TestCheckObjectExistence`: every child entity has fully-specified fields
+# so a locally-constructed `Thing`/`Location`/`Sensor`/... matches it cleanly.
+#
+# The "TEST-LOCATION-INTCOORD" child (whole-number float coords) and the
+# separate `SEED_NOPROPS` tree (no `properties` set) intentionally exercise
+# the payload shapes that used to break the old byte-for-byte JSON-string
+# comparison in `_check_unlinked_object_exists`. `TestCheckObjectExistencePayloadQuirks`
+# asserts `partial_eq` now handles them correctly.
 SEED_PAYLOAD: dict = {
     "name": "TEST-THING",
     "description": "Ephemeral thing used by frosty tests.",
@@ -192,8 +193,9 @@ SEED_DATASTREAM_EXISTENCE: dict = {
 }
 
 
-# A Thing/entity tree seeded WITHOUT a `properties` key; used to exercise the
-# "properties-dropped-by-FROST" failure mode of `_check_unlinked_object_exists`.
+# A Thing/entity tree seeded WITHOUT a `properties` key. FROST omits
+# `properties` from the response in that case, so this tree exercises the
+# "server payload missing properties" path in `partial_eq`.
 SEED_NOPROPS: dict = {
     "name": "TEST-THING-NOPROPS",
     "description": "Thing seeded without properties.",
