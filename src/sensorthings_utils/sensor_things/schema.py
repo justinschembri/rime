@@ -79,6 +79,19 @@ SENSOR_THINGS_ENTITY_FIELDS: Dict[SensorThingsEntity, Tuple[str, ...]] = {
         "definition",
         "properties",
     ),
+    SensorThingsEntity.DATASTREAM: (
+        "name",
+        "description",
+        "observationType",
+        "unitOfMeasurement",
+        "properties",
+    ),
+    SensorThingsEntity.OBSERVATION: (
+        "phenomenonTime",
+        "resultTime",
+        "result",
+        "validTime",
+    ),
 }
 
 

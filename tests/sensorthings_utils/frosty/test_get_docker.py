@@ -358,12 +358,6 @@ class TestCheckObjectExistence:
 class TestCheckDatastreamExistence:
     """Covers the `_check_datastream_object_exists` branch of
     `check_object_existence`, which dispatches on `isinstance(Datastream)`.
-
-    **Known bug**: these tests are currently `xfail(strict=True,
-    raises=KeyError)` because `SENSOR_THINGS_ENTITY_FIELDS` has no entry for
-    `SensorThingsEntity.DATASTREAM`, so `frost_object_lookup_pages` raises
-    `KeyError` when building the `$select` clause. Fixing the schema map
-    will turn these into unexpected passes.
     """
 
     def _make_datastream(
@@ -391,16 +385,6 @@ class TestCheckDatastreamExistence:
         datastream.links[SensorThingsEntity.SENSOR] = [sensor]
         return datastream
 
-    @pytest.mark.xfail(
-        strict=True,
-        raises=KeyError,
-        reason=(
-            "Bug: `SENSOR_THINGS_ENTITY_FIELDS` has no "
-            "`SensorThingsEntity.DATASTREAM` entry, so "
-            "`frost_object_lookup_pages` raises KeyError when selecting "
-            "fields for a Datastream lookup."
-        ),
-    )
     def test_matches_when_sensor_name_matches(
         self, docker_frost: DockerFrost
     ) -> None:
@@ -415,14 +399,6 @@ class TestCheckDatastreamExistence:
             is True
         )
 
-    @pytest.mark.xfail(
-        strict=True,
-        raises=KeyError,
-        reason=(
-            "Bug: `SENSOR_THINGS_ENTITY_FIELDS` has no "
-            "`SensorThingsEntity.DATASTREAM` entry."
-        ),
-    )
     def test_no_match_when_sensor_name_differs(
         self, docker_frost: DockerFrost
     ) -> None:
@@ -438,14 +414,6 @@ class TestCheckDatastreamExistence:
             is False
         )
 
-    @pytest.mark.xfail(
-        strict=True,
-        raises=KeyError,
-        reason=(
-            "Bug: `SENSOR_THINGS_ENTITY_FIELDS` has no "
-            "`SensorThingsEntity.DATASTREAM` entry."
-        ),
-    )
     def test_missing_datastream_returns_false(
         self, docker_frost: DockerFrost
     ) -> None:
@@ -464,21 +432,8 @@ class TestCheckDatastreamExistence:
 
 
 class TestCheckObservationExistence:
-    """Covers the `_check_observation_object_exists` branch.
+    """Covers the `_check_observation_object_exists` branch."""
 
-    **Known bug**: these tests are currently `xfail(strict=True,
-    raises=KeyError)` because `SENSOR_THINGS_ENTITY_FIELDS` has no entry for
-    `SensorThingsEntity.OBSERVATION`.
-    """
-
-    @pytest.mark.xfail(
-        strict=True,
-        raises=KeyError,
-        reason=(
-            "Bug: `SENSOR_THINGS_ENTITY_FIELDS` has no "
-            "`SensorThingsEntity.OBSERVATION` entry."
-        ),
-    )
     def test_matches_existing_phenomenon_time(
         self, docker_frost: DockerFrost
     ) -> None:
@@ -496,14 +451,6 @@ class TestCheckObservationExistence:
             is True
         )
 
-    @pytest.mark.xfail(
-        strict=True,
-        raises=KeyError,
-        reason=(
-            "Bug: `SENSOR_THINGS_ENTITY_FIELDS` has no "
-            "`SensorThingsEntity.OBSERVATION` entry."
-        ),
-    )
     def test_missing_phenomenon_time_returns_false(
         self, docker_frost: DockerFrost
     ) -> None:
@@ -523,24 +470,14 @@ class TestCheckObservationExistence:
 
 
 class TestCheckObjectExistenceKnownLimitations:
-    """Pins down known bugs in `_check_unlinked_object_exists`.
+    """Regression pins for former `_check_unlinked_object_exists` bugs.
 
-    These tests are `xfail(strict=True)`: the expected behavior is "the
-    object exists on the server and should match", but the implementation's
-    byte-for-byte JSON string comparison means it returns False. When the
-    underlying check is fixed, these will turn into unexpected passes and
-    pytest will fail them so the markers can be removed.
+    These exercise payload shapes that used to trip the byte-for-byte JSON
+    dump comparison (missing `properties`, float/int coordinate mismatch).
+    The current implementation compares via `partial_eq` on Pydantic
+    models, so these must pass.
     """
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason=(
-            "`_check_unlinked_object_exists` compares strict JSON dumps. "
-            "When the server drops `properties` from the response (because "
-            "it was not set on the seeded entity), the local pydantic dump "
-            "still emits `\"properties\": {}`, so equality fails."
-        ),
-    )
     def test_thing_without_server_properties(
         self, docker_frost: DockerFrost
     ) -> None:
@@ -558,15 +495,6 @@ class TestCheckObjectExistenceKnownLimitations:
             is True
         )
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason=(
-            "`_check_unlinked_object_exists` compares strict JSON dumps. "
-            "FROST serializes trailing-`.0` floats as integers (e.g. `52.0` "
-            "-> `52`) while pydantic emits `52.0`, so equality fails for "
-            "locations whose coordinates happen to be whole numbers."
-        ),
-    )
     def test_location_with_integer_valued_coordinates(
         self, docker_frost: DockerFrost
     ) -> None:

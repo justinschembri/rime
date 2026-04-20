@@ -4,7 +4,6 @@ from datetime import datetime
 from collections.abc import Iterator
 #external
 #internal
-import json
 from typing import Optional, Mapping, Any, cast
 
 import requests
@@ -132,13 +131,24 @@ def frost_object_lookup_pages(
     """Lookup equivalent SensorThingsObject values and return paged iterator."""
 
     if isinstance(st_object, Observation):
-        filter_string = f"phenomenonTime eq {st_object.phenomenonTime}"
+        if st_object.phenomenonTime is None:
+            raise ValueError(
+                "Cannot look up an Observation without a phenomenonTime."
+            )
+        filter_string = (
+            f"phenomenonTime eq {to_odata_datetime(st_object.phenomenonTime)}"
+        )
     elif isinstance(st_object, SensorThingsObject):
         filter_string = f"name eq '{st_object.name}'"
 
     entity = SensorThingsEntity(st_object.as_entity)
+    # `@iot.id` is required by downstream callers (e.g.
+    # `_check_datastream_object_exists` needs it to follow navigation
+    # links). FROST will only include it in a `$select`ed response when it
+    # is named explicitly.
+    select_fields = ("@iot.id", *SENSOR_THINGS_ENTITY_FIELDS[entity])
     params: dict[str | FrostParams, Any] = {
-        FrostParams.SELECT: ",".join(SENSOR_THINGS_ENTITY_FIELDS[entity]),
+        FrostParams.SELECT: ",".join(select_fields),
         FrostParams.FILTER: filter_string,
     }
 
@@ -232,30 +242,13 @@ def _check_unlinked_object_exists(
     This checker only compares the field values of the object do decide if an
     object already exists. Should not be used for Datastream objects.
     """
-    #firstly, check if an object with the same name exists, and keep only the
-    #properties we need:
     response = frost_object_lookup(st_object, root_url, version)
     if not response:
         return False
-    # next, check if the values held in the object are equivalent to the values
-    # held in the response of:
-    st_object_dict = st_object.model_dump(
-            include=set(SENSOR_THINGS_ENTITY_FIELDS[st_object.as_entity]))
-    st_object_dumps = json.dumps(
-            st_object_dict, 
-            sort_keys=True, 
-            separators=(",", ":"), 
-            default=str
-            )
+    cls = type(st_object)
     for r in response:
-        r_dumps = json.dumps(
-                r,
-                sort_keys=True,
-                separators=(",", ":"),
-                default=str)
-        if r_dumps == st_object_dumps:
-                return True
-    
+        if st_object.partial_eq(cls.from_frost_entity(r)):
+            return True
     return False
 
 def _check_datastream_object_exists(
@@ -263,32 +256,36 @@ def _check_datastream_object_exists(
         root_url:str = FROST_ROOT_DEFAULT,
         version: str = FROST_VERSION_DEFAULT
         ) -> bool:
+    """Check whether a Datastream with matching content and linked Sensor exists.
+
+    Matches both on the Datastream's own content (via `partial_eq`) and on
+    the linked Sensor's name. Uses OData `$expand=Sensor($select=name)`
+    because `/Datastreams({id})/Sensor` (singular) cannot be reached via
+    the plural-only `sanitize_get_request` helper.
+    """
     # Invariant: Datastream has exactly one linked Sensor.
     sensor = st_datastream.links[SensorThingsEntity.SENSOR][0]
 
-    # lookup candidate datastreams:
-    matches = frost_object_lookup(st_datastream, root_url, version)
+    content_fields = SENSOR_THINGS_ENTITY_FIELDS[SensorThingsEntity.DATASTREAM]
+    matches = frost_entity_lookup(
+        first_entity=SensorThingsEntity.DATASTREAM,
+        root_url=root_url,
+        version=version,
+        params={
+            FrostParams.SELECT: ",".join(("@iot.id", *content_fields)),
+            FrostParams.FILTER: f"name eq '{st_datastream.name}'",
+            FrostParams.EXPAND: "Sensor($select=name)",
+        },
+    )
     if not matches:
         return False
 
-    # for each datastream returned, lookup Sensor, check if it matches expected sensor:
     for match in matches:
-        datastream_id = match.get("@iot.id")
-        if datastream_id is None:
+        candidate = Datastream.from_frost_entity(match)
+        if not st_datastream.partial_eq(candidate):
             continue
-
-        linked_sensors = frost_entity_lookup(
-            first_entity=SensorThingsEntityGroups.DATASTREAMS,
-            root_url=root_url,
-            version=version,
-            first_entity_id=datastream_id,
-            second_entity=SensorThingsEntityGroups.SENSORS,
-        )
-        if not linked_sensors:
-            continue
-
-        linked_sensor_name = linked_sensors[0]["name"]
-        if linked_sensor_name == sensor.name:
+        linked_sensor = match.get("Sensor") or {}
+        if linked_sensor.get("name") == sensor.name:
             return True
 
     return False
@@ -297,13 +294,23 @@ def _check_observation_object_exists(
         st_observation: Observation,
         root_url:str = FROST_ROOT_DEFAULT,
         version: str = FROST_VERSION_DEFAULT
-        ):
+        ) -> bool:
+    """
+    Check if an Observation with matching content exists on the FROST server.
 
+    Matches on the content fields enumerated in
+    `SENSOR_THINGS_ENTITY_FIELDS[OBSERVATION]` (phenomenonTime, resultTime,
+    result, validTime) rather than just phenomenonTime, so that two
+    observations at the same instant but with different `result` values are
+    correctly treated as different.
+    """
     matches = frost_object_lookup(st_observation, root_url, version)
     if not matches:
         return False
-    
-    return True
+    for match in matches:
+        if st_observation.partial_eq(Observation.from_frost_entity(match)):
+            return True
+    return False
 
 def check_object_existence(
         st_object: SensorThingsObject | Observation,

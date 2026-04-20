@@ -16,7 +16,44 @@ from pydantic import (
     computed_field,
 )
 
-from .schema import SensorThingsEntity, SensorThingsEntityGroups
+from .schema import (
+    SENSOR_THINGS_ENTITY_FIELDS,
+    SensorThingsEntity,
+    SensorThingsEntityGroups,
+)
+
+
+def _build_from_frost_entity(cls: type, entity: Dict[str, Any]) -> Any:
+    """Construct a pydantic model from a FROST entity JSON dict.
+
+    Drops `@iot.selfLink` and `*@iot.navigationLink` keys, hoists `@iot.id`
+    into the model's `id` field when declared, and silently discards any
+    payload key that the model does not expose. Using an explicit
+    `model_fields` filter rather than `extra="ignore"` globally means a
+    typo in a config-driven constructor still fails loudly.
+    """
+    model_fields = set(cls.model_fields)
+    kwargs = {k: v for k, v in entity.items() if k in model_fields}
+    if "id" in model_fields and "@iot.id" in entity:
+        kwargs["id"] = entity["@iot.id"]
+    return cls(**kwargs)
+
+
+def _partial_equals(a: "BaseModel", b: "BaseModel") -> bool:
+    """Compare two SensorThings models on their content fields only.
+
+    "Content fields" are those enumerated in
+    `schema.SENSOR_THINGS_ENTITY_FIELDS` for the entity type. This
+    deliberately excludes `id`, `links`, `iot_links`, and any server-computed
+    fields like a Datastream's `observedArea` / `phenomenonTime`.
+
+    Returns `False` when the two objects resolve to different entity types
+    (e.g. `Thing` vs `Sensor`).
+    """
+    if a.as_entity != b.as_entity:  # type: ignore[attr-defined]
+        return False
+    fields = set(SENSOR_THINGS_ENTITY_FIELDS[a.as_entity])  # type: ignore[attr-defined]
+    return a.model_dump(include=fields) == b.model_dump(include=fields)
 
 
 class SensorThingsObject(BaseModel):
@@ -49,7 +86,22 @@ class SensorThingsObject(BaseModel):
 
     @classmethod
     def from_frost_entity(cls, entity: dict[str, Any]) -> Self:
-        return cls(**entity)
+        """Build a model from a FROST (OData) entity payload.
+
+        Strips `@iot.selfLink` and all `*@iot.navigationLink` keys, hoists
+        `@iot.id` into `id` when the subclass declares it, and discards any
+        other key the subclass does not declare.
+        """
+        return _build_from_frost_entity(cls, entity)
+
+    def partial_eq(self, other: "SensorThingsObject") -> bool:
+        """Content-only equality (ignores id, links, iot_links).
+
+        Use when you want to ask "is this the same SensorThings object as
+        one the server already has, regardless of identifiers and
+        relationships?". Full equality stays on `__eq__`.
+        """
+        return _partial_equals(self, other)
 
     # TODO: #4 The state of iot_links as 'str' should be temporary or stored in another attribute.
     def __hash__(self) -> int:
@@ -114,6 +166,22 @@ class Observation(BaseModel):
     def as_entity(self) -> SensorThingsEntity:
         st_type = SensorThingsEntity(self.__class__.__name__)
         return st_type 
+
+    @classmethod
+    def from_frost_entity(cls, entity: dict[str, Any]) -> "Observation":
+        """Build an `Observation` from a FROST entity payload.
+
+        See `SensorThingsObject.from_frost_entity` for the filtering rules.
+        """
+        return _build_from_frost_entity(cls, entity)
+
+    def partial_eq(self, other: "Observation") -> bool:
+        """Content-only equality for Observations.
+
+        Compares `phenomenonTime`, `resultTime`, `result`, and `validTime`;
+        ignores `iot_links`.
+        """
+        return _partial_equals(self, other)
 
 
 class TimePeriod(BaseModel):
