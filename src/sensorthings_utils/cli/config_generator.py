@@ -12,6 +12,9 @@ from rich.console import Console
 from ..paths import VARIABLE_SENSOR_CONFIG_PATH
 from ..transformers.types import SupportedSensors
 
+# Python expression module
+import re
+
 console = Console()
 
 
@@ -104,6 +107,13 @@ def _replace_placeholders(
     else:
         return data
 
+def _safe_filename(value: str) -> str:
+    # replace windows invalid and control chars
+    value = re.sub(r'[\\/:*?"<>|\x00-\x1f]', "_", value)
+    # trim trailing spaces/dots (Windows_issue)
+    value = value.rstrip(" .")
+    return value
+
 
 def generate_config_from_template(
     sensor_model: SupportedSensors,
@@ -171,7 +181,8 @@ def generate_config_from_template(
     
     # Determine output path
     if output_path is None:
-        output_path = VARIABLE_SENSOR_CONFIG_PATH / f"{sensor_id}.yaml"
+        safe_id = _safe_filename(sensor_id)
+        output_path = VARIABLE_SENSOR_CONFIG_PATH / f"{safe_id}.yaml"
     else:
         output_path = Path(output_path)
     
