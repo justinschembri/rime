@@ -10,10 +10,8 @@ from sensorthings_utils.config import (
     FROST_VERSION_DEFAULT,
 )
 from sensorthings_utils.sensor_things.core import (
-    Datastream,
     Observation,
     SensorThingsObject,
-    UnLinkedSensorThingsObjects,
 )
 from sensorthings_utils.sensor_things.schema import (
     SENSOR_THINGS_ENTITY_FIELDS,
@@ -139,7 +137,7 @@ def frost_object_lookup_pages(
     elif isinstance(st_object, SensorThingsObject):
         filter_string = f"name eq '{st_object.name}'"
 
-    entity = SensorThingsEntity(st_object.as_entity)
+    entity = SensorThingsEntity(st_object.entity_type)
     # `@iot.id` is required by downstream callers (e.g.
     # `_check_datastream_object_exists` needs it to follow navigation
     # links). FROST will only include it in a `$select`ed response when it
@@ -229,99 +227,3 @@ def get_frost_datastream_observations(
         raise TypeError("Expected list response from frost_entity_lookup.")
     return lookup_result
 
-def _check_unlinked_object_exists(
-        st_object: UnLinkedSensorThingsObjects,
-        root_url:str = FROST_ROOT_DEFAULT,
-        version: str = FROST_VERSION_DEFAULT
-        ) -> bool:
-    """
-    Check if an unlinked SensorThings object exists in a given FROST instance.
-
-    Compares content fields via `partial_eq` (ignores `id`, `links`,
-    `iot_links`). Should not be used for Datastream or Observation objects;
-    `check_object_existence` dispatches those to dedicated checkers.
-    """
-    response = frost_object_lookup(st_object, root_url, version)
-    if not response:
-        return False
-    cls = type(st_object)
-    for r in response:
-        if st_object.partial_eq(cls.from_frost_entity(r)):
-            return True
-    return False
-
-def _check_datastream_object_exists(
-        st_datastream: Datastream,
-        root_url:str = FROST_ROOT_DEFAULT,
-        version: str = FROST_VERSION_DEFAULT
-        ) -> bool:
-    """Check whether a Datastream with matching content and linked Sensor exists.
-
-    Matches both on the Datastream's own content (via `partial_eq`) and on
-    the linked Sensor's name. Uses OData `$expand=Sensor($select=name)`
-    because `/Datastreams({id})/Sensor` (singular) cannot be reached via
-    the plural-only `sanitize_get_request` helper.
-    """
-    # Invariant: Datastream has exactly one linked Sensor.
-    sensor = st_datastream.links[SensorThingsEntity.SENSOR][0]
-
-    content_fields = SENSOR_THINGS_ENTITY_FIELDS[SensorThingsEntity.DATASTREAM]
-    matches = frost_entity_lookup(
-        first_entity=SensorThingsEntity.DATASTREAM,
-        root_url=root_url,
-        version=version,
-        params={
-            FrostParams.SELECT: ",".join(("@iot.id", *content_fields)),
-            FrostParams.FILTER: f"name eq '{st_datastream.name}'",
-            FrostParams.EXPAND: "Sensor($select=name)",
-        },
-    )
-    if not matches:
-        return False
-
-    for match in matches:
-        candidate = Datastream.from_frost_entity(match)
-        if not st_datastream.partial_eq(candidate):
-            continue
-        linked_sensor = match.get("Sensor") or {}
-        if linked_sensor.get("name") == sensor.name:
-            return True
-
-    return False
-
-def _check_observation_object_exists(
-        st_observation: Observation,
-        root_url:str = FROST_ROOT_DEFAULT,
-        version: str = FROST_VERSION_DEFAULT
-        ) -> bool:
-    """
-    Check if an Observation with matching content exists on the FROST server.
-
-    Matches on the content fields enumerated in
-    `SENSOR_THINGS_ENTITY_FIELDS[OBSERVATION]` (phenomenonTime, resultTime,
-    result, validTime) rather than just phenomenonTime, so that two
-    observations at the same instant but with different `result` values are
-    correctly treated as different.
-    """
-    matches = frost_object_lookup(st_observation, root_url, version)
-    if not matches:
-        return False
-    for match in matches:
-        if st_observation.partial_eq(Observation.from_frost_entity(match)):
-            return True
-    return False
-
-def check_object_existence(
-        st_object: SensorThingsObject | Observation,
-        root_url:str = FROST_ROOT_DEFAULT,
-        version: str = FROST_VERSION_DEFAULT
-        ) -> bool:
-
-    if isinstance(st_object, Datastream):
-        return _check_datastream_object_exists(st_object, root_url, version)
-    elif isinstance(st_object, Observation):
-        return _check_observation_object_exists(st_object, root_url, version)
-    elif isinstance(st_object, UnLinkedSensorThingsObjects):
-        return _check_unlinked_object_exists(st_object, root_url, version)
-    else:
-        raise ValueError(f"Received unexpected object type: {type(st_object)}")

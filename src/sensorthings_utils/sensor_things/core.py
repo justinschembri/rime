@@ -5,7 +5,7 @@ PyObject representations of the OGC SensorThings API (STA) information model.
 # standard
 from __future__ import annotations
 from datetime import datetime
-from typing import Optional, Any, Dict, List, Union, Self
+from typing import Literal, Optional, Any, Dict, List, Union, Self
 from typing_extensions import Annotated
 # external
 from pydantic import (
@@ -74,13 +74,14 @@ class SensorThingsObject(BaseModel):
     links: Optional[Dict[SensorThingsEntity, List["SensorThingsObject"]]] = Field(
         default_factory=dict
     )
-    iot_links: Optional[Dict[
-        SensorThingsEntityGroups, List[Union[str, "SensorThingsObject"]]]
-    ] = Field(default_factory=dict)
+    iot_links: Optional[
+            Dict[SensorThingsEntityGroups, List[int]] | 
+            Dict[SensorThingsEntity, int]
+            ] = Field(default_factory=dict)
 
     @computed_field
     @property
-    def as_entity(self) -> SensorThingsEntity:
+    def entity_type(self) -> SensorThingsEntity:
         st_type = SensorThingsEntity(self.__class__.__name__)
         return st_type 
 
@@ -93,6 +94,10 @@ class SensorThingsObject(BaseModel):
         other key the subclass does not declare.
         """
         return _build_from_frost_entity(cls, entity)
+
+    def as_frost_entity(self) -> str:
+        """Dump Object model into a FROST shaped JSON entity."""
+        ...
 
     def partial_eq(self, other: "SensorThingsObject") -> bool:
         """Content-only equality (ignores id, links, iot_links).
@@ -157,7 +162,9 @@ class ObservedProperty(SensorThingsObject):
 class Observation(BaseModel):
     result: Any
     phenomenonTime: datetime | None
-    iot_links: int | None = None
+    iot_links: Dict[
+        SensorThingsEntity, int
+       ] = Field(default_factory=dict)
     resultTime: datetime | None = None
     validTime: "TimePeriod | None" = None
 

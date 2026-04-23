@@ -59,7 +59,7 @@ def check_existing_object(
     """
     Check if an existing SensorThingsObject already exists.
     """
-    match entity.as_entity:
+    match entity.entity_type:
         case (
             SensorThingsEntity.SENSOR |
             SensorThingsEntity.THING |
@@ -67,7 +67,7 @@ def check_existing_object(
             SensorThingsEntity.LOCATION
         ):  # TODO: #5 Sort out references, sometimes plural, sometimes singular.
             if filter_query(
-                entity=ENTITY_ENDPOINTS[entity.as_entity.value],
+                entity=ENTITY_ENDPOINTS[entity.entity_type.value],
                 filter_string=f"name eq '{entity.name}'",
                 url=None,
                 container_environment=CONTAINER_ENVIRONMENT,
@@ -223,7 +223,7 @@ def make_frost_entity(
 
     frost_endpoint = os.getenv("FROST_ENDPOINT") or FROST_ENDPOINT_DEFAULT
     if check_existing_object(entity, CONTAINER_ENVIRONMENT):
-        logger.info(f"Creation Skipped: {entity.as_entity} {entity.name} already exists.")
+        logger.info(f"Creation Skipped: {entity.entity_type} {entity.name} already exists.")
         return {}
 
     expected_links_map: Dict[str, Tuple[str, ...]] = {
@@ -238,8 +238,8 @@ def make_frost_entity(
     }
 
     application_name = application_name or ""
-    expected_links = expected_links_map[entity.as_entity.value]
-    url = iot_url or (frost_endpoint + ENTITY_ENDPOINTS[entity.as_entity.value])
+    expected_links = expected_links_map[entity.entity_type.value]
+    url = iot_url or (frost_endpoint + ENTITY_ENDPOINTS[entity.entity_type.value])
     if CONTAINER_ENVIRONMENT:
         url = url.replace("localhost", "web")
 
@@ -258,7 +258,7 @@ def make_frost_entity(
             new_object_url = response.getheader(
                 "Location"
             )  # "Location" does not refer to a SensorThings Location
-            logger.info(f"New {entity.as_entity} created at {new_object_url}")
+            logger.info(f"New {entity.entity_type} created at {new_object_url}")
     except error.HTTPError as e:
         if isinstance(entity, Observation):
             pass
@@ -287,7 +287,7 @@ def make_frost_datastream(
 ) -> None:
     frost_endpoint = os.getenv("FROST_ENDPOINT") or FROST_ENDPOINT_DEFAULT
     if check_existing_object(entity, CONTAINER_ENVIRONMENT):
-        logger.info(f"Creation Skipped: {entity.as_entity} {entity.name} already exists.")
+        logger.info(f"Creation Skipped: {entity.entity_type} {entity.name} already exists.")
         return None
     url = frost_endpoint + "/Datastreams"
     data = entity.model_dump(exclude={"iot_links", "id", "st_type"})

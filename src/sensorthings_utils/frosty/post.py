@@ -3,48 +3,61 @@
 # standard
 import json
 from typing import Any, Mapping
-
+import logging
 # external
 import requests
-
 from sensorthings_utils.config import FROST_ROOT_DEFAULT, FROST_VERSION_DEFAULT
 from sensorthings_utils.frost import UrlStr
-from sensorthings_utils.frosty.types import FrostVersions
+from sensorthings_utils.frosty.helpers import check_object_existence
+from sensorthings_utils.frosty.sanitization import sanitize_root_url
 from sensorthings_utils.sensor_things.core import Observation, SensorThingsObject
 
 # internal
 from .errors import FrostRequestError
 
+main_logger = logging.getLogger("main")
 
-def _general_post(
+def general_post(
     url: str,
-    payload: Mapping[str, Any] | str,
+    payload: SensorThingsObject | Observation | Mapping[str, Any] | str,
     *,
     auth_headers: str | None = None,
     content_type: str = "application/json",
 ) -> requests.Response:
     """
-    Execute a POST request against a FROST endpoint.
+    Execute a native POST request against a FROST endpoint.
 
     Accepts structured payloads (mapping/list) and serializes them to JSON bytes.
     String payloads are UTF-8 encoded directly.
     """
-    request_data = json.dumps(payload).encode("utf-8")
+    if isinstance(payload, (SensorThingsObject, Observation)):
+        request_payload = payload.as_frost_entity()
+    else:
+        request_payload = json.dumps(payload).encode("utf-8")
 
     headers = {"Content-Type": content_type}
     if auth_headers:
         headers["Authorization"] = f"Basic {auth_headers}"
 
     try:
-        response = requests.post(url=url, data=request_data, headers=headers)
+        response = requests.post(url=url, data=request_payload, headers=headers)
         response.raise_for_status()
         return response
     except Exception as exc:
         raise FrostRequestError(exc, url)
 
 def make_frost_entity(
-        payload: Mapping[str, Any] | SensorThingsObject | Observation,
+        st_object: SensorThingsObject,
         root_url: str = FROST_ROOT_DEFAULT,
-        version: str | float | int | FrostVersions = FROST_VERSION_DEFAULT,
-        ) -> UrlStr:
-    ...
+        version: str | float | int = FROST_VERSION_DEFAULT,
+        auth_headers: str | None = None,
+        ) -> UrlStr | None:
+        root_url, version = sanitize_root_url(root_url, version)
+        if check_object_existence(st_object, root_url, version):
+            main_logger.info(
+                    f"Creation skipped: {st_object.entity_type} exists."
+                    )
+            return None
+        url = f"{root_url}/v{version}/{st_object.entity_type}"
+        general_post(url, st_object, auth_headers=auth_headers) 
+
