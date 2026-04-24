@@ -15,6 +15,9 @@ from pydantic import (
     model_validator,
     computed_field,
 )
+
+from sensorthings_utils.frost import UrlStr
+from sensorthings_utils.frosty.types import NAVIGATION_LINKS_TO_ENTITY
 # internal
 from .schema import (
     SENSOR_THINGS_ENTITY_FIELDS,
@@ -33,10 +36,18 @@ def _build_from_frost_entity(cls: type, entity: Dict[str, Any]) -> Any:
     typo in a config-driven constructor still fails loudly.
     """
     model_fields = set(cls.model_fields)
-    kwargs = {k: v for k, v in entity.items() if k in model_fields}
-    if "id" in model_fields and "@iot.id" in entity:
-        kwargs["id"] = entity["@iot.id"]
-    return cls(**kwargs)
+    field_kwargs: dict[str, Any] = {k: v for k, v in entity.items() if k in model_fields}
+    if "@iot.id" in entity:
+        field_kwargs["id"] = entity["@iot.id"]
+    iot_links: dict[SensorThingsEntity | SensorThingsEntityGroups, str] = {}
+    for key, value in entity.items():
+        mapped_entity = NAVIGATION_LINKS_TO_ENTITY.get(key)
+        if mapped_entity is None:
+            continue
+        iot_links[mapped_entity] = str(value)
+    if iot_links:
+        field_kwargs["iot_links"] = iot_links
+    return cls(**field_kwargs)
 
 
 def _partial_equals(a: "BaseModel", b: "BaseModel") -> bool:
@@ -50,9 +61,11 @@ def _partial_equals(a: "BaseModel", b: "BaseModel") -> bool:
     Returns `False` when the two objects resolve to different entity types
     (e.g. `Thing` vs `Sensor`).
     """
-    if a.as_entity != b.as_entity:  # type: ignore[attr-defined]
+    a_entity = a.entity_type  # type: ignore[attr-defined]
+    b_entity = b.entity_type  # type: ignore[attr-defined]
+    if a_entity != b_entity:
         return False
-    fields = set(SENSOR_THINGS_ENTITY_FIELDS[a.as_entity])  # type: ignore[attr-defined]
+    fields = set(SENSOR_THINGS_ENTITY_FIELDS[a_entity])
     return a.model_dump(include=fields) == b.model_dump(include=fields)
 
 
@@ -64,6 +77,7 @@ class SensorThingsObject(BaseModel):
     thus the use of camelCase.
     """
 
+    id: Optional[int] = None
     name: Annotated[
         str, StringConstraints(strip_whitespace=True, min_length=1, max_length=255)
     ]
@@ -71,12 +85,12 @@ class SensorThingsObject(BaseModel):
         str, StringConstraints(strip_whitespace=True, min_length=1, max_length=255)
     ]
     properties: Optional[Dict[str, Any]] = Field(default_factory=dict)
-    links: Optional[Dict[SensorThingsEntity, List["SensorThingsObject"]]] = Field(
-        default_factory=dict
-    )
+    links: Optional[
+            Dict[SensorThingsEntity, List["SensorThingsObject"]]
+            ] = Field(default_factory=dict)
     iot_links: Optional[
-            Dict[SensorThingsEntityGroups, List[int]] | 
-            Dict[SensorThingsEntity, int]
+            Dict[SensorThingsEntityGroups, List[UrlStr]] | 
+            Dict[SensorThingsEntity, UrlStr]
             ] = Field(default_factory=dict)
 
     @computed_field
@@ -87,17 +101,12 @@ class SensorThingsObject(BaseModel):
 
     @classmethod
     def from_frost_entity(cls, entity: dict[str, Any]) -> Self:
-        """Build a model from a FROST (OData) entity payload.
-
-        Strips `@iot.selfLink` and all `*@iot.navigationLink` keys, hoists
-        `@iot.id` into `id` when the subclass declares it, and discards any
-        other key the subclass does not declare.
-        """
+        """Build a model from a FROST (OData) entity payload."""
         return _build_from_frost_entity(cls, entity)
 
     def as_frost_entity(self) -> str:
         """Dump Object model into a FROST shaped JSON entity."""
-        ...
+        return self.model_dump_json()
 
     def partial_eq(self, other: "SensorThingsObject") -> bool:
         """Content-only equality (ignores id, links, iot_links).
@@ -115,7 +124,8 @@ class SensorThingsObject(BaseModel):
     def __repr__(self) -> str:
         return self.__repr_name__() + " (name=" + self.name + ")"
 
-    def set_iot_link(
+    #TODO: check if this is still neccesary:
+    def set_link(
         self,
         entity: SensorThingsEntityGroups,
         instance: str,
@@ -131,19 +141,15 @@ class Sensor(SensorThingsObject):
         str, StringConstraints(strip_whitespace=True, min_length=1, max_length=255)
     ]
     metadata: Optional[Any] = None
-    id: Optional[int] = None
 
 
 class Thing(SensorThingsObject):
-    id: Optional[int] = Field(
-        None, description="Generally assigned by the server."
-    )  # TODO: #3 Do you really need an id field?
+    pass
 
 
 class Datastream(SensorThingsObject):
     observationType: str
     unitOfMeasurement: Optional[Dict[str, Any]] = Field(default_factory=dict)
-    id: Optional[int] = Field(None, description="Generally assigned by the server.")
 
 
 class Location(SensorThingsObject):
@@ -160,17 +166,18 @@ class ObservedProperty(SensorThingsObject):
 
 
 class Observation(BaseModel):
+    id: Optional[int] = Field(None, description="Generally assigned by the server.")
     result: Any
     phenomenonTime: datetime | None
-    iot_links: Dict[
-        SensorThingsEntity, int
-       ] = Field(default_factory=dict)
+    iot_links: Dict[SensorThingsEntity | SensorThingsEntityGroups, UrlStr] = Field(
+        default_factory=dict
+    )
     resultTime: datetime | None = None
     validTime: "TimePeriod | None" = None
 
     @computed_field
     @property
-    def as_entity(self) -> SensorThingsEntity:
+    def entity_type(self) -> SensorThingsEntity:
         st_type = SensorThingsEntity(self.__class__.__name__)
         return st_type 
 
@@ -181,6 +188,10 @@ class Observation(BaseModel):
         See `SensorThingsObject.from_frost_entity` for the filtering rules.
         """
         return _build_from_frost_entity(cls, entity)
+
+    def as_frost_entity(self) -> str:
+        """Dump Observation model into a FROST shaped JSON entity."""
+        return self.model_dump_json()
 
     def partial_eq(self, other: "Observation") -> bool:
         """Content-only equality for Observations.

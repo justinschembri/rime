@@ -10,6 +10,7 @@ from sensorthings_utils.config import FROST_ROOT_DEFAULT, FROST_VERSION_DEFAULT
 from sensorthings_utils.frost import UrlStr
 from sensorthings_utils.frosty.helpers import check_object_existence
 from sensorthings_utils.frosty.sanitization import sanitize_root_url
+from sensorthings_utils.frosty.types import ENTITY_TO_FROST_ENDPOINT
 from sensorthings_utils.sensor_things.core import Observation, SensorThingsObject
 
 # internal
@@ -47,7 +48,7 @@ def general_post(
         raise FrostRequestError(exc, url)
 
 def make_frost_entity(
-        st_object: SensorThingsObject,
+        st_object: SensorThingsObject | Observation,
         root_url: str = FROST_ROOT_DEFAULT,
         version: str | float | int = FROST_VERSION_DEFAULT,
         auth_headers: str | None = None,
@@ -55,9 +56,11 @@ def make_frost_entity(
         root_url, version = sanitize_root_url(root_url, version)
         if check_object_existence(st_object, root_url, version):
             main_logger.info(
-                    f"Creation skipped: {st_object.entity_type} exists."
+                    f"Creation skipped: {st_object.entity_type.value} exists."
                     )
             return None
-        url = f"{root_url}/v{version}/{st_object.entity_type}"
-        general_post(url, st_object, auth_headers=auth_headers) 
+        endpoint = ENTITY_TO_FROST_ENDPOINT[st_object.entity_type].value
+        url = f"{root_url}/v{version}{endpoint}"
+        response = general_post(url, st_object, auth_headers=auth_headers)
+        return response.headers.get("Location", url)
 

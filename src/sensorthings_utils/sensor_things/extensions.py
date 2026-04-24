@@ -327,7 +327,7 @@ class SensorArrangement:
                 for instance_name in instances:
                     if not isinstance(instance_name, str):
                         continue
-                    sensor.set_iot_link(
+                    sensor.set_link(
                         entity_group,
                         instance_name,
                         self.get(target_entity.value, instance=instance_name),

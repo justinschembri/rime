@@ -12,7 +12,7 @@ class SensorThingsEntity(Enum):
     SENSOR = "Sensor"
     THING = "Thing"
     LOCATION = "Location"
-    HISTORICALLOCATIONS = "HistoricalLocation"
+    HISTORICALLOCATION = "HistoricalLocation"
     DATASTREAM = "Datastream"
     OBSERVATION = "Observation"
     OBSERVEDPROPERTY = "ObservedProperty"
@@ -37,7 +37,7 @@ ENTITY_GROUPS_TO_ENTITIES: Dict[SensorThingsEntityGroups, SensorThingsEntity] = 
     SensorThingsEntityGroups.SENSORS: SensorThingsEntity.SENSOR,
     SensorThingsEntityGroups.THINGS: SensorThingsEntity.THING,
     SensorThingsEntityGroups.LOCATIONS: SensorThingsEntity.LOCATION,
-    SensorThingsEntityGroups.HISTORICALLOCATIONS: SensorThingsEntity.HISTORICALLOCATIONS,
+    SensorThingsEntityGroups.HISTORICALLOCATIONS: SensorThingsEntity.HISTORICALLOCATION,
     SensorThingsEntityGroups.DATASTREAMS: SensorThingsEntity.DATASTREAM,
     SensorThingsEntityGroups.OBSERVATIONS: SensorThingsEntity.OBSERVATION,
     SensorThingsEntityGroups.OBSERVEDPROPERTIES: SensorThingsEntity.OBSERVEDPROPERTY,
@@ -108,7 +108,7 @@ SENSOR_THINGS_MULTIPLICITIES = {
         SensorThingsEntityGroups.HISTORICALLOCATIONS,
         SensorThingsEntityGroups.THINGS,
     ],
-    SensorThingsEntity.HISTORICALLOCATIONS: [
+    SensorThingsEntity.HISTORICALLOCATION: [
         SensorThingsEntity.THING,
         SensorThingsEntityGroups.LOCATIONS,
     ],
