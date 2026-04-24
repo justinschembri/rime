@@ -14,14 +14,14 @@ from __future__ import annotations
 import pytest
 
 from sensorthings_utils.frosty.get import (
-    _general_get,
     frost_entity_lookup,
     frost_entity_lookup_pages,
     frost_object_lookup,
     frost_object_lookup_pages,
+    general_frost_get,
     get_frost_datastream_observations,
-    check_object_existence,
 )
+from sensorthings_utils.frosty.helpers import check_object_existence
 from sensorthings_utils.frosty.types import FrostParams
 from sensorthings_utils.sensor_things.core import Thing
 from sensorthings_utils.sensor_things.schema import SensorThingsEntityGroups
@@ -37,7 +37,7 @@ KNOWN_THING_NAME = "TU Delft GDMC"
 class TestGeneralGet:
     def test_returns_dict_with_value(self, multicare_root_url: str) -> None:
         url = f"{multicare_root_url}/v1.1/Things"
-        response = _general_get(url, {"$top": 1})
+        response = general_frost_get(url, {"$top": 1})
 
         assert isinstance(response, dict)
         assert "value" in response

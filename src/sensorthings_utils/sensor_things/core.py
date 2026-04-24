@@ -5,7 +5,7 @@ PyObject representations of the OGC SensorThings API (STA) information model.
 # standard
 from __future__ import annotations
 from datetime import datetime
-from typing import Literal, Optional, Any, Dict, List, Union, Self
+from typing import Optional, Any, Dict, List, Union, Self
 from typing_extensions import Annotated
 # external
 from pydantic import (
@@ -16,8 +16,7 @@ from pydantic import (
     computed_field,
 )
 
-from sensorthings_utils.frost import UrlStr
-from sensorthings_utils.frosty.types import NAVIGATION_LINKS_TO_ENTITY
+from sensorthings_utils.frosty.types import NAVIGATION_LINKS_TO_ENTITY, FrostUrl
 # internal
 from .schema import (
     SENSOR_THINGS_ENTITY_FIELDS,
@@ -89,8 +88,8 @@ class SensorThingsObject(BaseModel):
             Dict[SensorThingsEntity, List["SensorThingsObject"]]
             ] = Field(default_factory=dict)
     iot_links: Optional[
-            Dict[SensorThingsEntityGroups, List[UrlStr]] | 
-            Dict[SensorThingsEntity, UrlStr]
+            Dict[SensorThingsEntityGroups, List[FrostUrl]] | 
+            Dict[SensorThingsEntity, FrostUrl]
             ] = Field(default_factory=dict)
 
     @computed_field
@@ -104,9 +103,10 @@ class SensorThingsObject(BaseModel):
         """Build a model from a FROST (OData) entity payload."""
         return _build_from_frost_entity(cls, entity)
 
-    def as_frost_entity(self) -> str:
-        """Dump Object model into a FROST shaped JSON entity."""
-        return self.model_dump_json()
+    def as_frost_entity(self) -> dict[str, Any]:
+        """Dump model fields allowed for a create/update STA JSON body (no iot id/refs)."""
+        include = set(SENSOR_THINGS_ENTITY_FIELDS[self.entity_type])
+        return self.model_dump(include=include)
 
     def partial_eq(self, other: "SensorThingsObject") -> bool:
         """Content-only equality (ignores id, links, iot_links).
@@ -169,7 +169,7 @@ class Observation(BaseModel):
     id: Optional[int] = Field(None, description="Generally assigned by the server.")
     result: Any
     phenomenonTime: datetime | None
-    iot_links: Dict[SensorThingsEntity | SensorThingsEntityGroups, UrlStr] = Field(
+    iot_links: Dict[SensorThingsEntity | SensorThingsEntityGroups, FrostUrl] = Field(
         default_factory=dict
     )
     resultTime: datetime | None = None
@@ -189,9 +189,10 @@ class Observation(BaseModel):
         """
         return _build_from_frost_entity(cls, entity)
 
-    def as_frost_entity(self) -> str:
-        """Dump Observation model into a FROST shaped JSON entity."""
-        return self.model_dump_json()
+    def as_frost_entity(self) -> dict[str, Any]:
+        """Dump observation fields for POST (excludes iot_links and server ids)."""
+        include = set(SENSOR_THINGS_ENTITY_FIELDS[self.entity_type])
+        return self.model_dump(include=include)
 
     def partial_eq(self, other: "Observation") -> bool:
         """Content-only equality for Observations.

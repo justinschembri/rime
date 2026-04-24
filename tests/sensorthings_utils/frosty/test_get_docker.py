@@ -23,13 +23,13 @@ import pytest
 from datetime import datetime, timezone
 
 from sensorthings_utils.frosty.get import (
-    _general_get,
     frost_entity_lookup,
     frost_entity_lookup_pages,
     frost_object_lookup,
+    general_frost_get,
     get_frost_datastream_observations,
-    check_object_existence,
 )
+from sensorthings_utils.frosty.helpers import check_object_existence
 from sensorthings_utils.frosty.types import FrostParams
 from sensorthings_utils.sensor_things.core import (
     Datastream,
@@ -68,7 +68,7 @@ def _datastream_id(frost: DockerFrost) -> int:
 class TestGeneralGet:
     def test_returns_dict_with_value(self, docker_frost: DockerFrost) -> None:
         url = f"{docker_frost.root_url}/{docker_frost.version}/Things"
-        response = _general_get(url)
+        response = general_frost_get(url)
 
         assert isinstance(response, dict)
         assert isinstance(response.get("value"), list)

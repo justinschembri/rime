@@ -7,10 +7,9 @@ import logging
 # external
 import requests
 from sensorthings_utils.config import FROST_ROOT_DEFAULT, FROST_VERSION_DEFAULT
-from sensorthings_utils.frost import UrlStr
 from sensorthings_utils.frosty.helpers import check_object_existence
 from sensorthings_utils.frosty.sanitization import sanitize_root_url
-from sensorthings_utils.frosty.types import ENTITY_TO_FROST_ENDPOINT
+from sensorthings_utils.frosty.types import ENTITY_TO_FROST_ENDPOINT, FrostUrl
 from sensorthings_utils.sensor_things.core import Observation, SensorThingsObject
 
 # internal
@@ -24,17 +23,18 @@ def general_post(
     *,
     auth_headers: str | None = None,
     content_type: str = "application/json",
-) -> requests.Response:
+) -> FrostUrl:
     """
     Execute a native POST request against a FROST endpoint.
 
     Accepts structured payloads (mapping/list) and serializes them to JSON bytes.
     String payloads are UTF-8 encoded directly.
     """
+    if isinstance(payload, str):
+        payload = json.loads(payload)
     if isinstance(payload, (SensorThingsObject, Observation)):
-        request_payload = payload.as_frost_entity()
-    else:
-        request_payload = json.dumps(payload).encode("utf-8")
+        payload = payload.as_frost_entity()
+    request_payload = json.dumps(payload).encode("utf-8")
 
     headers = {"Content-Type": content_type}
     if auth_headers:
@@ -43,7 +43,7 @@ def general_post(
     try:
         response = requests.post(url=url, data=request_payload, headers=headers)
         response.raise_for_status()
-        return response
+        return response.headers["Location"]
     except Exception as exc:
         raise FrostRequestError(exc, url)
 
@@ -52,7 +52,7 @@ def make_frost_entity(
         root_url: str = FROST_ROOT_DEFAULT,
         version: str | float | int = FROST_VERSION_DEFAULT,
         auth_headers: str | None = None,
-        ) -> UrlStr | None:
+        ) -> FrostUrl | None:
         root_url, version = sanitize_root_url(root_url, version)
         if check_object_existence(st_object, root_url, version):
             main_logger.info(

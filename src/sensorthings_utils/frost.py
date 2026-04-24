@@ -19,6 +19,7 @@ from sensorthings_utils.config import (
 )
 from sensorthings_utils.exceptions import FrostUploadFailure
 from sensorthings_utils.frosty.errors import FrostConnectionError
+from sensorthings_utils.frosty.types import FrostUrl
 from sensorthings_utils.sensor_things.core import (
     Datastream,
     SensorThingsObject,
@@ -35,8 +36,6 @@ from sensorthings_utils.frosty.helpers import check_frost_connection
 # typing
 if TYPE_CHECKING:
     from sensorthings_utils.sensor_things.extensions import SensorArrangement
-
-UrlStr = str
 
 logger = logging.getLogger(__name__)
 debug_logger = logging.getLogger("debug")
@@ -315,7 +314,7 @@ def find_datastream_url(
     sensor_name: str,
     datastream_name: ObservedProperties,
     container_environment: bool,
-) -> UrlStr:
+) -> FrostUrl | None:
     """Query the FROST server, find the push URL associated with the passed sensor_name and datastream name."""
     frost_sensors = filter_query(
         entity="/Sensors",

@@ -7,6 +7,8 @@ from sensorthings_utils.sensor_things.schema import SensorThingsEntity, SensorTh
 #internal
 #external
 
+FrostUrl = str
+
 class FrostVersions(Enum):
     v1 = "1"
     v1_1 = "1.1"
