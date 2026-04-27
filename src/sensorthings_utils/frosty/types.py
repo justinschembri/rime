@@ -15,14 +15,14 @@ class FrostVersions(Enum):
 
 class FrostEndpoints(Enum):
     """FROST Server entity endpoints. Camelcase for conistency."""
-    Datastreams = "/Datastreams"
-    FeaturesOfInterest = "/FeaturesOfInterest"
-    HistoricalLocations = "/HistoricalLocations"
-    Locations = "/Locations"
-    Observations = "/Observations"
-    ObservedProperties = "/ObservedProperties"
-    Sensors = "/Sensors"
-    Things = "/Things"
+    DATASTREAMS = "/Datastreams"
+    FEATURESOFINTEREST = "/FeaturesOfInterest"
+    HISTORICALLOCATIONS = "/HistoricalLocations"
+    LOCATIONS = "/Locations"
+    OBSERVATIONS = "/Observations"
+    OBSERVEDPROPERTIES = "/ObservedProperties"
+    SENSORS = "/Sensors"
+    THINGS = "/Things"
 
 class FrostParams(Enum):
     """FROST Server query params."""
@@ -54,14 +54,14 @@ NAVIGATION_LINKS_TO_ENTITY:dict[str, SensorThingsEntity | SensorThingsEntityGrou
         }  
 
 ENTITY_TO_FROST_ENDPOINT: dict[SensorThingsEntity, FrostEndpoints] = {
-    SensorThingsEntity.SENSOR: FrostEndpoints.Sensors,
-    SensorThingsEntity.THING: FrostEndpoints.Things,
-    SensorThingsEntity.LOCATION: FrostEndpoints.Locations,
-    SensorThingsEntity.HISTORICALLOCATION: FrostEndpoints.HistoricalLocations,
-    SensorThingsEntity.DATASTREAM: FrostEndpoints.Datastreams,
-    SensorThingsEntity.OBSERVATION: FrostEndpoints.Observations,
-    SensorThingsEntity.OBSERVEDPROPERTY: FrostEndpoints.ObservedProperties,
-    SensorThingsEntity.FEATUREOFINTEREST: FrostEndpoints.FeaturesOfInterest,
+    SensorThingsEntity.SENSOR: FrostEndpoints.SENSORS,
+    SensorThingsEntity.THING: FrostEndpoints.THINGS,
+    SensorThingsEntity.LOCATION: FrostEndpoints.LOCATIONS,
+    SensorThingsEntity.HISTORICALLOCATION: FrostEndpoints.HISTORICALLOCATIONS,
+    SensorThingsEntity.DATASTREAM: FrostEndpoints.DATASTREAMS,
+    SensorThingsEntity.OBSERVATION: FrostEndpoints.OBSERVATIONS,
+    SensorThingsEntity.OBSERVEDPROPERTY: FrostEndpoints.OBSERVEDPROPERTIES,
+    SensorThingsEntity.FEATUREOFINTEREST: FrostEndpoints.FEATURESOFINTEREST,
 }
 
 FrostResultPageIterator = Iterator[list[dict[str, Any]]]

@@ -35,7 +35,8 @@ def general_post(
     if isinstance(payload, (SensorThingsObject, Observation)):
         payload = payload.as_frost_entity()
     request_payload = json.dumps(payload).encode("utf-8")
-
+    # checks: linked objects
+    # observation: datastream required field
     headers = {"Content-Type": content_type}
     if auth_headers:
         headers["Authorization"] = f"Basic {auth_headers}"
@@ -62,5 +63,6 @@ def make_frost_entity(
         endpoint = ENTITY_TO_FROST_ENDPOINT[st_object.entity_type].value
         url = f"{root_url}/v{version}{endpoint}"
         response = general_post(url, st_object, auth_headers=auth_headers)
-        return response.headers.get("Location", url)
+        return response
+
 

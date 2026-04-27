@@ -314,7 +314,7 @@ def find_datastream_url(
     sensor_name: str,
     datastream_name: ObservedProperties,
     container_environment: bool,
-) -> FrostUrl | None:
+) -> FrostUrl:
     """Query the FROST server, find the push URL associated with the passed sensor_name and datastream name."""
     frost_sensors = filter_query(
         entity="/Sensors",
