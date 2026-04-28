@@ -16,7 +16,8 @@ from pydantic import (
     computed_field,
 )
 
-from sensorthings_utils.frosty.types import NAVIGATION_LINKS_TO_ENTITY, FrostUrl
+from sensorthings_utils.frosty.bridges import NAVIGATION_LINKS_TO_ENTITY
+from sensorthings_utils.frosty.types import FrostUrl
 # internal
 from .schema import (
     SENSOR_THINGS_ENTITY_FIELDS,

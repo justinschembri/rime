@@ -22,6 +22,7 @@ from .schema import (
     SensorThingsEntity,
     SensorThingsEntityGroups,
 )
+from .maps import SENSOR_THINGS_CLASS_MAP, SensorThingsClassMap, SensorThingsObjectMapKey
 
 __all__ = [
     "Datastream",
@@ -42,4 +43,7 @@ __all__ = [
     "SENSOR_THINGS_MULTIPLICITIES",
     "SensorThingsEntity",
     "SensorThingsEntityGroups",
+    "SENSOR_THINGS_CLASS_MAP",
+    "SensorThingsClassMap",
+    "SensorThingsObjectMapKey",
 ]

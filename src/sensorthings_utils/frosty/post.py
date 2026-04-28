@@ -7,9 +7,10 @@ import logging
 # external
 import requests
 from sensorthings_utils.config import FROST_ROOT_DEFAULT, FROST_VERSION_DEFAULT
+from sensorthings_utils.frosty.bridges import ENTITY_TO_FROST_ENDPOINT
 from sensorthings_utils.frosty.helpers import check_object_existence
 from sensorthings_utils.frosty.sanitization import sanitize_root_url
-from sensorthings_utils.frosty.types import ENTITY_TO_FROST_ENDPOINT, FrostUrl
+from sensorthings_utils.frosty.types import FrostUrl
 from sensorthings_utils.sensor_things.core import Observation, SensorThingsObject
 
 # internal

@@ -78,6 +78,14 @@ class SensorConfig:
             data = yaml.safe_load(file)
         return data
 
+    def _convert_to_st_object(self, data:dict[str, Any]) -> dict[
+            SensorThingsEntity | SensorThingsEntityGroups, SensorThingsObject
+            ]:
+        for entity_type in data:
+            try:
+                entity_type.rstrip("s")
+                entity_type = SensorThingsEntity(entity_type)
+
     # TODO: poor logic to be rewritten.
     def __getitem__(self, key) -> Any:
         if self.check_validity is None:

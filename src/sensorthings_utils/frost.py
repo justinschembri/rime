@@ -4,7 +4,7 @@
 import urllib.request as request
 from urllib.parse import quote
 from urllib import error
-from typing import Dict, Tuple, Any, Union, TYPE_CHECKING
+from typing import Dict, Any, Union, TYPE_CHECKING
 import time
 import json
 import logging
@@ -19,6 +19,9 @@ from sensorthings_utils.config import (
 )
 from sensorthings_utils.exceptions import FrostUploadFailure
 from sensorthings_utils.frosty.errors import FrostConnectionError
+from sensorthings_utils.frosty.bridges import (
+    ENTITY_TO_FROST_ENDPOINT,
+)
 from sensorthings_utils.frosty.types import FrostUrl
 from sensorthings_utils.sensor_things.core import (
     Datastream,
@@ -40,18 +43,6 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 debug_logger = logging.getLogger("debug")
 
-ENTITY_ENDPOINTS: Dict[str, str] = {
-    "Sensor": "/Sensors",
-    "Datastream": "/Datastreams",
-    "ObservedProperty": "/ObservedProperties",
-    "Thing": "/Things",
-    "Observation": "/Observations",
-    "FeatureOfInterest": "/FeaturesOfInterest",
-    "HistoricalLocation": "/HistoricalLocations",
-    "Location": "/Locations",
-}
-
-
 def check_existing_object(
     entity: "SensorThingsObject", container_environment: bool
 ) -> bool:
@@ -66,7 +57,7 @@ def check_existing_object(
             SensorThingsEntity.LOCATION
         ):  # TODO: #5 Sort out references, sometimes plural, sometimes singular.
             if filter_query(
-                entity=ENTITY_ENDPOINTS[entity.entity_type.value],
+                entity=ENTITY_TO_FROST_ENDPOINT[entity.entity_type].value,
                 filter_string=f"name eq '{entity.name}'",
                 url=None,
                 container_environment=CONTAINER_ENVIRONMENT,
@@ -225,20 +216,8 @@ def make_frost_entity(
         logger.info(f"Creation Skipped: {entity.entity_type} {entity.name} already exists.")
         return {}
 
-    expected_links_map: Dict[str, Tuple[str, ...]] = {
-        "Sensor": ("Datastreams",),
-        "Datastream": ("ObservedProperties", "Observations", "Sensors", "Things"),
-        "ObservedProperty": ("Datastreams",),
-        "Thing": ("Datastreams", "HistoricalLocations", "Locations"),
-        "Observation": ("Datastream", "FeatureOfInterest"),
-        "FeatureOfInterest": ("Observations",),
-        "HistoricalLocation": ("Things", "Locations"),
-        "Location": ("HistoricalLocations", "Things"),
-    }
-
     application_name = application_name or ""
-    expected_links = expected_links_map[entity.entity_type.value]
-    url = iot_url or (frost_endpoint + ENTITY_ENDPOINTS[entity.entity_type.value])
+    url = iot_url or (frost_endpoint + ENTITY_TO_FROST_ENDPOINT[entity.entity_type].value)
     if CONTAINER_ENVIRONMENT:
         url = url.replace("localhost", "web")
 
@@ -270,10 +249,12 @@ def make_frost_entity(
     with request.urlopen(new_object_url) as response:
         response = json.loads(response.read())
 
-    iot_links = {
-        str.lower(link_name + "_url"): response[link_name + "@iot.navigationLink"]
-        for link_name in expected_links
-    }
+    iot_links = {}
+    for key, value in response.items():
+        if not key.endswith("@iot.navigationLink"):
+            continue
+        base_name = key.replace("@iot.navigationLink", "")
+        iot_links[base_name.lower() + "_url"] = value
     iot_links.update({"self_url": new_object_url})
     return iot_links
 
