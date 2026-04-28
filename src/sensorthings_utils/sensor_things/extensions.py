@@ -3,6 +3,7 @@ Extensions and wrappers to facilitate OGC SensorThings compliant implementations
 """
 
 # standard
+from __future__ import annotations
 from typing import Dict, List, Any, Type, Literal, Optional, Tuple, TYPE_CHECKING
 from pathlib import Path
 import logging
@@ -11,7 +12,7 @@ import logging
 import yaml
 
 from sensorthings_utils.exceptions import FailedSensorConfigValidation
-from sensorthings_utils.transformers.types import SensorID, SupportedSensors
+from sensorthings_utils.transformers.types import SensorUUID, SupportedSensors
 
 # internal
 from .core import (
@@ -37,7 +38,7 @@ debug_logger = logging.getLogger("debug")
 if TYPE_CHECKING:
     ...
 
-__all__ = ["SensorConfig", "SensorArrangement"]
+__all__ = ["SensorConfig"]
 
 main_logger = logging.getLogger("main")
 
@@ -63,7 +64,7 @@ class SensorConfig:
         self._set_metadata()
         # below metadata attrs set by fn above
         self.model: SupportedSensors
-        self.name: SensorID
+        self.name: SensorUUID
 
     def _set_metadata(self) -> None:
         """Set sensor metadata attrs."""
@@ -260,110 +261,3 @@ class SensorConfig:
                 # see 32392b2
         return (True, []) if not invalid else (False, error_list)
 
-
-class SensorArrangement:
-    """
-    Represents a single instance of the OGC SenorThings data model.
-
-    An aggregation of 1 Sensor and 0 or more Things, Locations, Datastreams and
-    ObservedProperties. Adherence to the datamodel implies this class includes: 1 Sensor,
-    which may is linked to 0..* Datastreams. Each datastream is associated to 1 Thing
-    and 1 ObservedProperty respectively. A Thing is associated with 0..* Locations. The
-    class attributes consistently uses the plural form (i.e., sensors, things,
-    datastreams etc.) although it will always include ONE sensor.
-    """
-
-    class_mappings: Dict[SensorThingsEntityGroups, Type["SensorThingsObject"]] = {
-        SensorThingsEntityGroups.SENSORS: Sensor,
-        SensorThingsEntityGroups.THINGS: Thing,
-        SensorThingsEntityGroups.LOCATIONS: Location,
-        SensorThingsEntityGroups.DATASTREAMS: Datastream,
-        SensorThingsEntityGroups.OBSERVEDPROPERTIES: ObservedProperty,
-    }
-
-    def __init__(self, sensor_config: "SensorConfig"):
-        self._sensor_config = sensor_config
-        self._unlinked_arrangement: List["SensorThingsObject"] = self._initial_setup()
-        # public:
-        self.linked_arrangement: Tuple[SensorThingsObject, ...] = self._link_iot()
-
-    def __repr__(self) -> str:
-        return (
-            f"SensorArrangement (Sensor={self.get_entities("Sensor")[0].name}, "
-            + f"SensorThingsObjects={len(self.linked_arrangement)})"
-        )
-
-    def _initial_setup(self) -> List[SensorThingsObject]:
-        """
-        Return an unlinked list of SensorThingsObjects inferred from the class `arrangement_map`.
-
-        Unpack the SensorConfig, unpack values into SensorThings objects.
-        """
-        unlinked_arrangement = []
-        arrangement_map = self._sensor_config
-        for entity_group in SensorThingsEntityGroups:
-            if entity_group in [
-                    SensorThingsEntityGroups.HISTORICALLOCATIONS,
-                    SensorThingsEntityGroups.OBSERVATIONS,
-                    SensorThingsEntityGroups.FEATURESOFINTEREST,
-                    ]:
-                continue
-            ####################################################################
-            names = [_ for _ in arrangement_map[entity_group].keys()]
-            for i in names:
-                unlinked_arrangement.append(
-                    SensorArrangement.class_mappings[entity_group](
-                        **arrangement_map[entity_group][i]
-                    )
-                )
-        return unlinked_arrangement
-
-    def _link_iot(self) -> Tuple[SensorThingsObject, ...]:
-        """Replace str representations of iot_links with SensorThingsObjects."""
-        unlinked_arrangement = self._unlinked_arrangement
-        for sensor in unlinked_arrangement:
-            for entity_group, instances in sensor.iot_links.items():
-                target_entity: SensorThingsEntity = ENTITY_GROUPS_TO_ENTITIES[entity_group]
-                for instance_name in instances:
-                    if not isinstance(instance_name, str):
-                        continue
-                    sensor.set_link(
-                        entity_group,
-                        instance_name,
-                        self.get(target_entity.value, instance=instance_name),
-                    )
-        return tuple(unlinked_arrangement)
-
-    def get(
-        self,
-        entity: Literal[
-            "Sensor", "Thing", "Location", "Datastream", "ObservedProperty"
-        ],
-        instance: str,
-        field: Optional[str] = None,
-    ) -> SensorThingsObject:
-        # this method is first called in the _link_iot function, before
-        # self.linked_arrangement has been declared, so:
-        query_arrangement = self._unlinked_arrangement or self.linked_arrangement
-        for sensor_things_object in query_arrangement:
-            if (
-                sensor_things_object.__class__.__name__ == entity
-                and sensor_things_object.name == instance
-            ):
-                if field:
-                    return sensor_things_object.__dict__[field]
-                elif not field:
-                    return sensor_things_object  # type: ignore
-        raise KeyError(f"Keys {entity=}, {field=} and {instance=} not found.")
-
-    def get_entities(
-        self,
-        entity: Literal[
-            "Sensor", "Thing", "Location", "Datastream", "ObservedProperty"
-        ],
-    ) -> List["SensorThingsObject"]:
-        entity_list = []
-        for sensor_things_object in self.linked_arrangement:
-            if sensor_things_object.__class__.__name__ == entity:
-                entity_list.append(sensor_things_object)
-        return entity_list

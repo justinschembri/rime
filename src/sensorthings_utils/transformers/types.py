@@ -5,7 +5,7 @@
 from enum import Enum
 # internal
 
-SensorID = str
+SensorUUID = str
 
 
 class ObservedProperties(Enum):

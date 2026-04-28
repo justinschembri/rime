@@ -13,7 +13,7 @@ from datetime import datetime
 
 # external
 # internal
-from .types import SensorID
+from .types import SensorUUID
 from ..exceptions import MissingPayloadKeysError, UnpackError
 
 # environment set-up
@@ -40,7 +40,7 @@ class NativePayload:
     include more than one set of observations.
     """
 
-    data: dict[SensorID, dict[str, Any]]
+    data: dict[SensorUUID, dict[str, Any]]
     application_timestamp: datetime | None
 
     def __bool__(self) -> bool:

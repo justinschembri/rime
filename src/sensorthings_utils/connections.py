@@ -27,7 +27,7 @@ from .transformers.application_unpackers import (
     TTSUnpacker,
     UnpackError,
 )
-from .transformers.types import SensorID, SupportedSensors
+from .transformers.types import SensorUUID, SupportedSensors
 from .transformers.registry import TRANSFORMER_MAP
 
 # environment setup
@@ -67,7 +67,7 @@ class SensorApplicationConnection(ABC):
             if self.authentication_type == "tokens"
             else (CREDENTIALS_DIR / "application_credentials.json")
         )
-        self.sensor_registry: dict[SensorID, SupportedSensors]
+        self.sensor_registry: dict[SensorUUID, SupportedSensors]
 
     # class attributes #########################################################
     application_unpacker: ClassVar[ApplicationUnpacker]
@@ -195,7 +195,7 @@ class SensorApplicationConnection(ABC):
 
     # threading methods  #######################################################
     def start_pull_transform_push_thread(
-        self, sensor_registry: dict[SensorID, SupportedSensors] 
+        self, sensor_registry: dict[SensorUUID, SupportedSensors] 
     ):
         """
         Spin up a thread and run the _loop method.

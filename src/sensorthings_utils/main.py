@@ -22,7 +22,7 @@ from sensorthings_utils.sensor_things.extensions import (
 import sensorthings_utils.frost as frost
 from sensorthings_utils.connections import SensorApplicationConnection
 from sensorthings_utils.monitor import netmon
-from sensorthings_utils.transformers.types import SensorID, SupportedSensors
+from sensorthings_utils.transformers.types import SensorUUID, SupportedSensors
 
 
 # import from config.py:
@@ -93,7 +93,7 @@ def _setup_sensor_arrangements(sensor_config: SensorConfig) -> None:
 
 def push_available(
     sensor_config_paths: List[Path] = generate_sensor_config_files(),
-    exclude: Optional[List[SensorID]] = None,
+    exclude: Optional[List[SensorUUID]] = None,
     frost_endpoint: Optional[str] = None,
     start_delay: int = 30,
 ) -> None:
@@ -118,7 +118,7 @@ def push_available(
     )
     time.sleep(start_delay)
     # INITIAL SETUP ############################################################
-    sensor_registry: dict[SensorID, SupportedSensors] = {}
+    sensor_registry: dict[SensorUUID, SupportedSensors] = {}
     for f in sensor_config_paths:
         if exclude and f.name in exclude:
             continue

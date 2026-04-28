@@ -8,7 +8,7 @@ import threading
 from collections import defaultdict
 from typing import TYPE_CHECKING
 from sensorthings_utils.paths import ROOT_DIR
-from sensorthings_utils.transformers.types import SensorID
+from sensorthings_utils.transformers.types import SensorUUID
 
 if TYPE_CHECKING:
     from sensorthings_utils.connections import SensorApplicationConnection
@@ -30,12 +30,12 @@ class _NetworkMonitor:
 
     def __init__(self):
         self.start_time = datetime.now()
-        self.expected_sensors: set[SensorID] = set()
+        self.expected_sensors: set[SensorUUID] = set()
         self.starting_application_threads: set[str] = set()
-        self.push_success: dict[SensorID, int] = defaultdict(int)
-        self.push_fail: dict[SensorID, int] = defaultdict(int)
-        self.last_push_time: dict[SensorID, float] = defaultdict(float)
-        self.rejected_payloads: dict[SensorID, int] = defaultdict(int)
+        self.push_success: dict[SensorUUID, int] = defaultdict(int)
+        self.push_fail: dict[SensorUUID, int] = defaultdict(int)
+        self.last_push_time: dict[SensorUUID, float] = defaultdict(float)
+        self.rejected_payloads: dict[SensorUUID, int] = defaultdict(int)
         self.sensor_config_fail: int = 0
         self.payloads_received: dict[str, int] = defaultdict(int)
         self.connections: set["SensorApplicationConnection"] = set()

@@ -30,7 +30,7 @@ from sensorthings_utils.sensor_things.schema import (
     SensorThingsEntityGroups,
 )
 from sensorthings_utils.monitor import netmon
-from sensorthings_utils.transformers.types import ObservedProperties, SensorID
+from sensorthings_utils.transformers.types import ObservedProperties, SensorUUID
 from sensorthings_utils.frosty.helpers import check_frost_connection 
 
 # typing
@@ -386,7 +386,7 @@ def observation_to_sensor_trace(url: str, return_url: bool = False) -> str | Non
 
 
 def frost_observation_upload(
-    sensor_name: SensorID,
+    sensor_name: SensorUUID,
     observation_set: Tuple[Observation, ObservedProperties],
     app_name: str | None = None,
 ) -> None:
