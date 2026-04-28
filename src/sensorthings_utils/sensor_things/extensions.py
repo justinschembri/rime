@@ -4,7 +4,7 @@ Extensions and wrappers to facilitate OGC SensorThings compliant implementations
 
 # standard
 from __future__ import annotations
-from typing import Dict, List, Any, Type, Literal, Optional, Tuple, TYPE_CHECKING
+from typing import Dict, List, Any, Tuple, TYPE_CHECKING
 from pathlib import Path
 import logging
 
@@ -12,17 +12,16 @@ import logging
 import yaml
 
 from sensorthings_utils.exceptions import FailedSensorConfigValidation
+from sensorthings_utils.sensor_things.maps import SENSOR_THINGS_CLASS_MAP
 from sensorthings_utils.transformers.types import SensorUUID, SupportedSensors
 
 # internal
-from .core import (
-    Sensor,
-    Thing,
-    Datastream,
-    Location,
-    ObservedProperty,
-    SensorThingsObject,
-)
+if TYPE_CHECKING:
+    from .core import (
+        Observation,
+        SensorThingsObject,
+    )
+
 from .schema import (
     CONFIG_YAML_EXPECTED_CLASS_FIELDS,
     CONFIG_YAML_EXPECTED_IOT_LINK_GROUPS,
@@ -60,6 +59,9 @@ class SensorConfig:
     def __init__(self, filepath: str | Path) -> None:
         self._filepath = Path(filepath)
         self.data: Dict[str, Any] = self._load()
+        self.st_objects: dict[
+                SensorThingsEntity, List[SensorThingsObject]
+            ] = self._convert_to_st_object(self.data)
         self.is_valid = self.check_validity()[0]
         self._set_metadata()
         # below metadata attrs set by fn above
@@ -78,27 +80,35 @@ class SensorConfig:
             data = yaml.safe_load(file)
         return data
 
-    def _convert_to_st_object(self, data:dict[str, Any]) -> dict[
-            SensorThingsEntity | SensorThingsEntityGroups, SensorThingsObject
+    def _convert_to_st_object(self, data:dict[str, dict[str, Any]]) -> dict[
+            SensorThingsEntity, List[SensorThingsObject] 
             ]:
+        normalized_data: dict[SensorThingsEntity, Any] = {}
         for entity_type in data:
             try:
-                entity_type.rstrip("s")
-                entity_type = SensorThingsEntity(entity_type)
+            #TODO: flip this actually!
+                normal_entity_type = SensorThingsEntity(entity_type)
+            except ValueError:
+                # normalize consitently to singular
+                try:
+                    normal_entity_type = SensorThingsEntityGroups(entity_type)
+                    normal_entity_type = ENTITY_GROUPS_TO_ENTITIES[normal_entity_type]
+                except ValueError as e:
+                    raise ValueError(f"Unsupported key (typo?): {e}")
+                normalized_data[normal_entity_type] = data[entity_type]
 
-    # TODO: poor logic to be rewritten.
-    def __getitem__(self, key) -> Any:
-        if self.check_validity is None:
-            self.check_validity()
-        if self.check_validity is False:
-            main_logger.error(
-                f"The SensorConfig {self._filepath.name} is invalid."
-                + " Passing to other functions may cuase unexpected "
-                + " behaviour."
-            )
-        if isinstance(key, SensorThingsEntityGroups):
-            return self.data.get(key.value)
-        return self.data.get(key)
+        st_objects: dict[SensorThingsEntity, List[SensorThingsObject]] = {}
+        entities: list[SensorThingsObject] = []
+        for entity_type, fields in normalized_data.items():
+            st_objects[entity_type] = entities
+            st_object_class = SENSOR_THINGS_CLASS_MAP[entity_type]
+            st_object = st_object_class(**fields)
+            if isinstance(st_object, Observation):
+                main_logger.warning(f"Observation in config {self._filepath}.")
+                continue
+            entities.append(st_object)
+
+        return st_objects
 
     def check_validity(self) -> Tuple[bool, list[str]]:
         """

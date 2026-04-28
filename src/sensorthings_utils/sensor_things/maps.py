@@ -15,7 +15,7 @@ from sensorthings_utils.sensor_things.schema import (
 )
 
 SensorThingsObjectMapKey = SensorThingsEntity | SensorThingsEntityGroups
-SensorThingsClassMap = dict[SensorThingsObjectMapKey, type[SensorThingsObject]]
+SensorThingsClassMap = dict[SensorThingsObjectMapKey, type[SensorThingsObject | Observation]]
 
 SENSOR_THINGS_CLASS_MAP: SensorThingsClassMap = {
     SensorThingsEntity.SENSOR: Sensor,

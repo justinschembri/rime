@@ -14,7 +14,7 @@ from .constants import (
     EXTRA_STANDARD_FIELDS_MAP,
     MODEL_FIELDS_MAP,
     NAVIGATION_HEADERS_MAP,
-    EntityName,
+    FrostEntityNames,
 )
 from .errors import FrostWriterError
 from sensorthings_utils.paths import DOWNLOADS_DIR
@@ -325,7 +325,7 @@ class FrostWriter:
         self,
         *,
         response: Mapping[str, Any] | None = None,
-    ) -> Optional[EntityName]:
+    ) -> Optional[FrostEntityNames]:
         source = self.source_url
         if source is None and response is not None:
             source = self._infer_source_url(response)

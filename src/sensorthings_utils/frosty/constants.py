@@ -11,7 +11,7 @@ from sensorthings_utils.sensor_things.core import (
     Thing,
 )
 
-EntityName = Literal[
+FrostEntityNames = Literal[
     "Datastreams",
     "Sensors",
     "Things",
@@ -20,7 +20,7 @@ EntityName = Literal[
     "Observations",
 ]
 
-MODEL_FIELDS_MAP: dict[EntityName, list[str]] = {
+MODEL_FIELDS_MAP: dict[FrostEntityNames, list[str]] = {
     "Datastreams": list(Datastream.model_fields.keys()),
     "Sensors": list(Sensor.model_fields.keys()),
     "Things": list(Thing.model_fields.keys()),
@@ -31,7 +31,7 @@ MODEL_FIELDS_MAP: dict[EntityName, list[str]] = {
 
 # Fields that are part of SensorThings response payloads but are not currently
 # represented in local pydantic models.
-EXTRA_STANDARD_FIELDS_MAP: dict[EntityName, list[str]] = {
+EXTRA_STANDARD_FIELDS_MAP: dict[FrostEntityNames, list[str]] = {
     "Datastreams": ["observedArea", "phenomenonTime", "resultTime"],
     "Sensors": [],
     "Things": [],
@@ -42,7 +42,7 @@ EXTRA_STANDARD_FIELDS_MAP: dict[EntityName, list[str]] = {
 
 COMMON_IOT_FIELDS = ["@iot.selfLink", "@iot.id"]
 
-NAVIGATION_HEADERS_MAP: dict[EntityName, list[str]] = {
+NAVIGATION_HEADERS_MAP: dict[FrostEntityNames, list[str]] = {
     "Datastreams": [
         "ObservedProperty@iot.navigationLink",
         "Sensor@iot.navigationLink",

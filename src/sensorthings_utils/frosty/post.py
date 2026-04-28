@@ -2,7 +2,7 @@
 
 # standard
 import json
-from typing import Any, Mapping
+from typing import Any, Mapping, Optional
 import logging
 # external
 import requests
@@ -53,7 +53,9 @@ def make_frost_entity(
         st_object: SensorThingsObject | Observation,
         root_url: str = FROST_ROOT_DEFAULT,
         version: str | float | int = FROST_VERSION_DEFAULT,
-        auth_headers: str | None = None,
+        auth_headers: Optional[str] = None,
+        *,
+        endpoint: Optional[FrostUrl] = None 
         ) -> FrostUrl | None:
         root_url, version = sanitize_root_url(root_url, version)
         if check_object_existence(st_object, root_url, version):
@@ -61,9 +63,10 @@ def make_frost_entity(
                     f"Creation skipped: {st_object.entity_type.value} exists."
                     )
             return None
-        endpoint = ENTITY_TO_FROST_ENDPOINT[st_object.entity_type].value
-        url = f"{root_url}/v{version}{endpoint}"
-        response = general_post(url, st_object, auth_headers=auth_headers)
+        if not endpoint:
+            endpoint = ENTITY_TO_FROST_ENDPOINT[st_object.entity_type].value
+            endpoint = f"{root_url}/v{version}{endpoint}"
+        response = general_post(endpoint, st_object, auth_headers=auth_headers)
         return response
 
 
