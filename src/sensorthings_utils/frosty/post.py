@@ -56,13 +56,14 @@ def make_frost_entity(
         auth_headers: Optional[str] = None,
         *,
         endpoint: Optional[FrostUrl] = None 
-        ) -> FrostUrl | None:
+        ) -> FrostEntityRef:
         root_url, version = sanitize_root_url(root_url, version)
-        if check_object_existence(st_object, root_url, version):
+        existing_entity = check_object_existence(st_object, root_url, version)
+        if existing_entity:
             main_logger.info(
-                    f"Creation skipped: {st_object.entity_type.value} exists."
+                    f"Skipping creation {st_object} exists at: {existing_entity}"
                     )
-            return None
+            return existing_entity
         if not endpoint:
             endpoint = ENTITY_TO_FROST_ENDPOINT[st_object.entity_type].value
             endpoint = f"{root_url}/v{version}{endpoint}"

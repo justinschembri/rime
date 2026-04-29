@@ -7,7 +7,7 @@ import requests
 from sensorthings_utils.config import FROST_ROOT_DEFAULT, FROST_VERSION_DEFAULT
 from sensorthings_utils.frosty.get import frost_entity_lookup, frost_object_lookup
 from sensorthings_utils.sensor_things.core import Datastream, Observation, SensorThingsObject, UnLinkedSensorThingsObjects
-from sensorthings_utils.sensor_things.schema import SENSOR_THINGS_ENTITY_FIELDS, SensorThingsEntity
+from sensorthings_utils.sensor_things.schema import SensorThingsEntity
 #internal
 from .types import FrostEndpoints, FrostEntityRef, FrostParams, FrostVersions
 #logging
@@ -50,7 +50,7 @@ def _check_unlinked_object_exists(
     `iot_links`). Should not be used for Datastream or Observation objects;
     `check_object_existence` dispatches those to dedicated checkers.
     """
-    response = frost_object_lookup(st_object, root_url, version, object_fields_only=False)
+    response = frost_object_lookup(st_object, root_url, version)
     if not response:
         return None
     cls = type(st_object)
@@ -72,7 +72,7 @@ def _check_datastream_object_exists(
         st_datastream: Datastream,
         root_url:str = FROST_ROOT_DEFAULT,
         version: str = FROST_VERSION_DEFAULT
-        ) -> bool:
+        ) -> None | FrostEntityRef:
     """Check whether a Datastream with matching content and linked Sensor exists.
 
     Matches both on the Datastream's own content (via `partial_eq`) and on
@@ -80,22 +80,21 @@ def _check_datastream_object_exists(
     because `/Datastreams({id})/Sensor` (singular) cannot be reached via
     the plural-only `sanitize_get_request` helper.
     """
-    # Invariant: Datastream has exactly one linked Sensor.
+    # Invariant: Datastream has exactly one linked Sensor, we cannot check if
+    # a datastream exists without this link.
     sensor = st_datastream.links[SensorThingsEntity.SENSOR][0]
 
-    content_fields = SENSOR_THINGS_ENTITY_FIELDS[SensorThingsEntity.DATASTREAM]
     matches = frost_entity_lookup(
         first_entity=SensorThingsEntity.DATASTREAM,
         root_url=root_url,
         version=version,
         params={
-            FrostParams.SELECT: ",".join(("@iot.id", *content_fields)),
             FrostParams.FILTER: f"name eq '{st_datastream.name}'",
             FrostParams.EXPAND: "Sensor($select=name)",
         },
     )
     if not matches:
-        return False
+        return None
 
     for match in matches:
         candidate = Datastream.from_frost_entity(match)
@@ -103,15 +102,15 @@ def _check_datastream_object_exists(
             continue
         linked_sensor = match.get("Sensor") or {}
         if linked_sensor.get("name") == sensor.name:
-            return True
+            return FrostEntityRef.from_frost_url(match["@iot.selfLink"])
 
-    return False
+    return None
 
 def _check_observation_object_exists(
         st_observation: Observation,
         root_url:str = FROST_ROOT_DEFAULT,
         version: str = FROST_VERSION_DEFAULT
-        ) -> bool:
+        ) -> None | FrostEntityRef:
     """
     Check if an Observation with matching content exists on the FROST server.
 
@@ -122,19 +121,19 @@ def _check_observation_object_exists(
     correctly treated as different.
     """
     #TODO: test the real robustness of this function!
-    matches = frost_object_lookup(st_observation, root_url, version, object_fields_only=True)
+    matches = frost_object_lookup(st_observation, root_url, version)
     if not matches:
-        return False
+        return None
     for match in matches:
         if st_observation.partial_eq(Observation.from_frost_entity(match)):
-            return True
-    return False
+            return FrostEntityRef.from_frost_url(match["@iot.selfLink"])
+    return None
 
 def check_object_existence(
         st_object: SensorThingsObject | Observation,
         root_url:str = FROST_ROOT_DEFAULT,
         version: str = FROST_VERSION_DEFAULT
-        ) -> bool:
+        ) -> None | FrostEntityRef:
 
     if isinstance(st_object, Datastream):
         return _check_datastream_object_exists(st_object, root_url, version)
