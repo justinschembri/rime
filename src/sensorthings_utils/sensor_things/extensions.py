@@ -83,30 +83,38 @@ class SensorConfig:
     def _convert_to_st_object(self, data:dict[str, dict[str, Any]]) -> dict[
             SensorThingsEntity, List[SensorThingsObject] 
             ]:
-        normalized_data: dict[SensorThingsEntity, Any] = {}
-        for entity_type in data:
-            try:
-            #TODO: flip this actually!
-                normal_entity_type = SensorThingsEntity(entity_type)
-            except ValueError:
-                # normalize consitently to singular
-                try:
-                    normal_entity_type = SensorThingsEntityGroups(entity_type)
-                    normal_entity_type = ENTITY_GROUPS_TO_ENTITIES[normal_entity_type]
-                except ValueError as e:
-                    raise ValueError(f"Unsupported key (typo?): {e}")
-                normalized_data[normal_entity_type] = data[entity_type]
-
         st_objects: dict[SensorThingsEntity, List[SensorThingsObject]] = {}
-        entities: list[SensorThingsObject] = []
-        for entity_type, fields in normalized_data.items():
-            st_objects[entity_type] = entities
-            st_object_class = SENSOR_THINGS_CLASS_MAP[entity_type]
-            st_object = st_object_class(**fields)
-            if isinstance(st_object, Observation):
-                main_logger.warning(f"Observation in config {self._filepath}.")
+
+        for raw_entity_key, instances in data.items():
+            try:
+                entity = SensorThingsEntity(raw_entity_key)
+            except ValueError:
+                try:
+                    entity_group = SensorThingsEntityGroups(raw_entity_key)
+                    entity = ENTITY_GROUPS_TO_ENTITIES[entity_group]
+                except ValueError as e:
+                    raise ValueError(f"Unsupported SensorThings key: {raw_entity_key!r}.") from e
+
+            if entity.value == "Observation":
+                main_logger.warning(f"Observation entries are ignored in config {self._filepath}.")
                 continue
-            entities.append(st_object)
+            if not isinstance(instances, dict):
+                raise TypeError(f"{raw_entity_key} must be a dict of named instances.")
+
+            st_object_class = SENSOR_THINGS_CLASS_MAP[entity]
+            st_objects.setdefault(entity, [])
+            for instance_name, fields in instances.items():
+                if not isinstance(fields, dict):
+                    raise TypeError(
+                        f"{raw_entity_key}.{instance_name} must be a dict of object fields."
+                    )
+                try:
+                    st_object = st_object_class(**fields)
+                except Exception as e:
+                    raise ValueError(
+                        f"Failed to build {entity.value} from {raw_entity_key}.{instance_name}: {e}"
+                    ) from e
+                st_objects[entity].append(st_object)
 
         return st_objects
 

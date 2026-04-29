@@ -18,6 +18,7 @@ from pydantic import (
 
 from sensorthings_utils.frosty.bridges import NAVIGATION_LINKS_TO_ENTITY
 from sensorthings_utils.frosty.types import FrostUrl
+from sensorthings_utils.frosty.types import FrostEntityRef
 # internal
 from .schema import (
     SENSOR_THINGS_ENTITY_FIELDS,
@@ -151,6 +152,23 @@ class Thing(SensorThingsObject):
 class Datastream(SensorThingsObject):
     observationType: str
     unitOfMeasurement: Optional[Dict[str, Any]] = Field(default_factory=dict)
+
+    def as_frost_entity(self) -> dict[str, Any]:
+        payload = super().as_frost_entity()
+        links = self.iot_links or {}
+        link_map = {
+            SensorThingsEntityGroups.SENSORS: "Sensor",
+            SensorThingsEntityGroups.THINGS: "Thing",
+            SensorThingsEntityGroups.OBSERVEDPROPERTIES: "ObservedProperty",
+        }
+        for group, field in link_map.items():
+            refs = links.get(group)
+            if not refs:
+                continue
+            ref = refs[0]
+            if isinstance(ref, FrostEntityRef):
+                payload[field] = ref.as_iot_ref()
+        return payload
 
 
 class Location(SensorThingsObject):
