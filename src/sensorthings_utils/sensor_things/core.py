@@ -40,12 +40,17 @@ def _build_from_frost_entity(cls: type, entity: Dict[str, Any]) -> Any:
     field_kwargs: dict[str, Any] = {k: v for k, v in entity.items() if k in model_fields}
     if "@iot.id" in entity:
         field_kwargs["id"] = entity["@iot.id"]
-    iot_links: dict[SensorThingsEntity | SensorThingsEntityGroups, str] = {}
+    iot_links: dict[
+        SensorThingsEntity | SensorThingsEntityGroups, FrostUrl | list[FrostUrl]
+    ] = {}
     for key, value in entity.items():
         mapped_entity = NAVIGATION_LINKS_TO_ENTITY.get(key)
         if mapped_entity is None:
             continue
-        iot_links[mapped_entity] = str(value)
+        if isinstance(value, list):
+            iot_links[mapped_entity] = [str(v) for v in value]
+        else:
+            iot_links[mapped_entity] = str(value)
     if iot_links:
         field_kwargs["iot_links"] = iot_links
     return cls(**field_kwargs)
@@ -90,9 +95,11 @@ class SensorThingsObject(BaseModel):
             Dict[SensorThingsEntity, List["SensorThingsObject"]]
             ] = Field(default_factory=dict)
     iot_links: Optional[
-            Dict[SensorThingsEntityGroups, List[FrostUrl]] | 
-            Dict[SensorThingsEntity, FrostUrl]
-            ] = Field(default_factory=dict)
+        Dict[
+            SensorThingsEntity | SensorThingsEntityGroups,
+            List[FrostUrl] | FrostUrl,
+        ]
+    ] = Field(default_factory=dict)
 
     @computed_field
     @property

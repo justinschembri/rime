@@ -123,6 +123,7 @@ def frost_object_lookup_pages(
         st_object: SensorThingsObject | Observation,
         root_url: str = FROST_ROOT_DEFAULT,
         version: str | float | int | FrostVersions = FROST_VERSION_DEFAULT,
+        object_fields_only: bool = False,
         ) -> FrostResultPageIterator:
     """Lookup equivalent SensorThingsObject values and return paged iterator."""
 
@@ -138,15 +139,13 @@ def frost_object_lookup_pages(
         filter_string = f"name eq '{st_object.name}'"
 
     entity = SensorThingsEntity(st_object.entity_type)
-    # `@iot.id` is required by downstream callers (e.g.
-    # `_check_datastream_object_exists` needs it to follow navigation
-    # links). FROST will only include it in a `$select`ed response when it
-    # is named explicitly.
-    select_fields = ("@iot.id", *SENSOR_THINGS_ENTITY_FIELDS[entity])
     params: dict[str | FrostParams, Any] = {
-        FrostParams.SELECT: ",".join(select_fields),
         FrostParams.FILTER: filter_string,
     }
+    # Optional slim return payload for object field comparison calls.
+    if object_fields_only:
+        select_fields = ("@iot.id", *SENSOR_THINGS_ENTITY_FIELDS[entity])
+        params[FrostParams.SELECT] = ",".join(select_fields)
 
     return frost_entity_lookup_pages(
             entity,
@@ -160,12 +159,14 @@ def frost_object_lookup(
         st_object: SensorThingsObject | Observation,
         root_url: str = FROST_ROOT_DEFAULT,
         version: str | float | int | FrostVersions = FROST_VERSION_DEFAULT,
+        object_fields_only: bool = False,
         ) -> list[dict[str, Any]] | None:
     """Wrapper over `frost_object_lookup_pages` that merges all pages into one list."""
     pages = frost_object_lookup_pages(
         st_object=st_object,
         root_url=root_url,
         version=version,
+        object_fields_only=object_fields_only
     )
     data: list[dict[str, Any]] = []
     for page in pages:

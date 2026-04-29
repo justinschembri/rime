@@ -48,7 +48,7 @@ class FrostEntityRef:
     entity: SensorThingsEntity
     iot_id: int
     root_url: str
-    version: str
+    version: FrostVersions
 
     @classmethod
     def from_frost_url(cls, url: FrostUrl) -> "FrostEntityRef":
@@ -57,6 +57,7 @@ class FrostEntityRef:
             raise ValueError(f"Unexpected FROST entity URL format: {url}")
 
         root_url, version, endpoint, iot_id = match.groups()
+        version = FrostVersions(version)
         endpoint_name = endpoint.lstrip("/")
         try:
             entity_group = SensorThingsEntityGroups(endpoint_name)
@@ -66,8 +67,12 @@ class FrostEntityRef:
 
         return cls(entity=entity, iot_id=int(iot_id), root_url=root_url, version=version)
 
-    def as_iot_ref(self) -> dict[str, int]:
+    @property
+    def iot_ref(self) -> dict[str, int]:
         return {"@iot.id": self.iot_id}
 
-    def as_frost_url(self, endpoint_path: str) -> FrostUrl:
-        return f"{self.root_url}/v{self.version}{endpoint_path}({self.iot_id})"
+    @property
+    def frost_url(self) -> FrostUrl:
+        from sensorthings_utils.frosty.bridges import ENTITY_TO_FROST_ENDPOINT
+        endpoint = ENTITY_TO_FROST_ENDPOINT[self.entity]
+        return f"{self.root_url}/v{self.version.value}{endpoint.value}({self.iot_id})"

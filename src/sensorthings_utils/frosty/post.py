@@ -10,7 +10,7 @@ from sensorthings_utils.config import FROST_ROOT_DEFAULT, FROST_VERSION_DEFAULT
 from sensorthings_utils.frosty.bridges import ENTITY_TO_FROST_ENDPOINT
 from sensorthings_utils.frosty.helpers import check_object_existence
 from sensorthings_utils.frosty.sanitization import sanitize_root_url
-from sensorthings_utils.frosty.types import FrostUrl
+from sensorthings_utils.frosty.types import FrostEntityRef, FrostUrl
 from sensorthings_utils.sensor_things.core import Observation, SensorThingsObject
 
 # internal
@@ -24,7 +24,7 @@ def general_post(
     *,
     auth_headers: str | None = None,
     content_type: str = "application/json",
-) -> FrostUrl:
+) -> FrostEntityRef:
     """
     Execute a native POST request against a FROST endpoint.
 
@@ -45,7 +45,7 @@ def general_post(
     try:
         response = requests.post(url=url, data=request_payload, headers=headers)
         response.raise_for_status()
-        return response.headers["Location"]
+        return FrostEntityRef.from_frost_url(response.headers["Location"])
     except Exception as exc:
         raise FrostRequestError(exc, url)
 

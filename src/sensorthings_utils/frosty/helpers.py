@@ -9,9 +9,10 @@ from sensorthings_utils.frosty.get import frost_entity_lookup, frost_object_look
 from sensorthings_utils.sensor_things.core import Datastream, Observation, SensorThingsObject, UnLinkedSensorThingsObjects
 from sensorthings_utils.sensor_things.schema import SENSOR_THINGS_ENTITY_FIELDS, SensorThingsEntity
 #internal
-from .types import FrostEndpoints, FrostParams, FrostVersions
+from .types import FrostEndpoints, FrostEntityRef, FrostParams, FrostVersions
 #logging
 
+main_logger = logging.getLogger("main")
 event_logger = logging.getLogger("events")
 
 def check_frost_connection(
@@ -41,7 +42,7 @@ def _check_unlinked_object_exists(
         st_object: UnLinkedSensorThingsObjects,
         root_url:str = FROST_ROOT_DEFAULT,
         version: str = FROST_VERSION_DEFAULT
-        ) -> bool:
+        ) -> None | FrostEntityRef:
     """
     Check if an unlinked SensorThings object exists in a given FROST instance.
 
@@ -49,14 +50,23 @@ def _check_unlinked_object_exists(
     `iot_links`). Should not be used for Datastream or Observation objects;
     `check_object_existence` dispatches those to dedicated checkers.
     """
-    response = frost_object_lookup(st_object, root_url, version)
+    response = frost_object_lookup(st_object, root_url, version, object_fields_only=False)
     if not response:
-        return False
+        return None
     cls = type(st_object)
     for r in response:
+        candidate_matches = 0
         if st_object.partial_eq(cls.from_frost_entity(r)):
-            return True
-    return False
+            candidate_matches += 1
+        if candidate_matches > 1:
+            main_logger.warning(
+                    f"Found more than one candidate match for {st_object}"
+                    "Consider squashing database duplicates. Returned last match."
+                    )
+        if candidate_matches:
+            url = r["@iot.selfLink"]
+            return FrostEntityRef.from_frost_url(url)
+    return None
 
 def _check_datastream_object_exists(
         st_datastream: Datastream,
@@ -112,7 +122,7 @@ def _check_observation_object_exists(
     correctly treated as different.
     """
     #TODO: test the real robustness of this function!
-    matches = frost_object_lookup(st_observation, root_url, version)
+    matches = frost_object_lookup(st_observation, root_url, version, object_fields_only=True)
     if not matches:
         return False
     for match in matches:
