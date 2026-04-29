@@ -16,9 +16,9 @@ from pydantic import (
     computed_field,
 )
 
-from sensorthings_utils.frosty.bridges import NAVIGATION_LINKS_TO_ENTITY
-from sensorthings_utils.frosty.types import FrostUrl
-from sensorthings_utils.frosty.types import FrostEntityRef
+from sensorthings_utils.frost.bridges import NAVIGATION_LINKS_TO_ENTITY
+from sensorthings_utils.frost.types import FrostUrl
+from sensorthings_utils.frost.types import FrostEntityRef
 # internal
 from .schema import (
     ENTITIES_TO_ENTITY_GROUPS,

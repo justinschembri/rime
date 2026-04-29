@@ -1,6 +1,7 @@
 """Sanitization and query-building helpers for FROST requests."""
 #standard
 from datetime import datetime
+from urllib.parse import urlparse
 #internal
 from typing import Optional, Mapping, Any
 
@@ -89,3 +90,26 @@ def merge_order_by(
     direction = "desc" if descending else "asc"
     params[FrostParams.ORDER.value] = f"{order_by} {direction}"
     return params
+
+
+def rewrite_to_internal(nav_url: str, internal_root: str) -> str:
+    """Rewrite a FROST navigation link to use the internal root URL.
+
+    FROST embeds its ``serviceRootUrl`` into every ``@iot.navigationLink`` and
+    ``@iot.selfLink`` it returns.  In containerised deployments the public URL
+    (e.g. ``https://multicare.bk.tudelft.nl/FROST-Server``) differs from the
+    address the python-app uses to reach FROST internally
+    (e.g. ``http://web:8080/FROST-Server``).  This function replaces the
+    origin + base-path portion of a server-issued URL with the internal root,
+    leaving the version + entity path intact.
+
+    When both roots share the same origin (local development) the function is
+    effectively a no-op.
+    """
+    internal = urlparse(internal_root.rstrip("/"))
+    nav = urlparse(nav_url)
+    # Strip the internal base path prefix to isolate the version + entity suffix.
+    # e.g. internal.path=/FROST-Server, nav.path=/FROST-Server/v1.1/Sensors(1)/...
+    # → suffix = /v1.1/Sensors(1)/...
+    suffix = nav.path[len(internal.path):]
+    return f"{internal.scheme}://{internal.netloc}{internal.path}{suffix}"

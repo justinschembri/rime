@@ -22,10 +22,11 @@ from .errors import FrostRequestError
 from .sanitization import (
     merge_filter,
     merge_order_by,
+    rewrite_to_internal,
     sanitize_get_request,
     to_odata_datetime,
 )
-from .types import FrostParams, FrostResultPageIterator, FrostVersions
+from .types import FrostParams, FrostResultPageIterator, FrostUrl, FrostVersions
 
 
 def general_frost_get(
@@ -227,4 +228,45 @@ def get_frost_datastream_observations(
     if not isinstance(lookup_result, list):
         raise TypeError("Expected list response from frost_entity_lookup.")
     return lookup_result
+
+
+def find_datastream_observations_url(
+        sensor_name: str,
+        datastream_name: str,
+        root_url: str = FROST_ROOT_DEFAULT,
+        version: str | float | int | FrostVersions = FROST_VERSION_DEFAULT,
+) -> FrostUrl | None:
+    """Resolve the Observations collection URL for a sensor + datastream name pair.
+
+    Returns ``None`` when no matching Sensor or Datastream is found on the
+    server, allowing callers to handle the miss gracefully rather than raising.
+    """
+    sensors = frost_entity_lookup(
+        first_entity=SensorThingsEntity.SENSOR,
+        root_url=root_url,
+        version=version,
+        params={FrostParams.FILTER: f"name eq '{sensor_name}'"},
+    )
+    if not sensors:
+        return None
+
+    sensor_id = sensors[0].get("@iot.id")
+    if sensor_id is None:
+        return None
+
+    datastreams = frost_entity_lookup(
+        first_entity=SensorThingsEntity.SENSOR,
+        first_entity_id=sensor_id,
+        second_entity=SensorThingsEntityGroups.DATASTREAMS,
+        root_url=root_url,
+        version=version,
+        params={FrostParams.FILTER: f"name eq '{datastream_name}'"},
+    )
+    if not datastreams:
+        return None
+
+    nav_url = datastreams[0].get("Observations@iot.navigationLink")
+    if nav_url is None:
+        return None
+    return rewrite_to_internal(nav_url, root_url)
 

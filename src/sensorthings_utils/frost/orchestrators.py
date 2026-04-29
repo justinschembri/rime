@@ -3,9 +3,9 @@
 import logging
 
 from sensorthings_utils.config import FROST_ROOT_DEFAULT, FROST_VERSION_DEFAULT
-from sensorthings_utils.frosty.post import make_frost_entity
-from sensorthings_utils.frosty.sanitization import sanitize_root_url
-from sensorthings_utils.frosty.types import FrostEntityRef
+from sensorthings_utils.frost.post import make_frost_entity
+from sensorthings_utils.frost.sanitization import sanitize_root_url
+from sensorthings_utils.frost.types import FrostEntityRef
 from sensorthings_utils.sensor_things.extensions import SensorConfig
 from sensorthings_utils.sensor_things.schema import (
     ENTITIES_TO_ENTITY_GROUPS,

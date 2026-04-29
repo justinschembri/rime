@@ -73,6 +73,6 @@ class FrostEntityRef:
 
     @property
     def frost_url(self) -> FrostUrl:
-        from sensorthings_utils.frosty.bridges import ENTITY_TO_FROST_ENDPOINT
+        from sensorthings_utils.frost.bridges import ENTITY_TO_FROST_ENDPOINT
         endpoint = ENTITY_TO_FROST_ENDPOINT[self.entity]
         return f"{self.root_url}/v{self.version.value}{endpoint.value}({self.iot_id})"

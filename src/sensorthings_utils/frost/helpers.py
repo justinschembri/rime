@@ -5,7 +5,7 @@ import logging
 import requests
 
 from sensorthings_utils.config import FROST_ROOT_DEFAULT, FROST_VERSION_DEFAULT
-from sensorthings_utils.frosty.get import frost_entity_lookup, frost_object_lookup
+from sensorthings_utils.frost.get import frost_entity_lookup, frost_object_lookup
 from sensorthings_utils.sensor_things.core import Datastream, Observation, SensorThingsObject, UnLinkedSensorThingsObjects
 from sensorthings_utils.sensor_things.schema import SensorThingsEntity, SensorThingsEntityGroups
 #internal

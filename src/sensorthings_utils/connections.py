@@ -16,7 +16,7 @@ from paho.mqtt.client import Client as mqttClient
 from paho.mqtt.enums import CallbackAPIVersion
 
 from sensorthings_utils.exceptions import FrostUploadFailure, UnregisteredSensorError
-from sensorthings_utils.frost import frost_observation_upload
+from sensorthings_utils.frost.post import frost_observation_upload
 
 # internal
 from .monitor import netmon
