@@ -21,6 +21,7 @@ from sensorthings_utils.frosty.types import FrostUrl
 from sensorthings_utils.frosty.types import FrostEntityRef
 # internal
 from .schema import (
+    ENTITIES_TO_ENTITY_GROUPS,
     SENSOR_THINGS_ENTITY_FIELDS,
     SensorThingsEntity,
     SensorThingsEntityGroups,
@@ -56,6 +57,16 @@ def _build_from_frost_entity(cls: type, entity: Dict[str, Any]) -> Any:
     return cls(**field_kwargs)
 
 
+def _normalise_dump(d: dict) -> dict:
+    """Normalise a model_dump dict for content comparison.
+
+    FROST returns `{}` for null/absent `properties` fields, while YAML configs
+    often supply `None`. Treat both as equivalent so existence checks don't
+    produce false negatives.
+    """
+    return {k: (v if v is not None else {}) if k == "properties" else v for k, v in d.items()}
+
+
 def _partial_equals(a: "BaseModel", b: "BaseModel") -> bool:
     """Compare two SensorThings models on their content fields only.
 
@@ -72,7 +83,10 @@ def _partial_equals(a: "BaseModel", b: "BaseModel") -> bool:
     if a_entity != b_entity:
         return False
     fields = set(SENSOR_THINGS_ENTITY_FIELDS[a_entity])
-    return a.model_dump(include=fields) == b.model_dump(include=fields)
+    return (
+        _normalise_dump(a.model_dump(include=fields))
+        == _normalise_dump(b.model_dump(include=fields))
+    )
 
 
 class SensorThingsObject(BaseModel):
@@ -97,7 +111,7 @@ class SensorThingsObject(BaseModel):
     iot_links: Optional[
         Dict[
             SensorThingsEntity | SensorThingsEntityGroups,
-            List[FrostUrl] | FrostUrl,
+            List[FrostUrl | FrostEntityRef] | FrostUrl | FrostEntityRef,
         ]
     ] = Field(default_factory=dict)
 
@@ -126,23 +140,29 @@ class SensorThingsObject(BaseModel):
         """
         return _partial_equals(self, other)
 
-    # TODO: #4 The state of iot_links as 'str' should be temporary or stored in another attribute.
     def __hash__(self) -> int:
         return hash((self.name, str(self.__class__)))
 
     def __repr__(self) -> str:
         return self.__repr_name__() + " (name=" + self.name + ")"
 
-    #TODO: check if this is still neccesary:
-    def set_link(
-        self,
-        entity: SensorThingsEntityGroups,
-        instance: str,
-        sensor_things_object: "SensorThingsObject",
-    ) -> None:
-        """Set an `iot_link` dict value."""
-        set_index = self.iot_links[entity].index(instance)
-        self.iot_links[entity][set_index] = sensor_things_object  # type: ignore
+    def attach_ref(self, ref: FrostEntityRef) -> None:
+        """Slot a persisted FROST ref into the matching `iot_links` bucket.
+
+        Replaces a name placeholder (loaded from a YAML config) with a real
+        `FrostEntityRef` keyed by the ref's plural group (e.g. a Sensor ref
+        lands at `iot_links[SensorThingsEntityGroups.SENSORS][0]`). When the
+        bucket does not exist yet, a single-element list is created so callers
+        can stay agnostic of pre-existing state.
+        """
+        group = ENTITIES_TO_ENTITY_GROUPS[ref.entity]
+        if self.iot_links is None:
+            self.iot_links = {}
+        bucket = self.iot_links.get(group)
+        if isinstance(bucket, list) and bucket:
+            bucket[0] = ref
+        else:
+            self.iot_links[group] = [ref]
 
 
 class Sensor(SensorThingsObject):
@@ -174,7 +194,7 @@ class Datastream(SensorThingsObject):
                 continue
             ref = refs[0]
             if isinstance(ref, FrostEntityRef):
-                payload[field] = ref.as_iot_ref()
+                payload[field] = ref.iot_ref
         return payload
 
 
@@ -195,9 +215,9 @@ class Observation(BaseModel):
     id: Optional[int] = Field(None, description="Generally assigned by the server.")
     result: Any
     phenomenonTime: datetime | None
-    iot_links: Dict[SensorThingsEntity | SensorThingsEntityGroups, FrostUrl] = Field(
-        default_factory=dict
-    )
+    iot_links: Dict[
+        SensorThingsEntity | SensorThingsEntityGroups, FrostUrl | FrostEntityRef
+    ] = Field(default_factory=dict)
     resultTime: datetime | None = None
     validTime: "TimePeriod | None" = None
 

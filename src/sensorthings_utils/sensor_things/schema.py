@@ -45,6 +45,13 @@ ENTITY_GROUPS_TO_ENTITIES: Dict[SensorThingsEntityGroups, SensorThingsEntity] = 
 }
 
 
+# inverse of ENTITY_GROUPS_TO_ENTITIES, useful when a singular entity ref must
+# be slotted into a group-keyed iot_links bucket (e.g. a Datastream's Sensor).
+ENTITIES_TO_ENTITY_GROUPS: Dict[SensorThingsEntity, SensorThingsEntityGroups] = {
+    entity: group for group, entity in ENTITY_GROUPS_TO_ENTITIES.items()
+}
+
+
 # permissible fields for SensorThings objects:
 SENSOR_THINGS_ENTITY_FIELDS: Dict[SensorThingsEntity, Tuple[str, ...]] = {
     SensorThingsEntity.THING: (

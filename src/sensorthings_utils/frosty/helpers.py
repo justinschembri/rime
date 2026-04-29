@@ -7,7 +7,7 @@ import requests
 from sensorthings_utils.config import FROST_ROOT_DEFAULT, FROST_VERSION_DEFAULT
 from sensorthings_utils.frosty.get import frost_entity_lookup, frost_object_lookup
 from sensorthings_utils.sensor_things.core import Datastream, Observation, SensorThingsObject, UnLinkedSensorThingsObjects
-from sensorthings_utils.sensor_things.schema import SensorThingsEntity
+from sensorthings_utils.sensor_things.schema import SensorThingsEntity, SensorThingsEntityGroups
 #internal
 from .types import FrostEndpoints, FrostEntityRef, FrostParams, FrostVersions
 #logging
@@ -80,9 +80,22 @@ def _check_datastream_object_exists(
     because `/Datastreams({id})/Sensor` (singular) cannot be reached via
     the plural-only `sanitize_get_request` helper.
     """
-    # Invariant: Datastream has exactly one linked Sensor, we cannot check if
+    # Invariant: Datastream has exactly one linked Sensor. We cannot check if
     # a datastream exists without this link.
-    sensor = st_datastream.links[SensorThingsEntity.SENSOR][0]
+    # iot_links[SENSORS][0] is either a name str (pre-attach, from YAML) or a
+    # FrostEntityRef (post-attach). Extract a string name for comparison.
+    sensor_bucket = (st_datastream.iot_links or {}).get(SensorThingsEntityGroups.SENSORS)
+    if not sensor_bucket or not isinstance(sensor_bucket, list):
+        raise ValueError(
+            f"Datastream '{st_datastream.name}' is missing iot_links[Sensors]."
+        )
+    sensor_entry = sensor_bucket[0]
+    if isinstance(sensor_entry, FrostEntityRef):
+        sensor_name = sensor_entry.iot_id  # matched by @iot.id in expanded Sensor
+        expand_select = f"Sensor($select=@iot.id,name)"
+    else:
+        sensor_name = sensor_entry  # plain name string from YAML
+        expand_select = "Sensor($select=name)"
 
     matches = frost_entity_lookup(
         first_entity=SensorThingsEntity.DATASTREAM,
@@ -90,7 +103,7 @@ def _check_datastream_object_exists(
         version=version,
         params={
             FrostParams.FILTER: f"name eq '{st_datastream.name}'",
-            FrostParams.EXPAND: "Sensor($select=name)",
+            FrostParams.EXPAND: expand_select,
         },
     )
     if not matches:
@@ -101,8 +114,12 @@ def _check_datastream_object_exists(
         if not st_datastream.partial_eq(candidate):
             continue
         linked_sensor = match.get("Sensor") or {}
-        if linked_sensor.get("name") == sensor.name:
-            return FrostEntityRef.from_frost_url(match["@iot.selfLink"])
+        if isinstance(sensor_entry, FrostEntityRef):
+            if linked_sensor.get("@iot.id") == sensor_name:
+                return FrostEntityRef.from_frost_url(match["@iot.selfLink"])
+        else:
+            if linked_sensor.get("name") == sensor_name:
+                return FrostEntityRef.from_frost_url(match["@iot.selfLink"])
 
     return None
 
