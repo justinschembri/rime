@@ -1,15 +1,14 @@
 """FROST interaction helpers."""
 #standard
 import logging
-#external
-import requests
 
 from sensorthings_utils.config import FROST_ROOT_DEFAULT, FROST_VERSION_DEFAULT
 from sensorthings_utils.frost.get import frost_entity_lookup, frost_object_lookup
+from sensorthings_utils.frost.sanitization import sanitize_root_url
 from sensorthings_utils.sensor_things.core import Datastream, Observation, SensorThingsObject, UnLinkedSensorThingsObjects
 from sensorthings_utils.sensor_things.schema import SensorThingsEntity, SensorThingsEntityGroups
 #internal
-from .types import FrostEndpoints, FrostEntityRef, FrostParams, FrostVersions
+from .types import FrostEndpoints, FrostEntityRef, FrostParams
 #logging
 
 main_logger = logging.getLogger("main")
@@ -20,12 +19,8 @@ def check_frost_connection(
         version:str = FROST_VERSION_DEFAULT
         ) -> bool:
     """Check connectivity and accessibility of a FROST srever instance."""
-
-    root_url = root_url.rstrip("/")
-    version = version.lstrip("v")
-    ver = FrostVersions(version)
-
-    base_url = root_url + "/v" + ver.value
+    root_url, version = sanitize_root_url(root_url, version)
+    base_url = f"{root_url}/v{version}"
     try:
         for endpoint in FrostEndpoints:
             url = base_url + endpoint.value    
@@ -54,18 +49,17 @@ def _check_unlinked_object_exists(
     if not response:
         return None
     cls = type(st_object)
+    matches: list[FrostEntityRef] = []
     for r in response:
-        candidate_matches = 0
         if st_object.partial_eq(cls.from_frost_entity(r)):
-            candidate_matches += 1
-        if candidate_matches > 1:
-            main_logger.warning(
-                    f"Found more than one candidate match for {st_object}"
-                    "Consider squashing database duplicates. Returned last match."
-                    )
-        if candidate_matches:
-            url = r["@iot.selfLink"]
-            return FrostEntityRef.from_frost_url(url)
+            matches.append(FrostEntityRef.from_frost_url(r["@iot.selfLink"]))
+    if len(matches) > 1:
+        main_logger.warning(
+            f"Found more than one candidate match for {st_object}. "
+            "Consider squashing database duplicates. Returned first match."
+        )
+    if matches:
+        return matches[0]
     return None
 
 def _check_datastream_object_exists(

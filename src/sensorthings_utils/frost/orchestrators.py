@@ -6,6 +6,7 @@ from sensorthings_utils.config import FROST_ROOT_DEFAULT, FROST_VERSION_DEFAULT
 from sensorthings_utils.frost.post import make_frost_entity
 from sensorthings_utils.frost.sanitization import sanitize_root_url
 from sensorthings_utils.frost.types import FrostEntityRef
+from sensorthings_utils.sensor_things.core import Location, Thing
 from sensorthings_utils.sensor_things.extensions import SensorConfig
 from sensorthings_utils.sensor_things.schema import (
     ENTITIES_TO_ENTITY_GROUPS,
@@ -44,13 +45,19 @@ def initial_setup(
         SensorThingsEntity.OBSERVEDPROPERTY,
     )
 
+    ref: FrostEntityRef | None = None
     for entity_type in create_order:
         for st_object in sensor_config.st_objects.get(entity_type, []):
+            endpoint = ""
+            # link the location to the previously created thing
+            if isinstance(st_object, Location) and isinstance(ref, FrostEntityRef):
+                endpoint = ref.frost_url
             ref = make_frost_entity(
                 st_object,
                 root_url=root_url,
                 version=version,
                 auth_headers=auth_headers,
+                endpoint=endpoint
             )
             registry[(entity_type, st_object.name)] = ref
             created_refs.append(ref)

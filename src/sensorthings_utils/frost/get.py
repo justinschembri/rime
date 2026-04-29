@@ -9,12 +9,8 @@ from sensorthings_utils.config import (
     FROST_ROOT_DEFAULT,
     FROST_VERSION_DEFAULT,
 )
-from sensorthings_utils.sensor_things.core import (
-    Observation,
-    SensorThingsObject,
-)
+from sensorthings_utils.sensor_things.core import Observation, SensorThingsObject
 from sensorthings_utils.sensor_things.schema import (
-    SENSOR_THINGS_ENTITY_FIELDS,
     SensorThingsEntity,
     SensorThingsEntityGroups,
 )
@@ -33,10 +29,13 @@ def general_frost_get(
     url: str,
     params: Optional[Mapping[str, Any]] = None,
 ) -> dict[str, Any]:
-    response = requests.get(url, params=params) #type: ignore
-    response.raise_for_status()
-    json_response = response.json() 
-    return json_response
+    """Execute a GET request and return parsed JSON or raise FrostRequestError."""
+    try:
+        response = requests.get(url, params=params)  # type: ignore[arg-type]
+        response.raise_for_status()
+        return response.json()
+    except Exception as exc:
+        raise FrostRequestError(exc, url)
 
 def frost_entity_lookup_pages(
         first_entity: str | SensorThingsEntityGroups | SensorThingsEntity,
@@ -124,10 +123,8 @@ def frost_object_lookup_pages(
         st_object: SensorThingsObject | Observation,
         root_url: str = FROST_ROOT_DEFAULT,
         version: str | float | int | FrostVersions = FROST_VERSION_DEFAULT,
-        object_fields_only: bool = False,
         ) -> FrostResultPageIterator:
     """Lookup equivalent SensorThingsObject values and return paged iterator."""
-
     if isinstance(st_object, Observation):
         if st_object.phenomenonTime is None:
             raise ValueError(
@@ -136,20 +133,15 @@ def frost_object_lookup_pages(
         filter_string = (
             f"phenomenonTime eq {to_odata_datetime(st_object.phenomenonTime)}"
         )
-    elif isinstance(st_object, SensorThingsObject):
+    else:
         filter_string = f"name eq '{st_object.name}'"
 
-    entity = SensorThingsEntity(st_object.entity_type)
     params: dict[str | FrostParams, Any] = {
         FrostParams.FILTER: filter_string,
     }
-    # Optional slim return payload for object field comparison calls.
-    if object_fields_only:
-        select_fields = ("@iot.id", *SENSOR_THINGS_ENTITY_FIELDS[entity])
-        params[FrostParams.SELECT] = ",".join(select_fields)
 
     return frost_entity_lookup_pages(
-            entity,
+            st_object.entity_type,
             root_url=root_url,
             version=version,
             params=params,
@@ -160,14 +152,12 @@ def frost_object_lookup(
         st_object: SensorThingsObject | Observation,
         root_url: str = FROST_ROOT_DEFAULT,
         version: str | float | int | FrostVersions = FROST_VERSION_DEFAULT,
-        object_fields_only: bool = False,
         ) -> list[dict[str, Any]] | None:
     """Wrapper over `frost_object_lookup_pages` that merges all pages into one list."""
     pages = frost_object_lookup_pages(
         st_object=st_object,
         root_url=root_url,
         version=version,
-        object_fields_only=object_fields_only
     )
     data: list[dict[str, Any]] = []
     for page in pages:

@@ -148,7 +148,7 @@ class SensorApplicationConnection(ABC):
             for st_obs in st_observations:
                 try:
                     debug_logger.debug(f"{st_obs=} {sensor_id=}")
-                    frost_observation_upload(sensor_id, st_obs, self.app_name)
+                    frost_observation_upload(sensor_id, st_obs)
                     event_logger.info(
                         f"Received and processed a payload from {self.app_name} "
                         f"from a {sensor_model.value} sensor."

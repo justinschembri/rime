@@ -9,13 +9,6 @@ from urllib.parse import urlparse
 #internal
 from typing import Any, Mapping, Sequence, Optional, Iterable, Literal
 
-from .constants import (
-    COMMON_IOT_FIELDS,
-    EXTRA_STANDARD_FIELDS_MAP,
-    MODEL_FIELDS_MAP,
-    NAVIGATION_HEADERS_MAP,
-    FrostEntityNames,
-)
 from .errors import FrostWriterError
 from sensorthings_utils.paths import DOWNLOADS_DIR
 
@@ -321,60 +314,10 @@ class FrostWriter:
             return ".".join([host, timestamp, *tokens])
         return ".".join([host, timestamp])
 
-    def _infer_entity_name(
-        self,
-        *,
-        response: Mapping[str, Any] | None = None,
-    ) -> Optional[FrostEntityNames]:
-        source = self.source_url
-        if source is None and response is not None:
-            source = self._infer_source_url(response)
-        if source is None:
-            return None
-
-        tokens = self._url_path_tokens(source)
-        if not tokens:
-            return None
-        last = tokens[-1]
-        singular_map = {
-            "datastream": "Datastreams",
-            "sensor": "Sensors",
-            "thing": "Things",
-            "location": "Locations",
-            "observedproperty": "ObservedProperties",
-            "observation": "Observations",
-        }
-        plural_map = {
-            "datastreams": "Datastreams",
-            "sensors": "Sensors",
-            "things": "Things",
-            "locations": "Locations",
-            "observedproperties": "ObservedProperties",
-            "observations": "Observations",
-        }
-        if last in plural_map:
-            return plural_map[last]
-        if last in singular_map:
-            return singular_map[last]
-        return None
-
     def _expected_csv_headers(self) -> list[str] | None:
-        entity = self._infer_entity_name()
-        if entity is None:
-            return None
+        """Return expected CSV headers, or None to infer from the first row.
 
-        model_fields = [
-            "@iot.id" if field == "id" else field
-            for field in MODEL_FIELDS_MAP[entity]
-            if field not in {"iot_links", "st_type"}
-        ]
-        model_fields.extend(EXTRA_STANDARD_FIELDS_MAP.get(entity, []))
-        ordered: list[str] = []
-        for header in (
-            COMMON_IOT_FIELDS
-            + model_fields
-            + NAVIGATION_HEADERS_MAP.get(entity, [])
-        ):
-            if header not in ordered:
-                ordered.append(header)
-        return ordered
+        We intentionally infer headers dynamically to avoid maintaining a second
+        hard-coded mapping layer that duplicates SensorThings/FROST schema maps.
+        """
+        return None

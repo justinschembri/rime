@@ -1,19 +1,16 @@
 """FROST server interaction errors."""
-#standard
-#exteranl
-#internal
 
 class FrostConnectionError(ConnectionError):
-    def __init__(self, message=str|None, url=None):
+    def __init__(self, message: str | None = None, url: str | None = None):
         super().__init__(message)
         self.url = url
 
 class FrostRequestError(FrostConnectionError):
-    def __init__(self, message, url=None):
+    def __init__(self, message: str | Exception, url: str | None = None):
         super().__init__(message)
         self.url = url
 
-class FrostNoResultsError(BaseException):
+class FrostNoResultsError(Exception):
     pass
 
 class FrostWriterError(ValueError):

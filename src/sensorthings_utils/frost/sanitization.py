@@ -7,7 +7,7 @@ from typing import Optional, Mapping, Any
 
 from .types import FrostParams, FrostVersions
 from sensorthings_utils.sensor_things.schema import (
-    ENTITY_GROUPS_TO_ENTITIES,
+    ENTITIES_TO_ENTITY_GROUPS,
     SensorThingsEntity,
     SensorThingsEntityGroups,
 )
@@ -19,7 +19,6 @@ def to_odata_datetime(value: datetime | str) -> str:
         return value.isoformat()
     return str(value)
 
-#TODO: clarify exactly what this function sanitizes (i.e. the entities passed to it)
 def sanitize_get_request(
     root_url: str,
     version: str | float | int,
@@ -29,13 +28,19 @@ def sanitize_get_request(
     first_entity_id: Optional[int | str] = "",
     second_entity: Optional[str | SensorThingsEntityGroups | SensorThingsEntity] = "",
 ) -> tuple[str, dict[str, Any] | None]:
-    """Normalize GET request URL and parameter keys for FROST queries."""
+    """Normalize GET request URL, entities, and OData parameter keys.
 
-    entity_to_group = {v: k for k, v in ENTITY_GROUPS_TO_ENTITIES.items()}
+    - Accepts singular or plural SensorThings entity identifiers and normalizes
+      them to plural endpoint names used in FROST URLs.
+    - Sanitizes `root_url` + `version` into canonical form (`.../vX.Y/...`).
+    - Normalizes query-param keys to official OData tokens via `FrostParams`.
+    """
     try:
         normalized_first_entity = SensorThingsEntityGroups(first_entity).value
     except ValueError:
-        normalized_first_entity = entity_to_group[SensorThingsEntity(first_entity)].value
+        normalized_first_entity = ENTITIES_TO_ENTITY_GROUPS[
+            SensorThingsEntity(first_entity)
+        ].value
     normalized_second_entity = ""
     normalized_first_entity_id = ""
 
@@ -43,7 +48,7 @@ def sanitize_get_request(
         try:
             normalized_second_entity = SensorThingsEntityGroups(second_entity).value
         except ValueError:
-            normalized_second_entity = entity_to_group[
+            normalized_second_entity = ENTITIES_TO_ENTITY_GROUPS[
                 SensorThingsEntity(second_entity)
             ].value
     if first_entity_id not in ("", None):
@@ -108,8 +113,20 @@ def rewrite_to_internal(nav_url: str, internal_root: str) -> str:
     """
     internal = urlparse(internal_root.rstrip("/"))
     nav = urlparse(nav_url)
-    # Strip the internal base path prefix to isolate the version + entity suffix.
-    # e.g. internal.path=/FROST-Server, nav.path=/FROST-Server/v1.1/Sensors(1)/...
-    # → suffix = /v1.1/Sensors(1)/...
-    suffix = nav.path[len(internal.path):]
-    return f"{internal.scheme}://{internal.netloc}{internal.path}{suffix}"
+    internal_base = internal.path.rstrip("/")
+    nav_path = nav.path
+
+    # In the common case, nav links and internal roots share the same base path
+    # (e.g. "/FROST-Server"). If not, fall back to preserving the full nav path
+    # to avoid producing malformed URLs.
+    if internal_base and nav_path.startswith(internal_base):
+        suffix = nav_path[len(internal_base):]
+    else:
+        version_idx = nav_path.find("/v")
+        suffix = nav_path[version_idx:] if version_idx != -1 else nav_path
+
+    rewritten_path = f"{internal_base}{suffix}"
+    rewritten = f"{internal.scheme}://{internal.netloc}{rewritten_path}"
+    if nav.query:
+        rewritten = f"{rewritten}?{nav.query}"
+    return rewritten

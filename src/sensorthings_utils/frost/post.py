@@ -10,8 +10,8 @@ import requests
 from sensorthings_utils.config import FROST_ROOT_DEFAULT, FROST_VERSION_DEFAULT, get_frost_auth_header, get_frost_root_url
 from sensorthings_utils.frost.bridges import ENTITY_TO_FROST_ENDPOINT
 from sensorthings_utils.frost.helpers import check_object_existence
-from sensorthings_utils.frost.sanitization import sanitize_root_url
-from sensorthings_utils.frost.types import FrostEntityRef, FrostUrl, FrostVersions
+from sensorthings_utils.frost.sanitization import rewrite_to_internal, sanitize_root_url
+from sensorthings_utils.frost.types import FrostEntityRef, FrostUrl
 from sensorthings_utils.sensor_things.core import Observation, SensorThingsObject
 from sensorthings_utils.transformers.types import ObservedProperties, SensorUUID
 
@@ -56,35 +56,41 @@ def general_post(
         response = requests.post(url=url, data=request_payload, headers=headers)
         response.raise_for_status()
         return FrostEntityRef.from_frost_url(response.headers["Location"])
+    except requests.HTTPError as exc:
+        response_text = exc.response.text if exc.response is not None else ""
+        detail = f"{exc} - response body: {response_text}"
+        raise FrostRequestError(detail, url)
     except Exception as exc:
         raise FrostRequestError(exc, url)
 
 def make_frost_entity(
-        st_object: SensorThingsObject | Observation,
-        root_url: str = FROST_ROOT_DEFAULT,
-        version: str | float | int = FROST_VERSION_DEFAULT,
-        auth_headers: Optional[str] = None,
-        *,
-        endpoint: Optional[FrostUrl] = None 
-        ) -> FrostEntityRef:
-        root_url, version = sanitize_root_url(root_url, version)
-        existing_entity = check_object_existence(st_object, root_url, version)
-        if existing_entity:
-            main_logger.info(
-                    f"Skipping creation {st_object} exists at: {existing_entity}"
-                    )
-            return existing_entity
-        if not endpoint:
-            endpoint = ENTITY_TO_FROST_ENDPOINT[st_object.entity_type].value
-            endpoint = f"{root_url}/v{version}{endpoint}"
-        response = general_post(endpoint, st_object, auth_headers=auth_headers)
-        return response
+    st_object: SensorThingsObject | Observation,
+    root_url: str = FROST_ROOT_DEFAULT,
+    version: str | float | int = FROST_VERSION_DEFAULT,
+    auth_headers: Optional[str] = None,
+    *,
+    endpoint: Optional[FrostUrl] = None,
+) -> FrostEntityRef:
+    root_url, version = sanitize_root_url(root_url, version)
+    existing_entity = check_object_existence(st_object, root_url, version)
+    if existing_entity:
+        main_logger.info(
+            f"Skipping creation {st_object} exists at: {existing_entity}"
+        )
+        return existing_entity
+    endpoint_tail = ENTITY_TO_FROST_ENDPOINT[st_object.entity_type].value
+    if not endpoint:
+        post_url = f"{root_url}/v{version}{endpoint_tail}"
+    else:
+        endpoint = rewrite_to_internal(endpoint, root_url)
+        post_url = f"{endpoint}{endpoint_tail}"
+    response = general_post(post_url, st_object, auth_headers=auth_headers)
+    return response
 
 
 def frost_observation_upload(
         sensor_name: SensorUUID,
         observation_set: tuple[Observation, ObservedProperties],
-        app_name: str | None = None,
         root_url: str | None = None,
         version: str | None = None,
         auth_headers: Optional[str] = None,
@@ -99,6 +105,7 @@ def frost_observation_upload(
     returns (env-var aware), so callers that set ``FROST_ENDPOINT`` do not need
     to pass them explicitly.
     """
+    # Deferred import: get.py imports helpers.py, which imports this module.
     from sensorthings_utils.frost.get import find_datastream_observations_url
     _root, _version = get_frost_root_url()
     root_url = root_url or _root
