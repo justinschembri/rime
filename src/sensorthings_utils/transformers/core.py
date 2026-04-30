@@ -52,7 +52,7 @@ class NativePayloadTransformer(BaseModel):
             transformed_results[datastream] = getattr(self, observed_property)
         return transformed_results
 
-    def to_stObservations(self) -> list[Tuple[Observation, ObservedProperties]]:
+    def to_stObservations(self) -> list[Tuple[Observation, str]]:
         """Return a tuple of observations and corresponding datastream."""
         transformed_results = self._transform()
         observations = []

@@ -13,7 +13,7 @@ from sensorthings_utils.frost.helpers import check_object_existence
 from sensorthings_utils.frost.sanitization import rewrite_to_internal, sanitize_root_url
 from sensorthings_utils.frost.types import FrostEntityRef, FrostUrl
 from sensorthings_utils.sensor_things.core import Observation, SensorThingsObject
-from sensorthings_utils.transformers.types import ObservedProperties, SensorUUID
+from sensorthings_utils.transformers.types import SensorUUID
 
 # internal
 from .errors import FrostRequestError
@@ -137,7 +137,7 @@ def make_frost_entity(
 
 def frost_observation_upload(
         sensor_name: SensorUUID,
-        observation_set: tuple[Observation, ObservedProperties],
+        observation_set: tuple[Observation, str],
         root_url: str | None = None,
         version: str | None = None,
         auth_headers: Optional[str] = None,
@@ -151,8 +151,9 @@ def frost_observation_upload(
 
     Args:
         sensor_name: Unique name of the sensor that owns the datastream.
-        observation_set: Tuple of ``(Observation, datastream_name)`` produced
-            by a transformer.
+        observation_set: Tuple of ``(Observation, datastream_name_str)``
+            produced by a transformer (``datastream`` is the ``.value`` of an
+            ``ObservedProperties`` enum member, i.e. a plain string).
         root_url: FROST server root URL. Defaults to ``FROST_ENDPOINT`` env var.
         version: API version. Defaults to ``FROST_VERSION`` env var.
         auth_headers: Base64-encoded credentials. Defaults to
