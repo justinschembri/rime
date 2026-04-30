@@ -1,5 +1,5 @@
 # Ephemeral FROST stack for tests. No secrets, no persistence, no auth.
-# Used by tests/sensorthings_utils/frosty/conftest.py::docker_frost.
+# Used by tests/sensorthings_utils/frost/conftest.py::docker_frost.
 services:
   db:
     image: postgis/postgis:16-3.4-alpine

@@ -1,4 +1,4 @@
-"""Shared fixtures for `sensorthings_utils.frosty` integration tests.
+"""Shared fixtures for `sensorthings_utils.frost` integration tests.
 
 Provides two FROST backends:
 
@@ -98,7 +98,7 @@ def _wait_for_frost(base_url: str, timeout: float = 180.0) -> None:
 # asserts `partial_eq` now handles them correctly.
 SEED_PAYLOAD: dict = {
     "name": "TEST-THING",
-    "description": "Ephemeral thing used by frosty tests.",
+    "description": "Ephemeral thing used by frost tests.",
     "properties": {"site": "test"},
     "Locations": [
         {

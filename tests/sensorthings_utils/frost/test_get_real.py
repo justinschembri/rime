@@ -1,4 +1,4 @@
-"""Read-only integration tests for `frosty.get` against a live FROST server.
+"""Read-only integration tests for `frost.get` against a live FROST server.
 
 These tests target the TU Delft Multicare FROST instance. They are marked as
 `real` and `online` and are automatically skipped if the server is
@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import pytest
 
-from sensorthings_utils.frosty.get import (
+from sensorthings_utils.frost.get import (
     frost_entity_lookup,
     frost_entity_lookup_pages,
     frost_object_lookup,
@@ -21,8 +21,8 @@ from sensorthings_utils.frosty.get import (
     general_frost_get,
     get_frost_datastream_observations,
 )
-from sensorthings_utils.frosty.helpers import check_object_existence
-from sensorthings_utils.frosty.types import FrostParams
+from sensorthings_utils.frost.helpers import check_object_existence
+from sensorthings_utils.frost.types import FrostParams
 from sensorthings_utils.sensor_things.core import Thing
 from sensorthings_utils.sensor_things.schema import SensorThingsEntityGroups
 

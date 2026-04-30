@@ -1,4 +1,4 @@
-"""Integration tests for `frosty.post` against an ephemeral FROST stack.
+"""Integration tests for `frost.post` against an ephemeral FROST stack.
 
 These tests mirror the manual sanity checks we used during refactor work:
 posting equivalent Thing payloads as (1) JSON string, (2) dict, and
@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING
 import pytest
 import requests
 
-from sensorthings_utils.frosty.post import general_post, make_frost_entity
+from sensorthings_utils.frost.post import general_post, make_frost_entity
 from sensorthings_utils.sensor_things.core import Thing
 
 if TYPE_CHECKING:

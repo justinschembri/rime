@@ -1,22 +1,10 @@
-"""Observation flows: target `frosty.post`, not deprecated `sensorthings_utils.frost`.
-
-If collection fails here, check `frosty/post.py` still imports `UrlStr` from
-`frost.py` — that should move to a neutral types module so this package can
-load without the legacy module.
-"""
+"""Observation upload flows against ``sensorthings_utils.frost.post``."""
 # stdlib
 from datetime import datetime
 # external
 import pytest
 
-# Once `frosty.post` loads without depending on deprecated `frost`, these import.
-try:
-    from sensorthings_utils.frosty.post import general_post, make_frost_entity
-except ImportError as exc:
-    pytest.skip(
-        f"frosty.post must be importable without legacy frost (e.g. UrlStr): {exc}",
-        allow_module_level=True,
-    )
+from sensorthings_utils.frost.post import general_post, make_frost_entity
 
 from sensorthings_utils.sensor_things.core import Observation
 
@@ -29,7 +17,7 @@ def valid_observation() -> Observation:
     )
 
 
-def test_frosty_post_entrypoints_importable() -> None:
+def test_frost_post_entrypoints_importable() -> None:
     assert callable(make_frost_entity)
     assert callable(general_post)
 

@@ -1,4 +1,4 @@
-"""Integration tests for `frosty.get` against an ephemeral FROST stack.
+"""Integration tests for `frost.get` against an ephemeral FROST stack.
 
 The stack is spun up via `docker compose` from a session-scoped fixture in
 `conftest.py` and seeded with a deterministic set of entities:
@@ -22,15 +22,15 @@ import pytest
 
 from datetime import datetime, timezone
 
-from sensorthings_utils.frosty.get import (
+from sensorthings_utils.frost.get import (
     frost_entity_lookup,
     frost_entity_lookup_pages,
     frost_object_lookup,
     general_frost_get,
     get_frost_datastream_observations,
 )
-from sensorthings_utils.frosty.helpers import check_object_existence
-from sensorthings_utils.frosty.types import FrostParams
+from sensorthings_utils.frost.helpers import check_object_existence
+from sensorthings_utils.frost.types import FrostParams
 from sensorthings_utils.sensor_things.core import (
     Datastream,
     Location,
@@ -275,7 +275,7 @@ class TestCheckObjectExistence:
     def test_existing_thing_matches(self, docker_frost: DockerFrost) -> None:
         thing = Thing(
             name="TEST-THING",
-            description="Ephemeral thing used by frosty tests.",
+            description="Ephemeral thing used by frost tests.",
             properties={"site": "test"},
         )
 
