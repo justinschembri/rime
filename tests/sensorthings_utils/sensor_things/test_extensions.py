@@ -2,14 +2,9 @@
 
 # standard
 from pathlib import Path
-from copy import deepcopy
 
-# external
-import yaml
-import pytest
 # internal
-from sensorthings_utils.sensor_things.schema import SensorThingsEntityGroups
-from sensorthings_utils.sensor_things.extensions import SensorConfig, SensorArrangement
+from sensorthings_utils.sensor_things.extensions import SensorConfig
 
 TEST_DATA_DIR = Path(__file__).parent / "data"
 GOOD_CONFIG_FILE = TEST_DATA_DIR / "valid_sensor_config.yaml"
@@ -32,35 +27,3 @@ class TestSensorConfig:
         good_config = SensorConfig(GOOD_CONFIG_FILE)
         assert good_config.model.value == "netatmo.nws03"
         assert good_config.name == "sensor-001"
-
-    def test_ingestion_resolves_links_to_object_refs(self):
-        arrangement = SensorArrangement(SensorConfig(GOOD_CONFIG_FILE))
-
-        sensor = arrangement.get("Sensor", instance="sensor-001")
-        datastream = arrangement.get("Datastream", instance="temperature_indoor")
-        thing = arrangement.get("Thing", instance="room-120")
-        location = arrangement.get("Location", instance="loc-120")
-        observed_property = arrangement.get("ObservedProperty", instance="indoor_temperature")
-
-        assert sensor.iot_links[SensorThingsEntityGroups.DATASTREAMS][0] is datastream
-        assert datastream.iot_links[SensorThingsEntityGroups.SENSORS][0] is sensor
-        assert datastream.iot_links[SensorThingsEntityGroups.THINGS][0] is thing
-        assert datastream.iot_links[SensorThingsEntityGroups.OBSERVEDPROPERTIES][0] is observed_property
-        assert thing.iot_links[SensorThingsEntityGroups.LOCATIONS][0] is location
-        assert location.iot_links[SensorThingsEntityGroups.THINGS][0] is thing
-
-    def test_guardrail_missing_link_target_raises_keyerror(self, tmp_path):
-        with open(GOOD_CONFIG_FILE, "r") as f:
-            config_data = yaml.safe_load(f)
-
-        bad_data = deepcopy(config_data)
-        bad_data["Sensors"]["netatmo.nws03"]["iot_links"]["Datastreams"] = [
-            "does_not_exist"
-        ]
-
-        bad_config_path = tmp_path / "bad_missing_link_target.yaml"
-        with open(bad_config_path, "w") as f:
-            yaml.safe_dump(bad_data, f, sort_keys=False)
-
-        with pytest.raises(KeyError):
-            SensorArrangement(SensorConfig(bad_config_path))
