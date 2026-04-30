@@ -31,7 +31,7 @@ def to_odata_datetime(value: datetime | str) -> str:
 
 def sanitize_get_request(
     root_url: str,
-    version: str | float | int,
+    version: str | float | int | FrostVersions ,
     first_entity: str | SensorThingsEntityGroups | SensorThingsEntity,
     params: Optional[Mapping[str | FrostParams, Any]] = None,
     *,
@@ -94,7 +94,7 @@ def sanitize_get_request(
 
 def sanitize_root_url(
         root_url:str,
-        version: str | int | float
+        version: str | int | float | FrostVersions
         )-> tuple[str, str]:
     """Strip trailing slashes from ``root_url`` and normalise ``version``.
 

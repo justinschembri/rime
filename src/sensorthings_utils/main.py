@@ -18,7 +18,7 @@ from sensorthings_utils.config import (
 )
 from sensorthings_utils.sensor_things.extensions import SensorConfig
 from sensorthings_utils.frost.orchestrators import initial_setup
-from sensorthings_utils.connections import SensorApplicationConnection
+from sensorthings_utils.transport import SensorTransport
 from sensorthings_utils.monitor import netmon
 from sensorthings_utils.transformers.types import SensorUUID, SupportedSensors
 
@@ -29,41 +29,40 @@ main_logger = logging.getLogger("main")
 event_logger = logging.getLogger("events")
 debug_logger = logging.getLogger("debug")
 
-def parse_application_config(config_path: Path) -> set[SensorApplicationConnection]:
+def parse_application_config(config_path: Path) -> set[SensorTransport]:
     """
-    Parse application YAML config and return set of connection objects.
+    Parse application YAML config and return set of transport instances.
 
     Args:
         config_path: Path to the YAML application configuration file
 
     Returns:
-        Set of connection instances.
+        Set of transport instances.
     """
     with open(config_path, "r") as f:
         config = yaml.safe_load(f)
 
     connections = set()
-    connections_module = importlib.import_module("sensorthings_utils.connections")
+    providers_module = importlib.import_module("sensorthings_utils.providers")
 
     for app_name, app_config in config["applications"].items():
         class_name = app_config["connection_class"]
 
         try:
-            # if you're wondering what this does: the connections module
-            # (of type `ModuleType`) object
-            # includes its classes and functions as attrs.
-            ConnectionClass = getattr(connections_module, class_name)
+            # `providers_module` exposes every provider class as an attribute
+            # via its __init__, so YAML can refer to them by name.
+            ProviderClass = getattr(providers_module, class_name)
         except AttributeError:
             raise ValueError(
-                f"Connection class '{class_name}' not found in "
-                "sensorthings_utils.connections"
+                f"Provider class '{class_name}' not found in "
+                "sensorthings_utils.providers"
             )
 
-        if not issubclass(ConnectionClass, SensorApplicationConnection):
+        if not issubclass(ProviderClass, SensorTransport):
             raise ValueError(
-                f"{class_name} is not a valid SensorApplicationConnection subclass"
+                f"{class_name} is not a valid SensorTransport subclass"
             )
-        connections.add(ConnectionClass.from_config(app_name, app_config))
+        connections.add(ProviderClass.from_config(app_name, app_config))
 
     return connections
 
@@ -133,7 +132,7 @@ def push_available(
     netmon.set_starting_threads([_.app_name for _ in sensor_connections])
 
     for connection in sensor_connections:
-        connection.start_pull_transform_push_thread(sensor_registry)
+        connection.start(sensor_registry)
         # network monitor will be responsible for restarting dead threads:
         netmon.connections.add(connection)
 
@@ -149,10 +148,11 @@ def push_available(
             netmon.report(interval=5)
     except KeyboardInterrupt:
         for conn in sensor_connections:
-            if conn._thread and conn._thread.is_alive():
+            if conn.is_alive:
                 event_logger.info(f"Stopping thread for {conn.app_name}")
-                conn.stop_pull_transform_push_thread()
-                conn._thread.join(5)
+                conn.stop()
+                if conn._thread is not None:
+                    conn._thread.join(5)
 
     event_logger.info("Successfully shutdown connections.")
     return None
