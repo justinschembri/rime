@@ -20,6 +20,7 @@ from .sanitization import (
     merge_order_by,
     rewrite_to_internal,
     sanitize_get_request,
+    sanitize_root_url,
     to_odata_datetime,
 )
 from .types import FrostParams, FrostResultPageIterator, FrostUrl, FrostVersions
@@ -290,22 +291,30 @@ def find_datastream_observations_url(
         root_url: str = FROST_ROOT_DEFAULT,
         version: str | float | int | FrostVersions = FROST_VERSION_DEFAULT,
 ) -> FrostUrl | None:
-    """Resolve the Observations navigation URL for a sensor/datastream name pair.
+    """Resolve the Datastream entity URL for posting Observations.
 
-    Looks up the Sensor by name, then finds the matching Datastream under that
-    Sensor, and extracts its ``Observations@iot.navigationLink``. The returned
-    URL is rewritten to use ``root_url`` so it works in containerised
-    environments where the public and internal origins differ.
+    Looks up the Sensor by ``sensor_name``, then the Datastream under that sensor
+    whose STA ``name`` equals ``datastream_name`` (OData ``$filter``). A sensor
+    may own many Datastreams; **the disambiguator is ``datastream_name``**, which
+    must match each stream's ``name`` field (aligned with sensor YAML /
+    transformers).
+
+    Returns the Datastream's ``@iot.selfLink``, or builds
+    ``{root}/v{version}/Datastreams(id)``, **without** a trailing ``/Observations``.
+    ``make_frost_entity`` appends ``/Observations`` when posting — same contract
+    as posting a Location under a Thing.
+
+    URLs are passed through ``rewrite_to_internal`` for containerised deployments.
 
     Args:
         sensor_name: Name of the target Sensor entity.
-        datastream_name: Name of the target Datastream under that sensor.
-        root_url: FROST server root URL, used to rewrite navigation links.
-        version: API version.
+        datastream_name: ``name`` of the target Datastream under that sensor.
+        root_url: FROST server root URL, used to rewrite links.
+        version: SensorThings API version.
 
     Returns:
-        Internal observations URL, or ``None`` if the sensor or datastream is
-        not found on the server.
+        Internal Datastream URL, or ``None`` if the sensor or datastream is not
+        found on the server.
     """
     sensors = frost_entity_lookup(
         first_entity=SensorThingsEntity.SENSOR,
@@ -331,8 +340,15 @@ def find_datastream_observations_url(
     if not datastreams:
         return None
 
-    nav_url = datastreams[0].get("Observations@iot.navigationLink")
-    if nav_url is None:
+    ds = datastreams[0]
+    self_link = ds.get("@iot.selfLink")
+    if isinstance(self_link, str) and self_link:
+        return rewrite_to_internal(self_link, root_url)
+
+    ds_id = ds.get("@iot.id")
+    if ds_id is None:
         return None
-    return rewrite_to_internal(nav_url, root_url)
+    norm_root, ver_str = sanitize_root_url(root_url, version)
+    constructed = f"{norm_root}/v{ver_str}/Datastreams({ds_id})"
+    return rewrite_to_internal(constructed, root_url)
 

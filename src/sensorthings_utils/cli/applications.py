@@ -16,38 +16,51 @@ from rich import print as rprint
 
 # internal
 from ..paths import CREDENTIALS_DIR, TOKENS_DIR, VARIABLE_APPLICATION_CONFIG_FILE
-from ..connections import HTTPSensorApplicationConnection, MQTTSensorApplicationConnection
+from ..transport import HTTPTransport, MQTTTransport
 
 logger = logging.getLogger("st-utils")
 console = Console()
 
 
+def _resolve_auth_method(connection_class: str) -> str:
+    """Look up which credential helper a provider class needs.
+
+    Falls back to "credentials" if the class can't be resolved.
+    """
+    import sensorthings_utils.providers as providers_module
+
+    cls = getattr(providers_module, connection_class, None)
+    if cls is None:
+        return "credentials"
+    return getattr(cls, "auth_method", "credentials")
+
+
 def _get_application_status():
     """
     Get status of all configured applications.
-    
+
     Returns:
         Dictionary mapping app_name to dict with:
-            - 'auth_type': 'credentials' or 'tokens'
+            - 'auth_type': 'credentials' or 'tokens' (derived from provider class)
             - 'configured': bool (whether auth is set up)
             - 'connection_class': str
     """
     app_status = {}
-    
+
     # Read application config file
     if not VARIABLE_APPLICATION_CONFIG_FILE.exists() or not VARIABLE_APPLICATION_CONFIG_FILE.is_file():
         return app_status
-    
+
     try:
         with open(VARIABLE_APPLICATION_CONFIG_FILE, "r") as f:
             config = yaml.safe_load(f)
     except Exception as e:
         logger.warning(f"Could not read application config: {e}")
         return app_status
-    
+
     if not config or "applications" not in config:
         return app_status
-    
+
     # Read application credentials if they exist
     app_creds = {}
     app_creds_file = CREDENTIALS_DIR / "application_credentials.json"
@@ -57,54 +70,49 @@ def _get_application_status():
                 app_creds = json.load(f)
         except Exception:
             pass
-    
-    # Check each application
+
     for app_name, app_config in config["applications"].items():
-        auth_type = app_config.get("authentication_type", "credentials")
         connection_class = app_config.get("connection_class", "Unknown")
-        
+        auth_type = _resolve_auth_method(connection_class)
+
         configured = False
         if auth_type == "credentials":
-            # Check if app exists in application_credentials.json
             configured = app_name in app_creds
         elif auth_type == "tokens":
-            # Check if token file exists
             token_file = TOKENS_DIR / f"{app_name}.json"
             configured = token_file.exists()
-        
+
         app_status[app_name] = {
             "auth_type": auth_type,
             "configured": configured,
             "connection_class": connection_class,
         }
-    
+
     return app_status
 
 
 def _get_available_connection_classes(connection_type: str):
     """
-    Get available connection classes for a given connection type.
-    
+    Get available provider classes for a given transport type.
+
     Args:
         connection_type: "http" or "mqtt"
-        
+
     Returns:
-        List of connection class names
+        List of provider class names
     """
-    import sensorthings_utils.connections as connections_module
-    
-    base_class = HTTPSensorApplicationConnection if connection_type == "http" else MQTTSensorApplicationConnection
+    import sensorthings_utils.providers as providers_module
+
+    base_class = HTTPTransport if connection_type == "http" else MQTTTransport
     available_classes = []
-    
-    # Get all members of the connections module
-    for name, obj in inspect.getmembers(connections_module):
-        # Check if it's a class, ends with "Connection", and is a subclass of the base class
-        if (inspect.isclass(obj) and 
-            name.endswith("Connection") and 
-            issubclass(obj, base_class) and 
+
+    for name, obj in inspect.getmembers(providers_module):
+        if (inspect.isclass(obj) and
+            name.endswith("Provider") and
+            issubclass(obj, base_class) and
             obj is not base_class):
             available_classes.append(name)
-    
+
     return sorted(available_classes)
 
 
@@ -334,27 +342,7 @@ def _modify_application_config(app_name: str) -> bool:
     
     # Show current values and allow modification
     new_config = {}
-    
-    # Authentication type
-    current_auth = current_config.get("authentication_type", "credentials")
-    console.print(f"\n[bold]Current authentication type:[/bold] {current_auth}")
-    auth_table = Table(show_header=False, box=None, padding=(0, 2))
-    auth_table.add_row("[cyan][1][/cyan]", "tokens")
-    auth_table.add_row("[cyan][2][/cyan]", "credentials")
-    console.print(auth_table)
-    
-    choice = Prompt.ask(
-        f"Select authentication type",
-        default="",
-        choices=["1", "2", ""]
-    )
-    if not choice:
-        new_config["authentication_type"] = current_auth
-    elif choice == "1":
-        new_config["authentication_type"] = "tokens"
-    elif choice == "2":
-        new_config["authentication_type"] = "credentials"
-    
+
     # Connection class
     current_class = current_config.get("connection_class", "")
     available_classes = _get_available_connection_classes(connection_type)
@@ -517,7 +505,7 @@ def _remove_application(app_name: str) -> bool:
         return False
     
     app_config = config["applications"][app_name]
-    auth_type = app_config.get("authentication_type", "credentials")
+    auth_type = _resolve_auth_method(app_config.get("connection_class", ""))
     
     # Confirm removal
     warning_text = f"[bold yellow]⚠️  WARNING:[/bold yellow] This will remove '{app_name}' from the configuration.\n"
@@ -652,21 +640,7 @@ def _add_application_to_config():
     
     # Build application config
     app_config = {}
-    
-    # Common fields - Authentication type with numeric selection
-    auth_table = Table(show_header=False, box=None, padding=(0, 2))
-    auth_table.add_row("[cyan][1][/cyan]", "tokens")
-    auth_table.add_row("[cyan][2][/cyan]", "credentials")
-    console.print("\n[bold]Authentication type:[/bold]")
-    console.print(auth_table)
-    
-    while True:
-        choice = IntPrompt.ask("Select authentication type", default=2)
-        if choice in [1, 2]:
-            break
-        console.print("[red]Invalid selection. Please enter 1 or 2.[/red]")
-    app_config["authentication_type"] = "tokens" if choice == 1 else "credentials"
-    
+
     # Connection class - show available options
     available_classes = _get_available_connection_classes(connection_type)
     if not available_classes:
@@ -751,7 +725,7 @@ def _add_application_to_config():
         with open(VARIABLE_APPLICATION_CONFIG_FILE, "w") as f:
             yaml.safe_dump(config, f, default_flow_style=False, sort_keys=False, indent=2)
         console.print(f"\n[bold green]✓ Added '{app_name}' to {VARIABLE_APPLICATION_CONFIG_FILE.name}[/bold green]")
-        auth_type = app_config.get("authentication_type", "credentials")
+        auth_type = _resolve_auth_method(app_config.get("connection_class", ""))
         return (True, app_name, auth_type)
     except Exception as e:
         console.print(f"[bold red]Error saving config file:[/bold red] {e}")

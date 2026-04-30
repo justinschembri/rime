@@ -112,8 +112,9 @@ def make_frost_entity(
         version: API version.
         auth_headers: Base64-encoded credentials for the ``Authorization``
             header.
-        endpoint: Override the default collection URL (e.g. to post an
-            Observation directly to a Datastream's navigation link).
+        endpoint: Override the default collection URL (e.g. parent Thing URL for
+            a Location, or Datastream URL for an Observation — ``make_frost_entity``
+            appends the plural segment for ``st_object.entity_type``).
 
     Returns:
         Reference to the existing or newly created entity.
@@ -144,9 +145,9 @@ def frost_observation_upload(
 ) -> FrostEntityRef:
     """Upload a single Observation to the appropriate Datastream on FROST.
 
-    Resolves the correct ``Observations`` navigation URL from the sensor and
-    datastream names, then delegates to ``make_frost_entity``, which silently
-    skips duplicates. Connection config defaults to env-var values so callers
+    Resolves the Datastream entity URL from the sensor and datastream names,
+    then delegates to ``make_frost_entity``, which appends ``/Observations`` and
+    silently skips duplicates. Connection config defaults to env-var values so callers
     that set ``FROST_ENDPOINT`` do not need to pass them explicitly.
 
     Args:
@@ -174,10 +175,10 @@ def frost_observation_upload(
     auth_headers = auth_headers or get_frost_auth_header()
 
     observation, datastream_name = observation_set
-    observations_url = find_datastream_observations_url(
+    datastream_url = find_datastream_observations_url(
         sensor_name, datastream_name, root_url, version
     )
-    if not observations_url:
+    if not datastream_url:
         raise FrostRequestError(
             f"Datastream '{datastream_name}' not found for sensor '{sensor_name}'.",
             f"{root_url}/v{version}/Sensors",
@@ -187,7 +188,7 @@ def frost_observation_upload(
         root_url=root_url,
         version=version,
         auth_headers=auth_headers,
-        endpoint=observations_url,
+        endpoint=datastream_url,
     )
 
 

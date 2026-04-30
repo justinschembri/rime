@@ -48,6 +48,7 @@ get.py                  → frost_entity_lookup_pages (paginated)
                         → frost_object_lookup_* (by domain object)
                         → get_frost_datastream_observations
                         → find_datastream_observations_url
+                          (Datastream ``@iot.selfLink`` as parent for POST)
 
 helpers.py              → check_object_existence (dispatches to type-
                           specific checkers that call get.py)

@@ -5,10 +5,50 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [v0.4.3 - unreleased]
+## [v0.5.0 - unreleased]
+
+### Fixed
+
+- **Observation POST URLs** — `find_datastream_observations_url` now returns the
+  Datastream entity URL (``@iot.selfLink`` or ``.../Datastreams(id)``), not the
+  ``Observations`` navigation link. ``make_frost_entity`` appends ``/Observations``
+  once, fixing doubled paths like ``.../Observations/Observations`` that caused
+  HTTP 404 from FROST.
+
+### Changed
+
+- **Connections refactor (BREAKING)** — `connections.py` is replaced by two
+  top-level packages: [`transport/`](src/sensorthings_utils/transport/README.md)
+  for protocol-agnostic and protocol-level abstractions, and
+  [`providers/`](src/sensorthings_utils/providers/README.md) for
+  application-specific integrations. The base class
+  `SensorApplicationConnection` becomes `SensorTransport`; protocol abstracts
+  `HTTPSensorApplicationConnection` / `MQTTSensorApplicationConnection`
+  become `HTTPTransport` / `MQTTTransport`; concrete providers
+  `NetatmoConnection` / `TTSConnection` become `NetatmoProvider` /
+  `TTSProvider`. Lifecycle methods are renamed
+  `start_pull_transform_push_thread` → `start`,
+  `stop_pull_transform_push_thread` → `stop`,
+  `restart_pull_transform_push_thread` → `restart`, and a new `is_alive`
+  property replaces external `_thread.is_alive()` checks. The MQTT
+  `_pull_data` method (which actually connects + subscribes) is renamed to
+  `_connect`.
+- **Authentication moves into providers** — the `authentication_type` /
+  `_authentication_file` fields and constructor argument are removed from
+  the base class. Each provider resolves its own credentials inside
+  `_auth()`. Update existing `deploy/application-configs.yml`:
+  - drop `authentication_type` keys (no longer read),
+  - rename `connection_class: NetatmoConnection` → `NetatmoProvider`,
+  - rename `connection_class: TTSConnection` → `TTSProvider`.
 
 ### Internal
 
+- New package layout: `transport/{base,poll/http,subscription/mqtt}.py`
+  for protocol-agnostic and protocol-level abstractions, and
+  `providers/{netatmo,tts}.py` for application-specific integrations.
+  Each package has its own README documenting the contract.
+- Provider classes now declare their CLI credential helper via
+  `auth_method: ClassVar[Literal["tokens", "credentials"]]`.
 - Fix broken tests.
 - **FROST package refactor** — the `frost` sub-package has been restructured
   into focused, single-responsibility modules:

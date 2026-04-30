@@ -11,7 +11,7 @@ from sensorthings_utils.paths import ROOT_DIR
 from sensorthings_utils.transformers.types import SensorUUID
 
 if TYPE_CHECKING:
-    from sensorthings_utils.connections import SensorApplicationConnection
+    from sensorthings_utils.transport import SensorTransport
 
 main_logger = logging.getLogger("network_monitor")
 event_logger = logging.getLogger("events")
@@ -38,7 +38,7 @@ class _NetworkMonitor:
         self.rejected_payloads: dict[SensorUUID, int] = defaultdict(int)
         self.sensor_config_fail: int = 0
         self.payloads_received: dict[str, int] = defaultdict(int)
-        self.connections: set["SensorApplicationConnection"] = set()
+        self.connections: set["SensorTransport"] = set()
         self.first_report_issued: bool = False
         self._lock = threading.Lock()
 
@@ -134,8 +134,8 @@ class _NetworkMonitor:
             else:
                 main_logger.warning(thread_msg)
                 for c in self.connections:
-                    if c._thread is None or not c._thread.is_alive(): 
-                        c.restart_pull_transform_push_thread()
+                    if not c.is_alive:
+                        c.restart()
 
             health_report.append(thread_msg)
             # Report succesful pushes:

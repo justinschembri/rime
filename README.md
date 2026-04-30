@@ -185,10 +185,10 @@ You can also check out the health monitor to see how your system is performing.
 
 st-utils supports integration with the following IoT application platforms:
 
-- **Netatmo** (`NetatmoConnection`): HTTP-based connection to Netatmo weather
+- **Netatmo** (`NetatmoProvider`): HTTP poll provider for Netatmo weather
   station APIs
-- **TheThingsStack (`TTSConnection`)**: MQTT-based connection to The Things
-  Network
+- **TheThingsStack** (`TTSProvider`): MQTT subscription provider for The
+  Things Network
 
 ## Supported Sensor Models
 
