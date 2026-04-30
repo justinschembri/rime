@@ -1,0 +1,37 @@
+# Run integration tests that spin up an ephemeral FROST + PostGIS stack.
+# Triggered on push to main and manually. Skipped on pure-docs/config changes.
+name: Docker integration tests
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "src/**"
+      - "tests/sensorthings_utils/frost/**"
+      - "pyproject.toml"
+      - ".github/workflows/tests-docker.yml"
+  workflow_dispatch:
+
+jobs:
+  tests-docker:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --group dev
+
+      - name: Run docker integration tests
+        run: uv run pytest -m "docker" -v

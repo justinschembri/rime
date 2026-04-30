@@ -7,7 +7,7 @@
 #
 # Generate config using: stu generate-config milesight.am103l
 
-sensors:
+Sensors:
   milesight.am103l:
     name: <SENSOR_ID>  # Replace with device MAC address (e.g., 24E124725F068087)
     description: Milesight AM103L-LoRaWAN Indoor Air Quality Sensor (3 in 1)
@@ -37,23 +37,23 @@ sensors:
           accuracy: ± (30 ppm + 3% of reading) at (0°C~ 50°C, 0% to 85%RH)
           resolution: 1 ppm
     iot_links:
-      datastreams: &datastreams
+      Datastreams: &datastreams
         - battery_level
         - co2
         - humidity
         - temperature_indoor
 
-things:
+Things:
   <THING_NAME>:  # Replace with thing name
     name: <THING_NAME>  # Must match line above
     description: <THING_DESCRIPTION>  # Replace with description
     properties: null  # Replace with dict or null as needed
     iot_links:
-      datastreams: *datastreams
-      locations:
+      Datastreams: *datastreams
+      Locations:
         - <LOCATION_NAME>  # Replace with location name
 
-locations:
+Locations:
   <LOCATION_NAME>:  # Replace with location name
     name: <LOCATION_NAME>  # Must match line above
     description: <LOCATION_DESCRIPTION>  # Replace with description
@@ -63,10 +63,10 @@ locations:
       type: Point  # Replace with Point, Polygon, etc. as needed
       coordinates: [<LONGITUDE>, <LATITUDE>]  # Replace with [longitude, latitude]
     iot_links:
-      things:
+      Things:
         - <THING_NAME>  # Replace with thing name
 
-datastreams:
+Datastreams:
   temperature_indoor:
     name: temperature_indoor
     description: This datastream is measuring the internal room temperature.
@@ -82,11 +82,11 @@ datastreams:
     result_time: null
     properties: null
     iot_links:
-      observedProperties:
+      ObservedProperties:
         - temperature_indoor
-      sensors:
+      Sensors:
         - <SENSOR_ID>  # Replace with sensor name
-      things:
+      Things:
         - <THING_NAME>  # Replace with thing name
 
   humidity:
@@ -102,11 +102,11 @@ datastreams:
     result_time: null
     properties: null
     iot_links:
-      observedProperties:
+      ObservedProperties:
         - internal_humidity
-      sensors:
+      Sensors:
         - <SENSOR_ID>  # Replace with sensor name
-      things:
+      Things:
         - <THING_NAME>  # Replace with thing name
 
   co2:
@@ -122,11 +122,11 @@ datastreams:
     result_time: null
     properties: null
     iot_links:
-      observedProperties:
+      ObservedProperties:
         - co2_levels
-      sensors:
+      Sensors:
         - <SENSOR_ID>  # Replace with sensor name
-      things:
+      Things:
         - <THING_NAME>  # Replace with thing name
 
   battery_level:
@@ -142,14 +142,14 @@ datastreams:
     result_time: null
     properties: null
     iot_links:
-      observedProperties:
+      ObservedProperties:
         - battery_level
-      sensors:
+      Sensors:
         - <SENSOR_ID>  # Replace with sensor name
-      things:
+      Things:
         - <THING_NAME>  # Replace with thing name
 
-observedProperties:
+ObservedProperties:
   temperature_indoor:
     name: temperature_indoor
     definition: https://dbpedia.org/page/Temperature

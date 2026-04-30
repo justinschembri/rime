@@ -45,7 +45,33 @@ def get_frost_auth_header() -> str:
     return base64.b64encode(f"{frost_user}:{frost_password}".encode()).decode("utf-8")
 
 
+FROST_ROOT_DEFAULT = "http://localhost:8080/FROST-Server"
+FROST_VERSION_DEFAULT = "v1.1"
 FROST_ENDPOINT_DEFAULT = "http://localhost:8080/FROST-Server/v1.1"
+
+
+def get_frost_root_url() -> tuple[str, str]:
+    """Return ``(root_url, version)`` from environment variables or defaults.
+
+    Resolution order:
+    1. ``FROST_ROOT_URL`` + ``FROST_VERSION`` env vars (explicit split form).
+    2. ``FROST_ENDPOINT`` env var (legacy combined form, e.g.
+       ``http://host/FROST-Server/v1.1``); the trailing ``/vX.Y`` segment is
+       split off to derive root and version.
+    3. Module-level defaults ``FROST_ROOT_DEFAULT`` / ``FROST_VERSION_DEFAULT``.
+    """
+    import re
+    root = os.getenv("FROST_ROOT_URL")
+    version = os.getenv("FROST_VERSION", FROST_VERSION_DEFAULT)
+    if root:
+        return root, version
+    endpoint = os.getenv("FROST_ENDPOINT")
+    if endpoint:
+        m = re.match(r"^(.*?)/(v[\d.]+)$", endpoint)
+        if m:
+            return m.group(1), m.group(2)
+        return endpoint, version
+    return FROST_ROOT_DEFAULT, version
 
 
 def generate_sensor_config_files() -> List[Path]:

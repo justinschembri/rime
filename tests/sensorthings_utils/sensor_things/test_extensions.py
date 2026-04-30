@@ -22,3 +22,8 @@ class TestSensorConfig:
     def test_empty_iot_link_invalid(self):
         bad_config = SensorConfig(EMPTY_IOT_LINK_CONFIG_FILE)
         assert bad_config.is_valid is False
+
+    def test_ingestion_sets_model_and_name_metadata(self):
+        good_config = SensorConfig(GOOD_CONFIG_FILE)
+        assert good_config.model.value == "netatmo.nws03"
+        assert good_config.name == "sensor-001"

@@ -1,3 +1,18 @@
+# st-utils specific >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+# Observations and Data Dumps
+downloads/*
+*.csv
+# Logs
+*logs/
+# Local secret used for integration tests
+deploy/secrets/tokens/netatmo-test-application.json
+# <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< st-utils specific
+
+# tooling >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+.cursor/*
+# <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< tooling
+
+# cursor
 # Python-generated files
 __pycache__/
 *.py[oc]
@@ -18,9 +33,3 @@ scratch.py
 .env
 # Local docker compose
 docker-compose.override.yml
-# Observations and Data Dumps
-*.csv
-# Logs
-*logs/
-# Local secret used for integration tests
-deploy/secrets/tokens/netatmo-test-application.json

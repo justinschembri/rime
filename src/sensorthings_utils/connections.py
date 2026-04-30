@@ -16,7 +16,7 @@ from paho.mqtt.client import Client as mqttClient
 from paho.mqtt.enums import CallbackAPIVersion
 
 from sensorthings_utils.exceptions import FrostUploadFailure, UnregisteredSensorError
-from sensorthings_utils.frost import frost_observation_upload
+from sensorthings_utils.frost.post import frost_observation_upload
 
 # internal
 from .monitor import netmon
@@ -27,7 +27,7 @@ from .transformers.application_unpackers import (
     TTSUnpacker,
     UnpackError,
 )
-from .transformers.types import SensorID, SupportedSensors
+from .transformers.types import SensorUUID, SupportedSensors
 from .transformers.registry import TRANSFORMER_MAP
 
 # environment setup
@@ -67,7 +67,7 @@ class SensorApplicationConnection(ABC):
             if self.authentication_type == "tokens"
             else (CREDENTIALS_DIR / "application_credentials.json")
         )
-        self.sensor_registry: dict[SensorID, SupportedSensors]
+        self.sensor_registry: dict[SensorUUID, SupportedSensors]
 
     # class attributes #########################################################
     application_unpacker: ClassVar[ApplicationUnpacker]
@@ -148,7 +148,7 @@ class SensorApplicationConnection(ABC):
             for st_obs in st_observations:
                 try:
                     debug_logger.debug(f"{st_obs=} {sensor_id=}")
-                    frost_observation_upload(sensor_id, st_obs, self.app_name)
+                    frost_observation_upload(sensor_id, st_obs)
                     event_logger.info(
                         f"Received and processed a payload from {self.app_name} "
                         f"from a {sensor_model.value} sensor."
@@ -195,7 +195,7 @@ class SensorApplicationConnection(ABC):
 
     # threading methods  #######################################################
     def start_pull_transform_push_thread(
-        self, sensor_registry: dict[SensorID, SupportedSensors] 
+        self, sensor_registry: dict[SensorUUID, SupportedSensors] 
     ):
         """
         Spin up a thread and run the _loop method.

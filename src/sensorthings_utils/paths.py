@@ -26,6 +26,7 @@ STOP_SCRIPT = DEPLOY_DIR / "stop-production.sh"
 LOGS_DIR = ROOT_DIR / "logs"
 CREDENTIALS_DIR = DEPLOY_DIR / "secrets" / "credentials"
 TOKENS_DIR = DEPLOY_DIR / "secrets" / "tokens"
+DOWNLOADS_DIR = ROOT_DIR / "downloads"
 
 # it is suggested that the sensor and application configuration files live 
 # outside the st-utils codebase and are tracked independently. For this reason,

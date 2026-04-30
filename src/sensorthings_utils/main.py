@@ -13,16 +13,14 @@ from sensorthings_utils.loggers import setup_loggers  # noqa: F401
 from sensorthings_utils.paths import RUNTIME_APPLICATION_CONFIG_FILE
 from sensorthings_utils.config import (
     generate_sensor_config_files,
-    FROST_ENDPOINT_DEFAULT,
+    get_frost_auth_header,
+    get_frost_root_url,
 )
-from sensorthings_utils.sensor_things.extensions import (
-    SensorConfig,
-    SensorArrangement,
-)
-import sensorthings_utils.frost as frost
+from sensorthings_utils.sensor_things.extensions import SensorConfig
+from sensorthings_utils.frost.orchestrators import initial_setup
 from sensorthings_utils.connections import SensorApplicationConnection
 from sensorthings_utils.monitor import netmon
-from sensorthings_utils.transformers.types import SensorID, SupportedSensors
+from sensorthings_utils.transformers.types import SensorUUID, SupportedSensors
 
 
 # import from config.py:
@@ -70,62 +68,65 @@ def parse_application_config(config_path: Path) -> set[SensorApplicationConnecti
     return connections
 
 
-def _setup_sensor_arrangements(sensor_config: SensorConfig) -> None:
-    """
-    Turns a SensorConfig file into database entities on the FROST server.
+def _setup_sensor_arrangements(
+    sensor_config: SensorConfig,
+    root_url: str,
+    version: str,
+) -> None:
+    """Provision a SensorConfig as FROST entities (idempotent).
 
-    Args
-        sensor_config (SensorConfig)
-
-    Returns
-        None. POSTS entities to the FROST database instance.
+    Args:
+        sensor_config: Parsed sensor configuration.
+        root_url: FROST server root, e.g. ``http://host/FROST-Server``.
+        version: SensorThings API version string, e.g. ``"v1.1"``.
     """
     if not sensor_config.is_valid:
         netmon.add_count("sensor_config_fail", 1)
         main_logger.warning(
-            f"{sensor_config._filepath} is an invalid sensor configuration " "file."
+            f"{sensor_config._filepath} is an invalid sensor configuration file."
         )
         return None
 
-    sensor_arrangement = SensorArrangement(sensor_config)
-    frost.initial_setup(sensor_arrangement)
+    initial_setup(
+        sensor_config,
+        root_url=root_url,
+        version=version,
+        auth_headers=get_frost_auth_header(),
+    )
 
 
 def push_available(
     sensor_config_paths: List[Path] = generate_sensor_config_files(),
-    exclude: Optional[List[SensorID]] = None,
+    exclude: Optional[List[SensorUUID]] = None,
     frost_endpoint: Optional[str] = None,
     start_delay: int = 30,
 ) -> None:
-    """
-    Start app threads and begin collecting data, pushing to FROST server.
+    """Start app threads and begin collecting data, pushing to FROST server.
 
-    Args
-        - sensor_config_path: a list sensor configuration files.
-        - exclude: sensors to exclude.
-        - frost_endpoint: HTTP FROST endpoint to push too.
-        - start_delay: a delay before starting the loop.
-    Raises
-        - None.
+    Args:
+        sensor_config_paths: List of sensor configuration file paths.
+        exclude: Sensor UUIDs to skip.
+        frost_endpoint: Override FROST endpoint (``http://host/FROST-Server/vX.Y``).
+            When omitted, ``FROST_ENDPOINT`` env var or the compiled default is used.
+        start_delay: Seconds to wait before starting the collection loop.
     """
-    os.environ["FROST_ENDPOINT"] = (
-        frost_endpoint or os.getenv("FROST_ENDPOINT") or FROST_ENDPOINT_DEFAULT
-    )
-    # TODO: frost_endpoint run in containers is pointing to container reference
+    if frost_endpoint:
+        os.environ["FROST_ENDPOINT"] = frost_endpoint
+
+    root_url, version = get_frost_root_url()
     event_logger.info(
-        f"Sensor stream starts in {start_delay}s, target: "
-        f"{os.getenv('FROST_ENDPOINT')}."
+        f"Sensor stream starts in {start_delay}s, target: {root_url}/{version}."
     )
     time.sleep(start_delay)
     # INITIAL SETUP ############################################################
-    sensor_registry: dict[SensorID, SupportedSensors] = {}
+    sensor_registry: dict[SensorUUID, SupportedSensors] = {}
     for f in sensor_config_paths:
         if exclude and f.name in exclude:
             continue
         sensor_config = SensorConfig(f)
         sensor_registry[sensor_config.name] = SupportedSensors(sensor_config.model)
         netmon.expected_sensors.add(sensor_config.name)
-        _setup_sensor_arrangements(sensor_config)
+        _setup_sensor_arrangements(sensor_config, root_url, version)
     # generate a list of connections
     sensor_connections = parse_application_config(RUNTIME_APPLICATION_CONFIG_FILE)
 
