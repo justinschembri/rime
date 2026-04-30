@@ -14,6 +14,7 @@ import pytest
 import requests
 
 from sensorthings_utils.frost.post import general_post, make_frost_entity
+from sensorthings_utils.frost.types import FrostEntityRef
 from sensorthings_utils.sensor_things.core import Thing
 
 if TYPE_CHECKING:
@@ -22,9 +23,9 @@ if TYPE_CHECKING:
 pytestmark = [pytest.mark.docker, pytest.mark.slow]
 
 
-def _assert_created_thing(location: str, expected_name: str) -> None:
-    assert "/Things(" in location
-    response = requests.get(location, timeout=10)
+def _assert_created_thing(ref: FrostEntityRef, expected_name: str) -> None:
+    assert "/Things(" in ref.frost_url
+    response = requests.get(ref.frost_url, timeout=10)
     response.raise_for_status()
     assert response.json()["name"] == expected_name
 
@@ -63,9 +64,9 @@ class TestPostViaDockerFrost:
         ]
 
         for label, payload, expected_name in payloads:
-            location = general_post(url, payload)
-            assert isinstance(location, str), f"{label} payload should return Location str"
-            _assert_created_thing(location, expected_name)
+            ref = general_post(url, payload)
+            assert isinstance(ref, FrostEntityRef), f"{label} payload should return FrostEntityRef"
+            _assert_created_thing(ref, expected_name)
 
     def test_make_frost_entity_creates_then_skips_same_thing(
         self, docker_frost: DockerFrost
@@ -80,11 +81,12 @@ class TestPostViaDockerFrost:
             root_url=docker_frost.root_url,
             version=docker_frost.version,
         )
-        assert first is not None
+        assert isinstance(first, FrostEntityRef)
 
         second = make_frost_entity(
             thing,
             root_url=docker_frost.root_url,
             version=docker_frost.version,
         )
-        assert second is None
+        assert isinstance(second, FrostEntityRef)
+        assert second.iot_id == first.iot_id
