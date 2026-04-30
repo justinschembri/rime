@@ -59,8 +59,11 @@ def frost_entity_lookup_pages(
         ) -> FrostResultPageIterator:
     """Query a FROST endpoint and yield each page of ``value`` rows.
 
-    Handles OData ``@iot.nextLink`` pagination automatically. Entity names and
-    param keys are validated; param values are passed through as-is.
+    Handles OData ``@iot.nextLink`` pagination automatically, rewriting each
+    next-page URL to the internal ``root_url`` so that containerised deployments
+    with a public ``serviceRootUrl`` never make requests outside the container
+    network. Entity names and param keys are validated; param values are passed
+    through as-is.
 
     Args:
         first_entity: The primary entity collection to query (e.g. ``Things``,
@@ -101,7 +104,7 @@ def frost_entity_lookup_pages(
             next_link = response.get("@iot.nextLink")
             if not next_link:
                 break
-            response = general_frost_get(next_link)
+            response = general_frost_get(rewrite_to_internal(next_link, url))
 
     except Exception as e:
         raise FrostRequestError(e, url)

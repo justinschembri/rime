@@ -32,6 +32,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added Google-style docstrings across all FROST modules.
 - Added `frost/README.md` describing the package structure, data flow, and
   key design decisions.
+- **Fix external requests on paginated queries** (#61) — `frost_entity_lookup_pages`
+  now rewrites `@iot.nextLink` URLs to the internal root before following them,
+  closing the path by which containerised deployments with a public
+  `serviceRootUrl` would leak paginated GET requests outside the container
+  network. Navigation links in POST paths were already handled via
+  `rewrite_to_internal`; this closes the remaining gap.
+- **Remove `frost_data_retrieval.py`** — legacy predecessor to the `frost/`
+  package; no longer imported anywhere and superseded by `frost/get.py`.
 
 ## [v0.4.2]
 
