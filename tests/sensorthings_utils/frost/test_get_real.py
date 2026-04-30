@@ -206,5 +206,5 @@ class TestCheckObjectExistence:
 
         assert (
             check_object_existence(thing, root_url=multicare_root_url)
-            is False
+            is None
         )

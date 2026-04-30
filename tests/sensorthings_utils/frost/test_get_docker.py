@@ -40,7 +40,6 @@ from sensorthings_utils.sensor_things.core import (
     Thing,
 )
 from sensorthings_utils.sensor_things.schema import (
-    SensorThingsEntity,
     SensorThingsEntityGroups,
 )
 
@@ -285,7 +284,7 @@ class TestCheckObjectExistence:
                 root_url=docker_frost.root_url,
                 version=docker_frost.version,
             )
-            is True
+            is not None
         )
 
     def test_existing_location_matches(self, docker_frost: DockerFrost) -> None:
@@ -302,7 +301,7 @@ class TestCheckObjectExistence:
                 root_url=docker_frost.root_url,
                 version=docker_frost.version,
             )
-            is True
+            is not None
         )
 
     def test_existing_sensor_matches(self, docker_frost: DockerFrost) -> None:
@@ -319,7 +318,7 @@ class TestCheckObjectExistence:
                 root_url=docker_frost.root_url,
                 version=docker_frost.version,
             )
-            is True
+            is not None
         )
 
     def test_existing_observed_property_matches(
@@ -337,7 +336,7 @@ class TestCheckObjectExistence:
                 root_url=docker_frost.root_url,
                 version=docker_frost.version,
             )
-            is True
+            is not None
         )
 
     def test_missing_thing_returns_false(
@@ -351,7 +350,7 @@ class TestCheckObjectExistence:
                 root_url=docker_frost.root_url,
                 version=docker_frost.version,
             )
-            is False
+            is None
         )
 
 
@@ -382,7 +381,7 @@ class TestCheckDatastreamExistence:
                 "definition": "https://unitsofmeasure.org/ucum#para-29",
             },
         )
-        datastream.links[SensorThingsEntity.SENSOR] = [sensor]
+        datastream.iot_links = {SensorThingsEntityGroups.SENSORS: [sensor.name]}
         return datastream
 
     def test_matches_when_sensor_name_matches(
@@ -396,7 +395,7 @@ class TestCheckDatastreamExistence:
                 root_url=docker_frost.root_url,
                 version=docker_frost.version,
             )
-            is True
+            is not None
         )
 
     def test_no_match_when_sensor_name_differs(
@@ -411,7 +410,7 @@ class TestCheckDatastreamExistence:
                 root_url=docker_frost.root_url,
                 version=docker_frost.version,
             )
-            is False
+            is None
         )
 
     def test_missing_datastream_returns_false(
@@ -427,7 +426,7 @@ class TestCheckDatastreamExistence:
                 root_url=docker_frost.root_url,
                 version=docker_frost.version,
             )
-            is False
+            is None
         )
 
 
@@ -448,7 +447,7 @@ class TestCheckObservationExistence:
                 root_url=docker_frost.root_url,
                 version=docker_frost.version,
             )
-            is True
+            is not None
         )
 
     def test_missing_phenomenon_time_returns_false(
@@ -465,7 +464,7 @@ class TestCheckObservationExistence:
                 root_url=docker_frost.root_url,
                 version=docker_frost.version,
             )
-            is False
+            is None
         )
 
 
@@ -493,7 +492,7 @@ class TestCheckObjectExistencePayloadQuirks:
                 root_url=docker_frost.root_url,
                 version=docker_frost.version,
             )
-            is True
+            is not None
         )
 
     def test_location_with_integer_valued_coordinates(
@@ -512,5 +511,5 @@ class TestCheckObjectExistencePayloadQuirks:
                 root_url=docker_frost.root_url,
                 version=docker_frost.version,
             )
-            is True
+            is not None
         )
