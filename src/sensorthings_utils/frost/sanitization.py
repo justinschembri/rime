@@ -13,7 +13,17 @@ from sensorthings_utils.sensor_things.schema import (
 )
 
 def to_odata_datetime(value: datetime | str) -> str:
-    """Convert datetime-like values into OData datetime string format."""
+    """Convert a datetime or string into an OData-compatible datetime string.
+
+    ``datetime`` objects are converted via ``isoformat()``; strings are passed
+    through unchanged so that callers can supply pre-formatted values directly.
+
+    Args:
+        value: A ``datetime`` instance or an already-formatted string.
+
+    Returns:
+        ISO 8601 string suitable for use in OData ``$filter`` expressions.
+    """
 
     if isinstance(value, datetime):
         return value.isoformat()
@@ -28,12 +38,29 @@ def sanitize_get_request(
     first_entity_id: Optional[int | str] = "",
     second_entity: Optional[str | SensorThingsEntityGroups | SensorThingsEntity] = "",
 ) -> tuple[str, dict[str, Any] | None]:
-    """Normalize GET request URL, entities, and OData parameter keys.
+    """Build and normalise a FROST GET request URL and its OData params.
 
-    - Accepts singular or plural SensorThings entity identifiers and normalizes
-      them to plural endpoint names used in FROST URLs.
-    - Sanitizes `root_url` + `version` into canonical form (`.../vX.Y/...`).
-    - Normalizes query-param keys to official OData tokens via `FrostParams`.
+    Accepts singular or plural SensorThings entity names (as strings or enums)
+    and normalises them to the plural endpoint form used in FROST URLs. The
+    ``root_url`` and ``version`` are canonicalised, and all param keys are
+    validated and converted to their official OData ``$token`` strings.
+
+    Args:
+        root_url: FROST server root URL, without the version segment.
+        version: API version (e.g. ``1``, ``1.1``, ``"v1.1"``).
+        first_entity: Primary entity collection to query.
+        params: Optional OData query params; keys must be ``FrostParams``
+            values or their string equivalents.
+        first_entity_id: ID of the first entity for relationship traversal.
+        second_entity: Child entity collection to retrieve.
+
+    Returns:
+        A tuple of ``(url, normalised_params)`` ready to pass to
+        ``general_frost_get``.
+
+    Raises:
+        ValueError: When an entity name cannot be resolved to a known
+            ``SensorThingsEntityGroups`` or ``SensorThingsEntity``.
     """
     try:
         normalized_first_entity = SensorThingsEntityGroups(first_entity).value
@@ -69,12 +96,38 @@ def sanitize_root_url(
         root_url:str,
         version: str | int | float
         )-> tuple[str, str]:
+    """Strip trailing slashes from ``root_url`` and normalise ``version``.
+
+    Args:
+        root_url: Raw FROST server root URL.
+        version: Version as a number or string (with or without a leading
+            ``v``).
+
+    Returns:
+        Tuple of ``(clean_root_url, version_string)`` where the version string
+        matches the ``FrostVersions`` enum value (e.g. ``"1.1"``).
+
+    Raises:
+        ValueError: When ``version`` does not match a known ``FrostVersions``.
+    """
     normalized_root = str(root_url.rstrip("/"))
     normalized_version = FrostVersions(str(version).lstrip("v")).value
     return (normalized_root, normalized_version)
 
 def merge_filter(params: dict[str, Any], extra_filter: str) -> dict[str, Any]:
-    """Merge generated filter text with an existing $filter if present."""
+    """Merge an additional OData filter clause into an existing params dict.
+
+    When a ``$filter`` key is already present, both clauses are wrapped in
+    parentheses and joined with ``and``. Otherwise the new filter is inserted
+    directly.
+
+    Args:
+        params: Existing OData params dict (mutated in place).
+        extra_filter: OData filter expression to add.
+
+    Returns:
+        The updated ``params`` dict.
+    """
 
     existing_filter = params.get(FrostParams.FILTER.value)
     if existing_filter:
@@ -88,7 +141,17 @@ def merge_order_by(
     order_by: Optional[str],
     descending: bool,
 ) -> dict[str, Any]:
-    """Apply a single orderBy argument to OData params."""
+    """Set the ``$orderBy`` clause in an OData params dict.
+
+    Args:
+        params: Existing OData params dict (mutated in place).
+        order_by: Field name to sort by. When ``None`` or empty the params dict
+            is returned unchanged.
+        descending: ``True`` for ``desc``, ``False`` for ``asc``.
+
+    Returns:
+        The updated ``params`` dict.
+    """
 
     if not order_by:
         return params
@@ -101,15 +164,19 @@ def rewrite_to_internal(nav_url: str, internal_root: str) -> str:
     """Rewrite a FROST navigation link to use the internal root URL.
 
     FROST embeds its ``serviceRootUrl`` into every ``@iot.navigationLink`` and
-    ``@iot.selfLink`` it returns.  In containerised deployments the public URL
+    ``@iot.selfLink`` it returns. In containerised deployments the public URL
     (e.g. ``https://multicare.bk.tudelft.nl/FROST-Server``) differs from the
-    address the python-app uses to reach FROST internally
-    (e.g. ``http://web:8080/FROST-Server``).  This function replaces the
-    origin + base-path portion of a server-issued URL with the internal root,
-    leaving the version + entity path intact.
+    address the Python app uses to reach FROST internally
+    (e.g. ``http://web:8080/FROST-Server``). This function replaces the
+    origin and base-path with ``internal_root``, leaving the version and entity
+    path intact. When both roots share the same origin the function is a no-op.
 
-    When both roots share the same origin (local development) the function is
-    effectively a no-op.
+    Args:
+        nav_url: Server-issued navigation or self link to rewrite.
+        internal_root: The root URL the app should use to contact FROST.
+
+    Returns:
+        Rewritten URL using the internal scheme, host, and base path.
     """
     internal = urlparse(internal_root.rstrip("/"))
     nav = urlparse(nav_url)

@@ -29,7 +29,18 @@ def general_frost_get(
     url: str,
     params: Optional[Mapping[str, Any]] = None,
 ) -> dict[str, Any]:
-    """Execute a GET request and return parsed JSON or raise FrostRequestError."""
+    """Execute a raw GET request and return the parsed JSON body.
+
+    Args:
+        url: Fully-qualified URL to request.
+        params: Optional query-string parameters to append.
+
+    Returns:
+        Parsed JSON response as a dict.
+
+    Raises:
+        FrostRequestError: On any HTTP or connection error.
+    """
     try:
         response = requests.get(url, params=params)  # type: ignore[arg-type]
         response.raise_for_status()
@@ -46,28 +57,28 @@ def frost_entity_lookup_pages(
         first_entity_id: Optional[int | str] = "",
         second_entity: Optional[str | SensorThingsEntityGroups | SensorThingsEntity] = ""
         ) -> FrostResultPageIterator:
-    """
-    Query a FROST server and return unpacked `value` pages.
-    
-    This is a general querying tool for FROST over HTTP. Entity names and param
-    keys are checked but parameter values are not.
+    """Query a FROST endpoint and yield each page of ``value`` rows.
+
+    Handles OData ``@iot.nextLink`` pagination automatically. Entity names and
+    param keys are validated; param values are passed through as-is.
 
     Args:
-        root_url: the FROST url **without** the version,
-        version: the FROST server version,
-        first_entity: the type of the first entity you want, must be a 
-            SensorThingsEntityGroups enum (e.g., Things, Sensors, Datastreams)
-        params: optional OData params, must be FrostParams.
-        first_entity_id: If you want to query the entity which is related to 
-            another one, you must supply the ID of the first entity.
-        second_entity: the child entity you're looking for. For example, if you
-            want the Locations of Things(1), the first entity would be Things
-            and the second would be Locations.
+        first_entity: The primary entity collection to query (e.g. ``Things``,
+            ``Sensors``). Accepts singular, plural, or enum forms.
+        root_url: FROST server root URL, without the version segment.
+        version: API version (e.g. ``"1.1"``).
+        params: Optional OData query params; keys must be ``FrostParams`` values
+            or their string equivalents.
+        first_entity_id: ID of the first entity when traversing a relationship
+            (e.g. ``Things(42)/Locations`` requires ``first_entity_id=42``).
+        second_entity: Child entity collection to retrieve from the first entity.
 
-    Returns:
-        Iterator over each FROST `value` page (possibly empty when the server
-        returns no rows). Callers that merge pages should treat an exhausted
-        iterator with no yields as no results.
+    Yields:
+        Each ``value`` page as a list of dicts. Exhausts without yielding when
+        the server returns no rows.
+
+    Raises:
+        FrostRequestError: On any HTTP or connection error.
     """
 
     url, sanitized_params = sanitize_get_request(
@@ -104,7 +115,13 @@ def frost_entity_lookup(
         first_entity_id: Optional[int | str] = "",
         second_entity: Optional[str | SensorThingsEntityGroups | SensorThingsEntity] = "",
         ) -> list[dict[str, Any]] | None:
-    """Wrapper over `frost_entity_lookup_pages` that merges all pages into one list."""
+    """Merge all pages from ``frost_entity_lookup_pages`` into a single list.
+
+    Accepts the same arguments as ``frost_entity_lookup_pages``.
+
+    Returns:
+        Flat list of entity dicts, or ``None`` when the server returns no rows.
+    """
     pages = frost_entity_lookup_pages(
         first_entity=first_entity,
         root_url=root_url,
@@ -124,7 +141,23 @@ def frost_object_lookup_pages(
         root_url: str = FROST_ROOT_DEFAULT,
         version: str | float | int | FrostVersions = FROST_VERSION_DEFAULT,
         ) -> FrostResultPageIterator:
-    """Lookup equivalent SensorThingsObject values and return paged iterator."""
+    """Yield FROST pages matching an in-memory SensorThings object.
+
+    Builds the appropriate OData ``$filter`` automatically: observations are
+    matched by ``phenomenonTime``; all other objects are matched by ``name``.
+
+    Args:
+        st_object: The object to search for on the server.
+        root_url: FROST server root URL, without the version segment.
+        version: API version.
+
+    Yields:
+        Each ``value`` page from the server.
+
+    Raises:
+        ValueError: If ``st_object`` is an ``Observation`` without a
+            ``phenomenonTime``.
+    """
     if isinstance(st_object, Observation):
         if st_object.phenomenonTime is None:
             raise ValueError(
@@ -153,7 +186,16 @@ def frost_object_lookup(
         root_url: str = FROST_ROOT_DEFAULT,
         version: str | float | int | FrostVersions = FROST_VERSION_DEFAULT,
         ) -> list[dict[str, Any]] | None:
-    """Wrapper over `frost_object_lookup_pages` that merges all pages into one list."""
+    """Merge all pages from ``frost_object_lookup_pages`` into a single list.
+
+    Args:
+        st_object: The object to search for on the server.
+        root_url: FROST server root URL, without the version segment.
+        version: API version.
+
+    Returns:
+        Flat list of matching entity dicts, or ``None`` when nothing is found.
+    """
     pages = frost_object_lookup_pages(
         st_object=st_object,
         root_url=root_url,
@@ -179,10 +221,29 @@ def get_frost_datastream_observations(
         order_by: Optional[str] = "phenomenonTime",
         descending: bool = True,
         ) -> list[dict[str, Any]]:
-    """
-    Query `Datastreams(<id>)/Observations` with optional convenience filters.
+    """Return all observations for a datastream with optional filter helpers.
 
-    All filter helper arguments are optional.
+    By default selects only ``@iot.id``, ``phenomenonTime``, ``resultTime``,
+    and ``result``. Set ``verbose=True`` to retrieve all fields.
+
+    Args:
+        datastream_id: The ``@iot.id`` of the target Datastream.
+        root_url: FROST server root URL, without the version segment.
+        version: API version.
+        verbose: When ``True``, omit the ``$select`` restriction.
+        time_start: Lower bound for ``phenomenonTime`` (inclusive).
+        time_end: Upper bound for ``phenomenonTime`` (inclusive).
+        result_min: Lower bound for ``result`` (inclusive).
+        result_max: Upper bound for ``result`` (inclusive).
+        result_eq: Exact value for ``result``.
+        order_by: Field to sort by (default ``phenomenonTime``).
+        descending: Sort direction; ``True`` for descending.
+
+    Returns:
+        List of observation dicts. Empty list when none match.
+
+    Raises:
+        TypeError: If the underlying lookup returns an unexpected type.
     """
 
     params_map: dict[str, Any] = {}
@@ -226,10 +287,22 @@ def find_datastream_observations_url(
         root_url: str = FROST_ROOT_DEFAULT,
         version: str | float | int | FrostVersions = FROST_VERSION_DEFAULT,
 ) -> FrostUrl | None:
-    """Resolve the Observations collection URL for a sensor + datastream name pair.
+    """Resolve the Observations navigation URL for a sensor/datastream name pair.
 
-    Returns ``None`` when no matching Sensor or Datastream is found on the
-    server, allowing callers to handle the miss gracefully rather than raising.
+    Looks up the Sensor by name, then finds the matching Datastream under that
+    Sensor, and extracts its ``Observations@iot.navigationLink``. The returned
+    URL is rewritten to use ``root_url`` so it works in containerised
+    environments where the public and internal origins differ.
+
+    Args:
+        sensor_name: Name of the target Sensor entity.
+        datastream_name: Name of the target Datastream under that sensor.
+        root_url: FROST server root URL, used to rewrite navigation links.
+        version: API version.
+
+    Returns:
+        Internal observations URL, or ``None`` if the sensor or datastream is
+        not found on the server.
     """
     sensors = frost_entity_lookup(
         first_entity=SensorThingsEntity.SENSOR,

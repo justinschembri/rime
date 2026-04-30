@@ -18,7 +18,19 @@ def check_frost_connection(
         root_url:str = FROST_ROOT_DEFAULT,
         version:str = FROST_VERSION_DEFAULT
         ) -> bool:
-    """Check connectivity and accessibility of a FROST srever instance."""
+    """Probe every FROST entity endpoint to verify read connectivity.
+
+    Performs a GET against each endpoint in ``FrostEndpoints`` and logs the
+    outcome. Intended as a startup preflight check.
+
+    Args:
+        root_url: FROST server root URL, without the version segment.
+        version: API version.
+
+    Returns:
+        ``True`` when all endpoints respond with a 2xx status;
+        ``False`` on any connection or HTTP error.
+    """
     root_url, version = sanitize_root_url(root_url, version)
     base_url = f"{root_url}/v{version}"
     try:
@@ -38,12 +50,21 @@ def _check_unlinked_object_exists(
         root_url:str = FROST_ROOT_DEFAULT,
         version: str = FROST_VERSION_DEFAULT
         ) -> None | FrostEntityRef:
-    """
-    Check if an unlinked SensorThings object exists in a given FROST instance.
+    """Check whether an unlinked SensorThings object exists on the FROST server.
 
-    Compares content fields via `partial_eq` (ignores `id`, `links`,
-    `iot_links`). Should not be used for Datastream or Observation objects;
-    `check_object_existence` dispatches those to dedicated checkers.
+    Compares content fields via ``partial_eq``, which ignores ``id``, ``links``,
+    and ``iot_links``. Not intended for ``Datastream`` or ``Observation``
+    objects; ``check_object_existence`` dispatches those to dedicated checkers.
+
+    Args:
+        st_object: The unlinked object to search for (e.g. a ``Thing``,
+            ``Sensor``, or ``ObservedProperty``).
+        root_url: FROST server root URL, without the version segment.
+        version: API version.
+
+    Returns:
+        A ``FrostEntityRef`` for the first matching entity, or ``None`` when no
+        match is found. Logs a warning when more than one candidate exists.
     """
     response = frost_object_lookup(st_object, root_url, version)
     if not response:
@@ -67,12 +88,28 @@ def _check_datastream_object_exists(
         root_url:str = FROST_ROOT_DEFAULT,
         version: str = FROST_VERSION_DEFAULT
         ) -> None | FrostEntityRef:
-    """Check whether a Datastream with matching content and linked Sensor exists.
+    """Check whether a content-equivalent Datastream with its linked Sensor exists.
 
-    Matches both on the Datastream's own content (via `partial_eq`) and on
-    the linked Sensor's name. Uses OData `$expand=Sensor($select=name)`
-    because `/Datastreams({id})/Sensor` (singular) cannot be reached via
-    the plural-only `sanitize_get_request` helper.
+    Matches on both the Datastream's own fields (via ``partial_eq``) and its
+    linked Sensor, using OData ``$expand=Sensor($select=name)`` because the
+    singular ``/Datastreams({id})/Sensor`` relationship cannot be navigated via
+    ``sanitize_get_request``.
+
+    When ``iot_links[Sensors][0]`` is a ``FrostEntityRef`` (post-attach), the
+    Sensor is matched by ``@iot.id``; when it is a plain string (pre-attach,
+    from YAML), it is matched by name.
+
+    Args:
+        st_datastream: The Datastream to search for.
+        root_url: FROST server root URL, without the version segment.
+        version: API version.
+
+    Returns:
+        A ``FrostEntityRef`` for the matching Datastream, or ``None``.
+
+    Raises:
+        ValueError: If ``st_datastream.iot_links[Sensors]`` is missing or
+            malformed.
     """
     # Invariant: Datastream has exactly one linked Sensor. We cannot check if
     # a datastream exists without this link.
@@ -122,14 +159,20 @@ def _check_observation_object_exists(
         root_url:str = FROST_ROOT_DEFAULT,
         version: str = FROST_VERSION_DEFAULT
         ) -> None | FrostEntityRef:
-    """
-    Check if an Observation with matching content exists on the FROST server.
+    """Check whether a content-equivalent Observation exists on the FROST server.
 
-    Matches on the content fields enumerated in
-    `SENSOR_THINGS_ENTITY_FIELDS[OBSERVATION]` (phenomenonTime, resultTime,
-    result, validTime) rather than just phenomenonTime, so that two
-    observations at the same instant but with different `result` values are
-    correctly treated as different.
+    Matches on all observation content fields (``phenomenonTime``,
+    ``resultTime``, ``result``, ``validTime``) via ``partial_eq``, so two
+    observations at the same instant but with different ``result`` values are
+    correctly treated as distinct.
+
+    Args:
+        st_observation: The Observation to search for.
+        root_url: FROST server root URL, without the version segment.
+        version: API version.
+
+    Returns:
+        A ``FrostEntityRef`` for the first matching entity, or ``None``.
     """
     #TODO: test the real robustness of this function!
     matches = frost_object_lookup(st_observation, root_url, version)
@@ -145,6 +188,24 @@ def check_object_existence(
         root_url:str = FROST_ROOT_DEFAULT,
         version: str = FROST_VERSION_DEFAULT
         ) -> None | FrostEntityRef:
+    """Route an existence check to the appropriate type-specific checker.
+
+    Dispatches to ``_check_datastream_object_exists``,
+    ``_check_observation_object_exists``, or
+    ``_check_unlinked_object_exists`` based on the runtime type of
+    ``st_object``.
+
+    Args:
+        st_object: The domain object to look up on the server.
+        root_url: FROST server root URL, without the version segment.
+        version: API version.
+
+    Returns:
+        A ``FrostEntityRef`` when a matching entity exists, otherwise ``None``.
+
+    Raises:
+        ValueError: For unsupported object types.
+    """
 
     if isinstance(st_object, Datastream):
         return _check_datastream_object_exists(st_object, root_url, version)

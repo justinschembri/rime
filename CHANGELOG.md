@@ -10,6 +10,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Internal
 
 - Fix broken tests.
+- **FROST package refactor** — the `frost` sub-package has been restructured
+  into focused, single-responsibility modules:
+  - `types.py` — enums (`FrostVersions`, `FrostEndpoints`, `FrostParams`) and
+    the `FrostEntityRef` dataclass.
+  - `errors.py` — exception hierarchy (`FrostConnectionError`,
+    `FrostRequestError`, `FrostNoResultsError`, `FrostWriterError`).
+  - `bridges.py` — lookup tables between the SensorThings domain model and the
+    FROST wire protocol (navigation-link keys, endpoint paths).
+  - `sanitization.py` — URL/param normalisation helpers and OData clause
+    builders (`sanitize_get_request`, `sanitize_root_url`, `merge_filter`,
+    `merge_order_by`, `rewrite_to_internal`).
+  - `get.py` — paginated entity lookups, object lookups, datastream observation
+    queries, and navigation-link resolution.
+  - `post.py` — raw POST, idempotent entity creation, and observation upload.
+  - `helpers.py` — per-type existence checkers and the connectivity probe.
+  - `writers.py` — `FrostWriter` class supporting stream and buffered JSON/CSV
+    output with atomic file rename.
+  - `orchestrators.py` — `initial_setup` for full sensor-config provisioning in
+    dependency order.
+- Added Google-style docstrings across all FROST modules.
+- Added `frost/README.md` describing the package structure, data flow, and
+  key design decisions.
 
 ## [v0.4.2]
 

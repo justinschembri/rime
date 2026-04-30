@@ -18,7 +18,27 @@ WriterFormat = Literal["json", "csv"]
 WriterMode = Literal["stream", "buffered"]
 
 class FrostWriter:
-    """Mode-aware writer for FROST response exports."""
+    """Write FROST query results to JSON or CSV files.
+
+    Supports two write modes:
+
+    * ``stream`` – rows are written to a ``.part`` file row-by-row and
+      atomically renamed on completion; memory usage is bounded by a single
+      page of results.
+    * ``buffered`` – all rows are materialised in memory before writing;
+      simpler but unsuitable for very large result sets.
+
+    Attributes:
+        format: Output format — ``"json"`` or ``"csv"``.
+        mode: Write mode — ``"stream"`` or ``"buffered"``.
+        output_path: Destination file or directory. When ``None`` the
+            ``downloads/`` directory is used with an auto-generated filename.
+        source_url: URL used for default filename generation. Inferred from
+            the response when ``None``.
+        strict_schema: When ``True``, CSV writes raise
+            ``FrostWriterError`` on unexpected row keys.
+        json_indent: Indentation for JSON output; ``None`` for compact output.
+    """
 
     def __init__(
         self,
@@ -38,7 +58,18 @@ class FrostWriter:
         self.json_indent = json_indent
 
     def write_pages(self, pages: Iterable[Sequence[Mapping[str, Any]]]) -> str:
-        """Write paginated rows according to configured mode/format."""
+        """Write an iterator of result pages using the configured mode and format.
+
+        Args:
+            pages: Iterable of pages, each being a sequence of row mappings.
+
+        Returns:
+            Absolute path of the written file as a string.
+
+        Raises:
+            FrostWriterError: For unsupported mode/format combinations or
+                schema violations.
+        """
 
         if self.mode == "stream":
             return self._write_pages_stream(pages)
@@ -51,7 +82,22 @@ class FrostWriter:
         raise FrostWriterError(f"Unsupported writer mode: {self.mode}")
 
     def write_response(self, response: Mapping[str, Any]) -> str:
-        """Write a materialized FROST response according to mode/format."""
+        """Write a materialised FROST response dict using the configured mode and format.
+
+        Extracts ``response["value"]`` and delegates to the appropriate
+        stream or buffered writer.
+
+        Args:
+            response: A parsed FROST response containing a top-level ``value``
+                list.
+
+        Returns:
+            Absolute path of the written file as a string.
+
+        Raises:
+            FrostWriterError: When ``response["value"]`` is missing, not a
+                list, or contains non-mapping rows.
+        """
 
         rows = self._extract_rows(response)
         if self.mode == "stream":
@@ -66,6 +112,7 @@ class FrostWriter:
         *,
         response: Mapping[str, Any] | None = None,
     ) -> str:
+        """Dispatch a page iterator to the stream writer for the configured format."""
         if self.format == "json":
             return self._write_json_stream(pages, response=response)
         if self.format == "csv":
@@ -78,6 +125,7 @@ class FrostWriter:
         *,
         response: Mapping[str, Any] | None = None,
     ) -> str:
+        """Dispatch a materialised row sequence to the buffered writer for the configured format."""
         if self.format == "json":
             return self._write_json_buffered(rows, response=response)
         if self.format == "csv":
@@ -90,6 +138,19 @@ class FrostWriter:
         *,
         response: Mapping[str, Any] | None = None,
     ) -> str:
+        """Write paginated rows to a JSON file as a ``{"value": [...]}`` structure.
+
+        Rows are serialised one-by-one into a ``.part`` file, which is
+        atomically renamed on completion so partial writes are never visible.
+
+        Args:
+            pages: Iterable of row-sequence pages.
+            response: Optional original FROST response, used for filename
+                generation when ``source_url`` is not set.
+
+        Returns:
+            Absolute path of the written JSON file.
+        """
         destination = self._resolve_output_path(
             basename=self._build_default_basename(response=response),
             extension=".json",
@@ -118,6 +179,24 @@ class FrostWriter:
         *,
         response: Mapping[str, Any] | None = None,
     ) -> str:
+        """Write paginated rows to a CSV file, inferring headers from the first row.
+
+        Rows are written one-by-one into a ``.part`` file for atomic rename.
+        When ``strict_schema`` is ``True``, any row whose keys are not a subset
+        of the first row's keys raises ``FrostWriterError``.
+
+        Args:
+            pages: Iterable of row-sequence pages.
+            response: Optional original FROST response, used for filename
+                generation when ``source_url`` is not set.
+
+        Returns:
+            Absolute path of the written CSV file.
+
+        Raises:
+            FrostWriterError: When a row contains unexpected keys and
+                ``strict_schema`` is ``True``.
+        """
         destination = self._resolve_output_path(
             basename=self._build_default_basename(response=response),
             extension=".csv",
@@ -174,6 +253,16 @@ class FrostWriter:
         *,
         response: Mapping[str, Any] | None = None,
     ) -> str:
+        """Write a materialised row list to a JSON file as ``{"value": [...]}``.
+
+        Args:
+            rows: All rows to write.
+            response: Optional original FROST response, used for filename
+                generation.
+
+        Returns:
+            Absolute path of the written JSON file.
+        """
         destination = self._resolve_output_path(
             basename=self._build_default_basename(response=response),
             extension=".json",
@@ -190,6 +279,24 @@ class FrostWriter:
         *,
         response: Mapping[str, Any] | None = None,
     ) -> str:
+        """Write a materialised row list to a CSV file.
+
+        Headers are derived from the first row unless overridden by a subclass.
+        When ``strict_schema`` is ``True``, subsequent rows are validated
+        against the first row's key set before writing.
+
+        Args:
+            rows: All rows to write.
+            response: Optional original FROST response, used for filename
+                generation.
+
+        Returns:
+            Absolute path of the written CSV file.
+
+        Raises:
+            FrostWriterError: When a row contains unexpected keys and
+                ``strict_schema`` is ``True``.
+        """
         destination = self._resolve_output_path(
             basename=self._build_default_basename(response=response),
             extension=".csv",
@@ -220,6 +327,18 @@ class FrostWriter:
         return str(destination)
 
     def _extract_rows(self, response: Mapping[str, Any]) -> Sequence[Mapping[str, Any]]:
+        """Extract and validate the ``value`` list from a FROST response dict.
+
+        Args:
+            response: Parsed FROST response mapping.
+
+        Returns:
+            The ``value`` list of row mappings.
+
+        Raises:
+            FrostWriterError: When ``value`` is absent, not a list, or contains
+                non-mapping entries.
+        """
         rows = response.get("value")
         if rows is None:
             raise FrostWriterError("Expected response to contain top-level 'value'.")
@@ -238,6 +357,20 @@ class FrostWriter:
         basename: str,
         extension: str,
     ) -> Path:
+        """Resolve the final output ``Path`` from explicit config or defaults.
+
+        When ``output_path`` is a directory (or ends with a path separator),
+        the file is placed inside it with the generated basename. When it is a
+        file path, that path is used directly. When ``None``, the global
+        ``DOWNLOADS_DIR`` is used.
+
+        Args:
+            basename: Stem of the default filename (without extension).
+            extension: File extension including the dot (e.g. ``".csv"``).
+
+        Returns:
+            Resolved ``Path`` object for the destination file.
+        """
         output_path = self.output_path
         if output_path is None:
             target_dir = DOWNLOADS_DIR
@@ -258,6 +391,18 @@ class FrostWriter:
         return target
 
     def _infer_source_url(self, response: Mapping[str, Any]) -> Optional[str]:
+        """Infer a source URL for filename generation.
+
+        Checks ``self.source_url`` first, then the response's
+        ``@iot.selfLink``, then the ``@iot.selfLink`` of the first row in
+        ``response["value"]``.
+
+        Args:
+            response: Parsed FROST response mapping.
+
+        Returns:
+            A URL string, or ``None`` when no source URL can be determined.
+        """
         if self.source_url:
             return self.source_url
 
@@ -275,6 +420,18 @@ class FrostWriter:
         return None
 
     def _url_path_tokens(self, source_url: str) -> list[str]:
+        """Split a FROST URL path into lowercase filename tokens.
+
+        Strips the version segment (e.g. ``/v1.1/``) and then splits the
+        remaining path into tokens, expanding ``Entity(id)`` segments into
+        separate ``entity`` and ``id`` tokens.
+
+        Args:
+            source_url: A FROST URL to tokenise.
+
+        Returns:
+            List of lowercase path tokens (empty list for unrecognised paths).
+        """
         parsed = urlparse(source_url)
         path_parts = [part for part in parsed.path.strip("/").split("/") if part]
 
@@ -300,6 +457,19 @@ class FrostWriter:
         *,
         response: Mapping[str, Any] | None = None,
     ) -> str:
+        """Build a default output filename stem from source URL and current timestamp.
+
+        The stem takes the form ``<host>.<timestamp>[.<path-tokens>...]``,
+        making it human-readable and unique per invocation. Falls back to
+        ``frost-response.<timestamp>`` when no URL is available.
+
+        Args:
+            response: Optional FROST response used to infer the source URL when
+                ``self.source_url`` is not set.
+
+        Returns:
+            Filename stem string (no extension).
+        """
         timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
         detected_url = self.source_url
         if detected_url is None and response is not None:
@@ -315,9 +485,13 @@ class FrostWriter:
         return ".".join([host, timestamp])
 
     def _expected_csv_headers(self) -> list[str] | None:
-        """Return expected CSV headers, or None to infer from the first row.
+        """Return the expected CSV column headers, or ``None`` to infer from the first row.
 
-        We intentionally infer headers dynamically to avoid maintaining a second
-        hard-coded mapping layer that duplicates SensorThings/FROST schema maps.
+        Subclasses can override this to enforce a fixed schema. The base
+        implementation always returns ``None`` to avoid maintaining a hard-coded
+        mapping that duplicates the SensorThings schema.
+
+        Returns:
+            Ordered list of header strings, or ``None`` for dynamic inference.
         """
         return None
