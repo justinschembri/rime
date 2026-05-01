@@ -18,7 +18,7 @@ Type "clear"
 Enter
 Show
 
-Type@50ms "stu setup" 
+Type@50ms "rime setup" 
 Sleep 1s
 Enter
 Sleep 1s

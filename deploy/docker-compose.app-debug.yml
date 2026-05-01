@@ -3,7 +3,7 @@
 # Must be merged with the base compose.               #
 # - Adds the python application                       #
 # #####################################################
-name: st-utils
+name: rime
 
 services:
   python-app:

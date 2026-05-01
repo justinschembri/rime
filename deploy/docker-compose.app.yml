@@ -4,16 +4,16 @@
 # - Adds the python application                       #
 # - Private mode: mounts tomcat-users.xml and web.xml #
 # #####################################################
-name: st-utils
+name: rime
 
 services:
   web:
     volumes:
-      - ../web/st-utils:/usr/local/tomcat/webapps/st-utils
-      - python-app_logs:/usr/local/tomcat/webapps/st-utils/logs:ro
+      - ../web/rime:/usr/local/tomcat/webapps/rime
+      - python-app_logs:/usr/local/tomcat/webapps/rime/logs:ro
       - ./init-webapp-auth.sh:/init-webapp-auth.sh
       - ./secrets/credentials/tomcat-users.xml:/usr/local/tomcat/conf/tomcat-users.xml
-      - ./webapp-config/web.xml:/usr/local/tomcat/webapps/st-utils/WEB-INF/web.xml
+      - ./webapp-config/web.xml:/usr/local/tomcat/webapps/rime/WEB-INF/web.xml
     entrypoint: ["/init-webapp-auth.sh"]
 
   python-app:
@@ -38,7 +38,7 @@ services:
       - python-app_logs:/app/logs
       - ${SENSOR_CONFIG_PATH:-./sensor_configs}:/app/deploy/sensor_configs
       - ${APPLICATION_CONFIG_FILE:-./application-configs.yml}:/app/deploy/application-configs.yml
-    command: ["uv", "run", "/app/src/sensorthings_utils/main.py"]
+    command: ["uv", "run", "/app/src/rime/main.py"]
     restart: unless-stopped
 
 volumes:

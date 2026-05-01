@@ -16,7 +16,7 @@ Type "source ../../.venv/bin/activate"
 Enter
 Type "clear"
 Enter
-Type "stu setup" 
+Type "rime setup" 
 Sleep 1s
 Enter
 Sleep 1s

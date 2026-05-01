@@ -5,7 +5,7 @@
 # - Thing name and description
 # - Location name, description, and coordinates
 #
-# Generate config using: stu generate-config milesight.am103l
+# Generate config using: rime generate-config milesight.am103l
 
 Sensors:
   milesight.am103l:

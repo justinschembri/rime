@@ -1,7 +1,7 @@
 [project]
-name = "st-utils"
-version = "0.4.3"
-description = "Management and representation layer for Fraunhofer FROST Server."
+name = "rime"
+version = "0.5.0"
+description = "RIME — management and ingestion layer for Fraunhofer FROST Server (SensorThings)."
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
@@ -16,7 +16,7 @@ dependencies = [
 ]
 
 [project.scripts]
-stu = "sensorthings_utils.cli:main"
+rime = "rime.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

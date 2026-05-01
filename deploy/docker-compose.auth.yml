@@ -3,7 +3,7 @@
 # Must be merged with the base compose.               #
 # - Adds authentication to FROST.                     #
 # #####################################################
-name: st-utils-appless-auth
+name: rime-appless-auth
 
 services:
   web:

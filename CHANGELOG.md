@@ -17,10 +17,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Project rename (BREAKING)** — Distribution, CLI command, and Python import
+  package are **rime** (`import rime`, `rime` console script). Docker Compose default
+  project **`rime-production`** (was `st-utils-production`); Tomcat dashboard is
+  served at **`/rime`** under the webapps root (was `/st-utils`). Persistent
+  Postgres volume detection accepts both **`rime-production_postgis_volume`** and
+  legacy **`st-utils-production_postgis_volume`**.
 - **Connections refactor (BREAKING)** — `connections.py` is replaced by two
-  top-level packages: [`transport/`](src/sensorthings_utils/transport/README.md)
+  top-level packages: [`transport/`](src/rime/transport/README.md)
   for protocol-agnostic and protocol-level abstractions, and
-  [`providers/`](src/sensorthings_utils/providers/README.md) for
+  [`providers/`](src/rime/providers/README.md) for
   application-specific integrations. The base class
   `SensorApplicationConnection` becomes `SensorTransport`; protocol abstracts
   `HTTPSensorApplicationConnection` / `MQTTSensorApplicationConnection`

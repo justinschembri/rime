@@ -1,4 +1,4 @@
-# st-utils specific >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+# RIME (rime) repo-specific >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 # Observations and Data Dumps
 downloads/*
 *.csv
@@ -6,7 +6,7 @@ downloads/*
 *logs/
 # Local secret used for integration tests
 deploy/secrets/tokens/netatmo-test-application.json
-# <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< st-utils specific
+# <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< RIME repo-specific
 
 # tooling >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 .cursor/*

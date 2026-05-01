@@ -9,4 +9,4 @@ ENV PATH="/root/.local/bin:${PATH}"
 RUN uv sync --frozen
 RUN ls -R /app
 
-CMD ["uv", "run",  "/app/src/sensorthings_utils/main.py"]
+CMD ["uv", "run",  "/app/src/rime/main.py"]

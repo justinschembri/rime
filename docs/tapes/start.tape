@@ -22,7 +22,7 @@ Show
 Type@50ms "#the app starts in public mode by default, but can be set to --private"
 Sleep 1
 Backspace@10ms 70
-Type "stu start "
+Type "rime start "
 Enter
 Sleep 20
 
