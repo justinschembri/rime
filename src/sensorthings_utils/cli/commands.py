@@ -2,6 +2,7 @@
 
 # standard
 import os
+import shutil
 from pathlib import Path
 from typing import Optional
 import subprocess
@@ -9,19 +10,12 @@ import subprocess
 import typer
 from rich.console import Console
 from rich.panel import Panel
-from rich.prompt import Prompt, Confirm
+from rich.prompt import Prompt
 from rich import print as rprint
 
 # internal
 from .menu import _setup_credentials
 from ..paths import DEPLOY_DIR, START_SCRIPT, STOP_SCRIPT
-# Create typer app and console
-app = typer.Typer(
-    help="st-utils CLI - SensorThings Utilities",
-    rich_markup_mode="rich",
-    no_args_is_help=True,
-)
-console = Console()
 
 # Create typer app and console
 app = typer.Typer(
@@ -71,6 +65,84 @@ def _validate(
         console.print("\n[bold red]Some files have validation errors.[/bold red]")
 
 
+def _get_bash() -> str:
+    """
+    Find bash executable, preferring Git Bash over WSL on Windows.
+    
+    Git Bash and WSL use different drive mount prefixes:
+      - Git Bash: /d/path
+      - WSL:      /mnt/d/path
+    Prefer Git Bash so path conversion stays consistent.
+    Returns the path to the bash executable.
+    """
+    # Common Git Bash locations
+    git_bash_candidates = [
+        Path(os.environ.get("ProgramFiles", r"C:\Program Files")) / "Git" / "bin" / "bash.exe",
+        Path(os.environ.get("ProgramFiles(x86)", r"C:\Program Files (x86)")) / "Git" / "bin" / "bash.exe",
+        Path(os.environ.get("LOCALAPPDATA", "")) / "Programs" / "Git" / "bin" / "bash.exe",
+    ]
+    for candidate in git_bash_candidates:
+        if candidate.exists():
+            return str(candidate)
+
+    # Fall back to whatever bash is on PATH
+    bash = shutil.which("bash")
+    if bash:
+        return bash
+
+    raise RuntimeError(
+        "bash not found. Install Git Bash (https://git-scm.com) or WSL to run st-utils on Windows."
+    )
+
+
+def _get_drive_mount_prefix(bash: str) -> str:
+    """
+    Detect the drive mount prefix used by the given bash installation.
+    
+    Runs 'bash -c pwd' from a known drive root to detect whether
+    drives are mounted at /mnt/d or /d (Git Bash vs WSL).
+    Falls back to /mnt/ if detection fails.
+    """
+    try:
+        # Simpler and more reliable: just check if /mnt/c exists in this bash
+        probe = subprocess.run(
+            [bash, "-c", "test -d /mnt/c && echo mnt || test -d /c && echo root || echo mnt"],
+            capture_output=True, text=True, timeout=5
+        )
+        prefix = probe.stdout.strip()
+        return "/mnt/" if prefix == "mnt" else "/"
+    except Exception:
+        return "/mnt/"  # safe default (WSL)
+
+
+def to_bash_path(path: Path, bash: Optional[str] = None) -> str:
+    """
+    Convert a Windows path to a POSIX path for the detected bash environment.
+    
+    Handles both Git Bash (/d/path) and WSL (/mnt/d/path) automatically.
+    On non-Windows systems, returns the path unchanged.
+    """
+    p = Path(path).resolve()
+
+    if os.name != "nt":
+        return str(p)
+
+    bash = bash or _get_bash()
+    prefix = _get_drive_mount_prefix(bash)
+    drive = p.drive[0].lower()        # 'D:' → 'd'
+    path_no_drive = str(p)[2:]        # remove 'D:'
+
+    return prefix + drive + path_no_drive.replace("\\", "/")
+
+
+def require_bash() -> str:
+    """
+    Ensure bash is available on Windows and return its path.
+    Raises RuntimeError with a helpful message if not found.
+    """
+    return _get_bash()
+
+
 def _push_available(
     private: bool = typer.Option(
         False, "--private", help="Start with authentication (requires tomcat-users.xml)."
@@ -86,12 +158,23 @@ def _push_available(
     
     mode = "private" if private else "public"
     console.print(f"[bold]Starting STU instance in {mode} mode...[/bold]")
+
+    # Cross-platform handling: Windows requires bash + POSIX path conversion
+    if os.name == "nt": # Windows-specific handling
+        bash = require_bash()
+        cmd = [bash, to_bash_path(START_SCRIPT, bash), mode]
+
+    else:
+        # macOS/Linux: execute directly
+        cmd = [str(START_SCRIPT), mode]
+
     result = subprocess.run(
-            [str(START_SCRIPT), mode], 
-            cwd=DEPLOY_DIR,
-            capture_output=True,
-            text=True,
-        )
+        cmd,
+        cwd=DEPLOY_DIR,
+        capture_output=True,
+        text=True,
+    )
+
     if result.returncode != 0:
         console.print(f"Failed to start STU: {result.stderr}")
     else:
@@ -105,10 +188,18 @@ def _stop_instance():
     """Stop the STU instance."""
     
     console.print("[bold]Stopping STU instance...[/bold]")
+
+    # Cross-platform command handling (Windows, macOS, Linux)
+    if os.name == "nt":
+        bash = require_bash()
+        cmd = [bash, to_bash_path(STOP_SCRIPT, bash)]
+    else:
+        cmd = [str(STOP_SCRIPT)]
+
+    # Avoid shell=True: run command directly for consistent cross-platform behavior (no extra shell layer or parsing issues)
     result = subprocess.run(
-            [STOP_SCRIPT], 
+            cmd, 
             cwd=DEPLOY_DIR,
-            shell=True,
             capture_output=True,
             text=True,
         )
