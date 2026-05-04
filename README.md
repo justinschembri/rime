@@ -1,9 +1,10 @@
-# RIME
+# `rime` 
+
+This project is in active development.
 
 ## What is it?
 
-
-**RIME** is a deployment and management layer for
+**RIME** is the **R**ealtime **I**ngestion and **M**anagement **E**ngine for
 Fraunhofer's [FROST Server](https://github.com/FraunhoferIOSB/FROST-Server). It
 makes deploying [OGC SensorThings API
 (STA)](https://www.ogc.org/publications/standard/sensorthings/) compliant sensor
