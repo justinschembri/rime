@@ -16,7 +16,7 @@ Each physical sensor in your network requires a YAML configuration file that des
 For supported sensor models, you can use the CLI to generate configuration files from templates:
 
 ```bash
-stu generate-config <sensor-model>
+rime generate-config <sensor-model>
 ```
 
 Supported sensor models:
@@ -205,13 +205,13 @@ Each configuration file must:
 Validate your configuration files:
 
 ```bash
-stu validate <path-to-config-file.yaml>
+rime validate <path-to-config-file.yaml>
 ```
 
 Or validate all configuration files in the current directory:
 
 ```bash
-stu validate
+rime validate
 ```
 
 ## Standard Datastreams by Sensor Model
@@ -248,7 +248,7 @@ stu validate
 ## Example: Generating a Configuration
 
 ```bash
-$ stu generate-config milesight.am103l
+$ rime generate-config milesight.am103l
 
 Generating configuration for milesight.am103l
 ==================================================
@@ -268,7 +268,7 @@ Latitude: 52.00482
 
 Next steps:
   1. Review the configuration file
-  2. Validate it using: stu validate deploy/sensor_configs/24E124707D378803.yaml
+  2. Validate it using: rime validate deploy/sensor_configs/24E124707D378803.yaml
 ```
 
 ## Manual Template Usage
@@ -291,7 +291,7 @@ If you prefer to create configurations manually:
 
 3. Validate the file:
    ```bash
-   stu validate deploy/sensor_configs/<your-sensor-name>.yaml
+   rime validate deploy/sensor_configs/<your-sensor-name>.yaml
    ```
 
 ## Troubleshooting

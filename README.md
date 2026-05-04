@@ -1,9 +1,10 @@
-# st-utils
+# `rime` 
+
+This project is in active development.
 
 ## What is it?
 
-
-**st-utils** (SensorThings Utilities) is a deployment and management layer for
+**RIME** is the **R**ealtime **I**ngestion and **M**anagement **E**ngine for
 Fraunhofer's [FROST Server](https://github.com/FraunhoferIOSB/FROST-Server). It
 makes deploying [OGC SensorThings API
 (STA)](https://www.ogc.org/publications/standard/sensorthings/) compliant sensor
@@ -29,7 +30,7 @@ flowchart LR
     A@{ shape: processes, label: HTTP IoT Applications}
     B@{ shape: processes, label: MQTT IoT Applications}
     A e1@==> |data stream| C
-    C@{ shape: fork, label: "st-utils"}
+    C@{ shape: fork, label: "RIME"}
     B e2@==> |data stream| C
     e1@{ animate: true }
     e2@{ animate: true }
@@ -54,7 +55,7 @@ applications. More technically:
 ### Upstream Data Sources
 
 You must have authenticated access to one or more Upstream Data Sources.
-st-utils supports ingestion from:
+RIME supports ingestion from:
 
 - RESTful APIs: Sources providing observations via HTTP GET/POST (e.g.,
   proprietary vendor clouds)
@@ -83,8 +84,8 @@ The overall setup involves:
 ### Step 1: Clone the Repo and Create a Python Virtual Environment
 
 ```bash
-git clone https://github.com/justinschembri/st-utils.git st-utils
-cd st-utils
+git clone https://github.com/justinschembri/st-utils.git rime
+cd rime
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -e .
@@ -92,7 +93,7 @@ pip install -e .
 
 > [!TIP]
 > The application uses many configuration files. If you wish to keep these files
-> separate from the `st-utils` code (for separate version control) this is
+> separate from the RIME code (for separate version control) this is
 > possible. Add a `.env` file to `/deploy/` and provide the `SENSOR_CONFIG_PATH`
 > and the `APPLICATION_CONFIG_FILE` path variables; e.g.,:
 > 
@@ -102,10 +103,10 @@ pip install -e .
 
 ### Step 2: Mandatory Internal Credentials
 
-To quickly set up your instance of `st-utils`, use the inbuilt tooling:
+To quickly set up your instance of RIME, use the inbuilt tooling:
 
 ```bash
-$ stu setup
+$ rime setup
 ```
 
 Upon the first launch of the CLI, you will be guided through setting up
@@ -130,7 +131,7 @@ you have access to. Having 'access' to an IoT application means you have the
 required credentials or tokens to pull data from the IoT application. See
 [Supported Applications](#supported-applications) for the full list. 
 
-Run `stu setup` if it's closed and select [1] to set up the IoT applications you
+Run `rime setup` if it's closed and select [1] to set up the IoT applications you
 have access to.  The app will guide you through the set up of (supported) HTTP
 and MQTT applications:
 
@@ -144,7 +145,7 @@ file.
 
 Each physical sensor in your network requires a configuration file that
 describes the sensor, its location, the thing it monitors, and the datastreams
-it produces. Again, using `stu setup` is the easiest, select item [2] and you'll
+it produces. Again, using `rime setup` is the easiest, select item [2] and you'll
 again be guided through setting up of (supported) sensors:
 
 ![](./docs/tapes/config.gif)
@@ -158,18 +159,18 @@ You can check the status of your applications using item [3] in the menu:
 
 ### Step 5: Start the App:
 
-Spin up the system using `stu start`, and stop it with `stu stop`.
+Spin up the system using `rime start`, and stop it with `rime stop`.
 
 ![](./docs/tapes/start.gif)
 
 By default, the application starts in a "public" mode that does not implement any
 *read* authentication. *Write* authentication is controlled by the FROST
 credentials you should have set up earlier. If you want to start in a "private"
-mode and have set up Tomcat users, then pass the --private flag: `stu start
+mode and have set up Tomcat users, then pass the --private flag: `rime start
 --private`.
 
 The application should be connecting, receiving, parsing, transforming and
-storing your data. You can head over to `http://localhost:8080/st-utils` to
+storing your data. You can head over to `http://localhost:8080/rime` to
 check this out and explore your data visually and download it as a CSV. The
 back-end FROST server is available at `http://localhost:8080/FROST-Server`. 
 
@@ -183,7 +184,7 @@ You can also check out the health monitor to see how your system is performing.
 
 ## Supported Applications
 
-st-utils supports integration with the following IoT application platforms:
+RIME supports integration with the following IoT application platforms:
 
 - **Netatmo** (`NetatmoProvider`): HTTP poll provider for Netatmo weather
   station APIs

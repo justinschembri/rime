@@ -8,7 +8,7 @@ on:
       - main
     paths:
       - "src/**"
-      - "tests/sensorthings_utils/frost/**"
+      - "tests/rime/frost/**"
       - "pyproject.toml"
       - ".github/workflows/tests-docker.yml"
   workflow_dispatch:

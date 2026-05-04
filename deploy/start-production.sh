@@ -9,7 +9,7 @@ else
 fi
 
 docker compose \
-  -p st-utils-production \
+  -p rime-production \
   -f ./docker-compose.base.yml \
   -f ./docker-compose.auth.yml \
   -f ./docker-compose.persistent.yml \

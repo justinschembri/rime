@@ -1,7 +1,7 @@
 #!/bin/sh
 # startup the full production stack
 docker compose \
--p st-utils-production-debug \
+-p rime-production-debug \
 -f ./docker-compose.base.yml \
 -f ./docker-compose.auth.yml \
 -f ./docker-compose.persistent.yml \
