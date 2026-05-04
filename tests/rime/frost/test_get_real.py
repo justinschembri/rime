@@ -23,8 +23,8 @@ from rime.frost.get import (
 )
 from rime.frost.helpers import check_object_existence
 from rime.frost.types import FrostParams
-from rime.sensor_things.core import Thing
-from rime.sensor_things.schema import SensorThingsEntityGroups
+from rime.sta.core import Thing
+from rime.sta.schema import SensorThingsEntityGroups
 
 
 pytestmark = [pytest.mark.real, pytest.mark.online]

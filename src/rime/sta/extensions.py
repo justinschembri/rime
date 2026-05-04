@@ -12,7 +12,7 @@ import logging
 import yaml
 
 from rime.exceptions import FailedSensorConfigValidation
-from rime.sensor_things.maps import SENSOR_THINGS_CLASS_MAP
+from rime.sta.maps import SENSOR_THINGS_CLASS_MAP
 from rime.transformers.types import SensorUUID, SupportedSensors
 
 # internal

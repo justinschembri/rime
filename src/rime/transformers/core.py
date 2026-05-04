@@ -7,7 +7,7 @@ from pydantic import BaseModel, model_validator
 
 # internal
 from .types import ObservedProperties
-from ..sensor_things.core import Observation
+from ..sta.core import Observation
 
 
 class NativePayloadTransformer(BaseModel):

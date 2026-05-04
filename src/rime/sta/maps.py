@@ -1,6 +1,6 @@
 """Centralized SensorThings mapping constants."""
 
-from rime.sensor_things.core import (
+from rime.sta.core import (
     Datastream,
     Location,
     Observation,
@@ -9,7 +9,7 @@ from rime.sensor_things.core import (
     SensorThingsObject,
     Thing,
 )
-from rime.sensor_things.schema import (
+from rime.sta.schema import (
     SensorThingsEntity,
     SensorThingsEntityGroups,
 )

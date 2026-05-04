@@ -22,7 +22,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   project **`rime-production`** (was `st-utils-production`); Tomcat dashboard is
   served at **`/rime`** under the webapps root (was `/st-utils`). Persistent
   Postgres volume detection accepts both **`rime-production_postgis_volume`** and
-  legacy **`st-utils-production_postgis_volume`**.
+  legacy **`st-utils-production_postgis_volume`**. The OGC SensorThings model
+  package is **`rime.sta`** (was **`rime.sensor_things`**).
 - **Connections refactor (BREAKING)** — `connections.py` is replaced by two
   top-level packages: [`transport/`](src/rime/transport/README.md)
   for protocol-agnostic and protocol-level abstractions, and

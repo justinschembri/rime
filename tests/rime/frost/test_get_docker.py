@@ -31,7 +31,7 @@ from rime.frost.get import (
 )
 from rime.frost.helpers import check_object_existence
 from rime.frost.types import FrostParams
-from rime.sensor_things.core import (
+from rime.sta.core import (
     Datastream,
     Location,
     Observation,
@@ -39,7 +39,7 @@ from rime.sensor_things.core import (
     Sensor,
     Thing,
 )
-from rime.sensor_things.schema import (
+from rime.sta.schema import (
     SensorThingsEntityGroups,
 )
 

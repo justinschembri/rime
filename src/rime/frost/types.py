@@ -5,7 +5,7 @@ from enum import Enum
 from dataclasses import dataclass
 import re
 
-from rime.sensor_things.schema import (
+from rime.sta.schema import (
     SensorThingsEntity,
     SensorThingsEntityGroups,
     ENTITY_GROUPS_TO_ENTITIES,

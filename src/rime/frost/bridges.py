@@ -5,7 +5,7 @@ OGC SensorThings API entity model (as represented by the local enums) and the
 URL path segments / navigation-link keys used by FROST Server responses.
 """
 
-from rime.sensor_things.schema import (
+from rime.sta.schema import (
     SensorThingsEntity,
     SensorThingsEntityGroups,
 )

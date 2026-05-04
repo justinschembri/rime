@@ -6,7 +6,7 @@ import pytest
 
 from rime.frost.post import general_post, make_frost_entity
 
-from rime.sensor_things.core import Observation
+from rime.sta.core import Observation
 
 
 @pytest.fixture

@@ -12,7 +12,7 @@ from rime.frost.bridges import ENTITY_TO_FROST_ENDPOINT
 from rime.frost.helpers import check_object_existence
 from rime.frost.sanitization import rewrite_to_internal, sanitize_root_url
 from rime.frost.types import FrostEntityRef, FrostUrl
-from rime.sensor_things.core import Observation, SensorThingsObject
+from rime.sta.core import Observation, SensorThingsObject
 from rime.transformers.types import SensorUUID
 
 # internal

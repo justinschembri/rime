@@ -6,9 +6,9 @@ from rime.config import FROST_ROOT_DEFAULT, FROST_VERSION_DEFAULT
 from rime.frost.post import make_frost_entity
 from rime.frost.sanitization import sanitize_root_url
 from rime.frost.types import FrostEntityRef
-from rime.sensor_things.core import Location, Thing
-from rime.sensor_things.extensions import SensorConfig
-from rime.sensor_things.schema import (
+from rime.sta.core import Location, Thing
+from rime.sta.extensions import SensorConfig
+from rime.sta.schema import (
     ENTITIES_TO_ENTITY_GROUPS,
     SensorThingsEntity,
 )

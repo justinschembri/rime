@@ -16,7 +16,7 @@ from rime.config import (
     get_frost_auth_header,
     get_frost_root_url,
 )
-from rime.sensor_things.extensions import SensorConfig
+from rime.sta.extensions import SensorConfig
 from rime.frost.orchestrators import initial_setup
 from rime.transport import SensorTransport
 from rime.monitor import netmon

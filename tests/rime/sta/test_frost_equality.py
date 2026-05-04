@@ -10,7 +10,7 @@ content-only equality operator behave correctly.
 import pytest
 
 # internal
-from rime.sensor_things.core import (
+from rime.sta.core import (
     Datastream,
     Location,
     Observation,

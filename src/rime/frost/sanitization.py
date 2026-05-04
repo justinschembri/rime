@@ -6,7 +6,7 @@ from urllib.parse import urlparse
 from typing import Optional, Mapping, Any
 
 from .types import FrostParams, FrostVersions
-from rime.sensor_things.schema import (
+from rime.sta.schema import (
     ENTITIES_TO_ENTITY_GROUPS,
     SensorThingsEntity,
     SensorThingsEntityGroups,

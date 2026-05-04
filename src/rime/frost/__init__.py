@@ -1,7 +1,7 @@
 """FROST SensorThings API client split into GET and POST methods and writers."""
-# Exports are lazy (PEP 562) to avoid circular imports: sensor_things.core
+# Exports are lazy (PEP 562) to avoid circular imports: sta.core
 # imports from frost.bridges at module level, so frost/__init__.py must not
-# eagerly import any submodule that itself imports sensor_things.core.
+# eagerly import any submodule that itself imports sta.core.
 from __future__ import annotations
 
 import importlib

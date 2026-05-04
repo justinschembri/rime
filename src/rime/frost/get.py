@@ -9,8 +9,8 @@ from rime.config import (
     FROST_ROOT_DEFAULT,
     FROST_VERSION_DEFAULT,
 )
-from rime.sensor_things.core import Observation, SensorThingsObject
-from rime.sensor_things.schema import (
+from rime.sta.core import Observation, SensorThingsObject
+from rime.sta.schema import (
     SensorThingsEntity,
     SensorThingsEntityGroups,
 )

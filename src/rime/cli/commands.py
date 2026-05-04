@@ -36,7 +36,7 @@ def _validate(
     file: Optional[Path] = typer.Argument(None, help="Config file to validate (optional).")
 ):
     """Validate sensor configuration files."""
-    from rime.sensor_things.extensions import SensorConfig
+    from rime.sta.extensions import SensorConfig
     
     if file:
         validation_files = [str(file)]

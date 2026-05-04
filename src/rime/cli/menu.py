@@ -24,7 +24,7 @@ from .tokens import _setup_token_file, _manage_tokens
 from .applications import _get_application_status, _show_application_status, _add_application_to_config
 from .config_generator import generate_config_from_template
 from ..transformers.types import SupportedSensors
-from ..sensor_things.extensions import SensorConfig
+from ..sta.extensions import SensorConfig
 
 console = Console()
 

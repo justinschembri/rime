@@ -2,7 +2,7 @@
 import unittest
 
 # internal
-from rime.sensor_things.extensions import SensorConfig
+from rime.sta.extensions import SensorConfig
 from rime.paths import ROOT_DIR
 
 

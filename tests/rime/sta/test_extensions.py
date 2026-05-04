@@ -1,10 +1,10 @@
-"""Test sensor_things/extensions.py"""
+"""Test sta/extensions.py"""
 
 # standard
 from pathlib import Path
 
 # internal
-from rime.sensor_things.extensions import SensorConfig
+from rime.sta.extensions import SensorConfig
 
 TEST_DATA_DIR = Path(__file__).parent / "data"
 GOOD_CONFIG_FILE = TEST_DATA_DIR / "valid_sensor_config.yaml"

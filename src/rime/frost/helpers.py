@@ -5,8 +5,8 @@ import logging
 from rime.config import FROST_ROOT_DEFAULT, FROST_VERSION_DEFAULT
 from rime.frost.get import frost_entity_lookup, frost_object_lookup
 from rime.frost.sanitization import sanitize_root_url
-from rime.sensor_things.core import Datastream, Observation, SensorThingsObject, UnLinkedSensorThingsObjects
-from rime.sensor_things.schema import SensorThingsEntity, SensorThingsEntityGroups
+from rime.sta.core import Datastream, Observation, SensorThingsObject, UnLinkedSensorThingsObjects
+from rime.sta.schema import SensorThingsEntity, SensorThingsEntityGroups
 #internal
 from .types import FrostEndpoints, FrostEntityRef, FrostParams
 #logging
