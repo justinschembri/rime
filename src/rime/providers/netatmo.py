@@ -11,7 +11,8 @@ from typing import Any, ClassVar, Literal
 import lnetatmo
 
 from ..paths import TOKENS_DIR
-from ..transformers.application_unpackers import NetatmoUnpacker
+from ..transformers.envelopes import NetatmoDecapsulator
+from ..transformers.messages import ParsedMessage, decapsulated_to_parsed_identity_decode
 from ..transport.poll.http import HTTPTransport
 
 debug_logger = logging.getLogger("debug")
@@ -20,7 +21,6 @@ debug_logger = logging.getLogger("debug")
 class NetatmoProvider(HTTPTransport):
     """Netatmo Weather Station API provider."""
 
-    application_unpacker = NetatmoUnpacker()
     # CLI hint: which credential helper to invoke when configuring this provider
     auth_method: ClassVar[Literal["tokens", "credentials"]] = "tokens"
 
@@ -44,6 +44,10 @@ class NetatmoProvider(HTTPTransport):
         self._auth_obj = lnetatmo.ClientAuth(credentialFile=self._token_file)
         self._authenticated = True
         return self._auth_obj
+
+    def _parse_application_payload(self, app_payload: Any) -> list[ParsedMessage]:
+        messages = NetatmoDecapsulator.decapsulate(app_payload)
+        return decapsulated_to_parsed_identity_decode(messages)
 
     def _pull_data(self) -> list[dict[str, Any]] | None:
         if not self._authenticated:

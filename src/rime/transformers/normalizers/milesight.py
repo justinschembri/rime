@@ -4,10 +4,9 @@ from typing import Callable
 
 # external
 # internal
-from .types import ObservedProperties
+from ..types import ObservedProperties
 from .core import NativePayloadTransformer
 
-# environment setup
 logger = logging.getLogger(__name__)
 
 

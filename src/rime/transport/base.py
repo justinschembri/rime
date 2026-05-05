@@ -18,14 +18,14 @@ import queue
 import threading
 import traceback
 from abc import ABC, abstractmethod
-from typing import Any, ClassVar, Literal
+from typing import Any, Literal
 
-from rime.exceptions import FrostUploadFailure, UnregisteredSensorError
+from rime.exceptions import FrostUploadFailure, UnpackError, UnregisteredSensorError
 from rime.frost.post import frost_observation_upload
 
 from ..monitor import netmon
-from ..transformers.application_unpackers import ApplicationUnpacker, UnpackError
-from ..transformers.registry import TRANSFORMER_MAP
+from ..transformers.messages import ParsedMessage
+from ..transformers.normalizers import TRANSFORMER_MAP
 from ..transformers.types import SensorUUID, SupportedSensors
 
 main_logger = logging.getLogger("main")
@@ -35,8 +35,6 @@ debug_logger = logging.getLogger("debug")
 
 class SensorTransport(ABC):
     """Abstract base for any managed link to an upstream sensor data source."""
-
-    application_unpacker: ClassVar[ApplicationUnpacker]
 
     def __init__(self, app_name: str, *, max_retries: int = 1):
         self.app_name = app_name
@@ -75,6 +73,10 @@ class SensorTransport(ABC):
     def _run(self) -> None:
         """Long-running loop that drives data acquisition and processing."""
         ...
+
+    @abstractmethod
+    def _parse_application_payload(self, app_payload: Any) -> list[ParsedMessage]:
+        """Decapsulate / decode / parse one wire ingest into per-sensor messages."""
 
     # lifecycle ################################################################
     def _preflight(self) -> bool:
@@ -122,18 +124,16 @@ class SensorTransport(ABC):
         self.start(self.sensor_registry)
 
     # processing ###############################################################
-    def _process_payload(self, app_payload: dict[str, Any]) -> None:
+    def _process_payload(self, app_payload: Any) -> None:
         """Unpack, transform, and push a single application payload."""
-        # TODO: successful unpack is a bit of a contrived obj.
-        successful_unpack = self.application_unpacker.unpack(app_payload)
-        for sensor_id, observations in successful_unpack.data.items():
+        parsed_messages = self._parse_application_payload(app_payload)
+        for parsed in parsed_messages:
+            sensor_id = parsed.sensor_id
             sensor_model = self.sensor_registry.get(sensor_id, None)
             if not sensor_model:
                 raise UnregisteredSensorError
             transformer = TRANSFORMER_MAP[sensor_model]
-            payload = transformer.from_unpack(
-                observations, successful_unpack.application_timestamp
-            )
+            payload = transformer.from_parsed(parsed)
             st_observations = payload.to_stObservations()
             for st_obs in st_observations:
                 try:

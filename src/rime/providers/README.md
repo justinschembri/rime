@@ -25,9 +25,11 @@ upstream application. It declares:
 1. **The transport it uses.** By inheriting from `HTTPTransport` or
    `MQTTTransport` (or any future transport), it picks up the threading
    model, payload pipeline, and exception handling for free.
-2. **The unpacker for incoming payloads.** Set as the
-   `application_unpacker` class attribute. Unpackers live in
-   [`../transformers/application_unpackers.py`](../transformers/application_unpackers.py).
+2. **Wire-to-`ParsedMessage` conversion.** Implement `_parse_application_payload(self, app_payload)`
+   on the provider (`SensorTransport`): decapsulate the application envelope, optionally
+   decode transport encoding, then parse to `list[ParsedMessage]`. Helpers live under
+   [`../transformers/envelopes/`](../transformers/envelopes/) and
+   [`../transformers/messages.py`](../transformers/messages.py).
 3. **Authentication.** Provider-local. Resolve credentials from
    wherever they are stored (token file, credentials JSON, env vars,
    TLS certs) inside `_auth()`.
@@ -52,10 +54,11 @@ Helium Console, AWS IoT Core, ...) the steps are:
 
 1. Add `providers/<name>.py` with a class extending the appropriate
    transport ABC.
-2. Implement `_auth` and (for HTTP) `_pull_data`.
-3. Set `application_unpacker` and `auth_method`.
-4. Re-export from `providers/__init__.py`.
-5. Add an entry to the table above.
+2. Implement `_parse_application_payload`.
+3. Implement `_auth` and (for HTTP) `_pull_data`.
+4. Set `auth_method`.
+5. Re-export from `providers/__init__.py`.
+6. Add an entry to the table above.
 
 Skeleton (MQTT-based provider):
 
@@ -63,10 +66,11 @@ Skeleton (MQTT-based provider):
 # providers/chirpstack.py
 import json
 import logging
-from typing import ClassVar, Literal
+from typing import Any, ClassVar, Literal
 
 from ..paths import CREDENTIALS_DIR
-from ..transformers.application_unpackers import ChirpstackUnpacker
+from ..transformers.envelopes import ChirpstackDecapsulator  # hypothetical
+from ..transformers.messages import ParsedMessage, decapsulated_to_parsed_identity_decode
 from ..transport import MQTTTransport
 
 event_logger = logging.getLogger("events")
@@ -75,8 +79,11 @@ event_logger = logging.getLogger("events")
 class ChirpstackProvider(MQTTTransport):
     """Chirpstack provider over MQTT."""
 
-    application_unpacker = ChirpstackUnpacker()
     auth_method: ClassVar[Literal["tokens", "credentials"]] = "credentials"
+
+    def _parse_application_payload(self, app_payload: Any) -> list[ParsedMessage]:
+        messages = ChirpstackDecapsulator.decapsulate(app_payload)
+        return decapsulated_to_parsed_identity_decode(messages)
 
     @property
     def _credentials_file(self):
@@ -122,7 +129,9 @@ introspect `auth_method` to know which credential setup to invoke.
 
 - [`../transport/`](../transport/README.md) — abstract transports that
   providers extend.
-- [`../transformers/application_unpackers.py`](../transformers/application_unpackers.py)
-  — unpackers that turn raw application payloads into per-sensor data.
+- [`../transformers/envelopes/`](../transformers/envelopes/) —
+  application envelope decapsulators.
+- [`../transformers/messages.py`](../transformers/messages.py) — ingress message
+  types from decapsulate → decode → parse.
 - [`../paths.py`](../paths.py) — `TOKENS_DIR`, `CREDENTIALS_DIR`, and
   related helpers used to locate provider credentials.

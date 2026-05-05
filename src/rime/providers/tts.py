@@ -6,10 +6,12 @@ application name. The application name itself is used as the MQTT username.
 
 import json
 import logging
-from typing import ClassVar, Literal
+from typing import Any, ClassVar, Literal
 
+from ..exceptions import UnpackError
 from ..paths import CREDENTIALS_DIR
-from ..transformers.application_unpackers import TTSUnpacker
+from ..transformers.envelopes import TTNDecapsulator
+from ..transformers.messages import ParsedMessage, decapsulated_to_parsed_identity_decode
 from ..transport.subscription.mqtt import MQTTTransport
 
 event_logger = logging.getLogger("events")
@@ -20,7 +22,6 @@ class TTSProvider(MQTTTransport):
 
     # TODO: TTS has a default topic: v3/{self.application_name}/devices/+/up
     # user setting up a TTS should not need to define this themselves.
-    application_unpacker = TTSUnpacker()
     # CLI hint: which credential helper to invoke when configuring this provider
     auth_method: ClassVar[Literal["tokens", "credentials"]] = "credentials"
 
@@ -36,6 +37,16 @@ class TTSProvider(MQTTTransport):
             )
             return False
         return True
+
+    def _parse_application_payload(self, app_payload: Any) -> list[ParsedMessage]:
+        messages = TTNDecapsulator.decapsulate(app_payload)
+        if len(messages) != 1:
+            raise UnpackError(
+                RuntimeError(
+                    "TTN uplink must decapsulate to exactly one logical device message."
+                )
+            )
+        return decapsulated_to_parsed_identity_decode(messages)
 
     def _auth(self) -> None:
         if not self._credentials_file.exists():

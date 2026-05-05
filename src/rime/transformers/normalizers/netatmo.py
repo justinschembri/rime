@@ -27,7 +27,7 @@ from typing import Callable
 
 # internal
 from .core import NativePayloadTransformer
-from .types import ObservedProperties
+from ..types import ObservedProperties
 
 
 class NetatmoNWS03(NativePayloadTransformer):

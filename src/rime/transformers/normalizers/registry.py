@@ -1,10 +1,8 @@
-"""All the transformer maps live here."""
+"""Map supported sensor kinds to normalizer implementations."""
 
-# standard
 from typing import Type
 
-# internal
-from .types import SupportedSensors
+from ..types import SupportedSensors
 from .core import NativePayloadTransformer
 from . import milesight
 from . import netatmo
