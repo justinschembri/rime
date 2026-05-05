@@ -1,0 +1,16 @@
+"""Identity decoder — decapsulated payload is already the semantic body."""
+
+from __future__ import annotations
+
+from ..envelopes.types import DecapsulatedMessage
+from ..messages import DecodedMessage
+
+
+class NullDecoder:
+    """Pass-through: wraps :meth:`DecodedMessage.from_decapsulated`."""
+
+    __slots__ = ()
+
+    @staticmethod
+    def decode(msg: DecapsulatedMessage) -> DecodedMessage:
+        return DecodedMessage.from_decapsulated(msg)

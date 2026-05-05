@@ -66,8 +66,6 @@ def decapsulated_to_parsed_identity_decode(
     messages: list[DecapsulatedMessage],
 ) -> list[ParsedMessage]:
     """Decode (identity) then parse each decapsulated message to ``ParsedMessage``."""
-    out: list[ParsedMessage] = []
-    for msg in messages:
-        decoded = DecodedMessage.from_decapsulated(msg)
-        out.append(ParsedMessage.from_decoded(decoded))
-    return out
+    from .decoders.null import NullDecoder
+
+    return [ParsedMessage.from_decoded(NullDecoder.decode(m)) for m in messages]

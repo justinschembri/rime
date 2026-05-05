@@ -28,7 +28,7 @@ upstream application. It declares:
 2. **Wire-to-`ParsedMessage` conversion.** Implement `_parse_application_payload(self, app_payload)`
    on the provider (`SensorTransport`): decapsulate the application envelope, optionally
    decode transport encoding, then parse to `list[ParsedMessage]`. Helpers live under
-   [`../transformers/envelopes/`](../transformers/envelopes/) and
+   [`../transformers/ingress_pipeline.py`](../transformers/ingress_pipeline.py) and
    [`../transformers/messages.py`](../transformers/messages.py).
 3. **Authentication.** Provider-local. Resolve credentials from
    wherever they are stored (token file, credentials JSON, env vars,
@@ -70,7 +70,8 @@ from typing import Any, ClassVar, Literal
 
 from ..paths import CREDENTIALS_DIR
 from ..transformers.envelopes import ChirpstackDecapsulator  # hypothetical
-from ..transformers.messages import ParsedMessage, decapsulated_to_parsed_identity_decode
+from ..transformers.ingress_pipeline import ingest_to_parsed_messages
+from ..transformers.messages import ParsedMessage
 from ..transport import MQTTTransport
 
 event_logger = logging.getLogger("events")
@@ -82,8 +83,9 @@ class ChirpstackProvider(MQTTTransport):
     auth_method: ClassVar[Literal["tokens", "credentials"]] = "credentials"
 
     def _parse_application_payload(self, app_payload: Any) -> list[ParsedMessage]:
-        messages = ChirpstackDecapsulator.decapsulate(app_payload)
-        return decapsulated_to_parsed_identity_decode(messages)
+        return ingest_to_parsed_messages(
+            app_payload, decapsulator=ChirpstackDecapsulator
+        )
 
     @property
     def _credentials_file(self):

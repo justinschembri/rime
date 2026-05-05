@@ -1,3 +1,5 @@
-"""Reserved: semantic / codec decoding toward ``DecodedMessage`` (post-envelope body)."""
+"""Semantic / codec decoding toward ``DecodedMessage`` (post-envelope body)."""
 
-__all__: list[str] = []
+from .null import NullDecoder
+
+__all__ = ["NullDecoder"]

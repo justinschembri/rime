@@ -12,7 +12,8 @@ import lnetatmo
 
 from ..paths import TOKENS_DIR
 from ..transformers.envelopes import NetatmoDecapsulator
-from ..transformers.messages import ParsedMessage, decapsulated_to_parsed_identity_decode
+from ..transformers.ingress_pipeline import ingest_to_parsed_messages
+from ..transformers.messages import ParsedMessage
 from ..transport.poll.http import HTTPTransport
 
 debug_logger = logging.getLogger("debug")
@@ -46,8 +47,9 @@ class NetatmoProvider(HTTPTransport):
         return self._auth_obj
 
     def _parse_application_payload(self, app_payload: Any) -> list[ParsedMessage]:
-        messages = NetatmoDecapsulator.decapsulate(app_payload)
-        return decapsulated_to_parsed_identity_decode(messages)
+        return ingest_to_parsed_messages(
+            app_payload, decapsulator=NetatmoDecapsulator
+        )
 
     def _pull_data(self) -> list[dict[str, Any]] | None:
         if not self._authenticated:

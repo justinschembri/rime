@@ -1,12 +1,16 @@
-# `decoders` (stub)
+# `decoders`
 
-**Planned role:** interpret the **decapsulated payload body** when it is not yet a plain observation `dict` — decryption, decompression, protobuf / custom binary layouts, vendor “frm_payload” expansion, etc.
+## Shipped
+
+- [`NullDecoder`](null.py) — **identity** `decode(msg: DecapsulatedMessage) -> DecodedMessage` via [`DecodedMessage.from_decapsulated`](../messages.py), used by [`ingest_to_parsed_messages`](../ingress_pipeline.py) by default.
+
+## Planned
+
+Interpret the **decapsulated payload body** when it is not yet a plain observation `dict` — decryption, decompression, protobuf / custom binary layouts, vendor “frm_payload” expansion, etc.
 
 This aligns with [`DecodedMessage`](../messages.py): same `sensor_id` and timestamps, `payload` still `Any` but **meaningfully decoded** for the next step.
 
-## Current status
-
-**Not wired.** [`decapsulated_to_parsed_identity_decode`](../messages.py) implements an **identity** decode: `DecodedMessage.from_decapsulated` copies `payload` unchanged, then `ParsedMessage.from_decoded` requires a `dict`.
+[`decapsulated_to_parsed_identity_decode`](../messages.py) also delegates to **`NullDecoder`** when you already hold a list of **`DecapsulatedMessage`**.
 
 ## Relationship to other stages
 
@@ -16,4 +20,4 @@ This aligns with [`DecodedMessage`](../messages.py): same `sensor_id` and timest
 
 ## Suggested contract (future)
 
-`Decoder` protocol: `decode(msg: DecapsulatedMessage) -> DecodedMessage`, or per-vendor callables registered beside decapsulators in providers.
+`Decoder` protocol: `decode(msg: DecapsulatedMessage) -> DecodedMessage`, or per-vendor callables. Pass via `decoder=...` to [`ingest_to_parsed_messages`](../ingress_pipeline.py).

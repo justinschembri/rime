@@ -1,3 +1,5 @@
 """Reserved: wire-format parsing (e.g. JSON text, CBOR) into Python values."""
 
-__all__: list[str] = []
+from .null import NullDeserializer
+
+__all__ = ["NullDeserializer"]

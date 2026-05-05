@@ -11,7 +11,8 @@ from typing import Any, ClassVar, Literal
 from ..exceptions import UnpackError
 from ..paths import CREDENTIALS_DIR
 from ..transformers.envelopes import TTNDecapsulator
-from ..transformers.messages import ParsedMessage, decapsulated_to_parsed_identity_decode
+from ..transformers.ingress_pipeline import ingest_to_parsed_messages
+from ..transformers.messages import ParsedMessage
 from ..transport.subscription.mqtt import MQTTTransport
 
 event_logger = logging.getLogger("events")
@@ -39,14 +40,16 @@ class TTSProvider(MQTTTransport):
         return True
 
     def _parse_application_payload(self, app_payload: Any) -> list[ParsedMessage]:
-        messages = TTNDecapsulator.decapsulate(app_payload)
-        if len(messages) != 1:
+        parsed = ingest_to_parsed_messages(
+            app_payload, decapsulator=TTNDecapsulator
+        )
+        if len(parsed) != 1:
             raise UnpackError(
                 RuntimeError(
                     "TTN uplink must decapsulate to exactly one logical device message."
                 )
             )
-        return decapsulated_to_parsed_identity_decode(messages)
+        return parsed
 
     def _auth(self) -> None:
         if not self._credentials_file.exists():

@@ -7,19 +7,20 @@ Maps **upstream application payloads** into **SensorThings–shaped observations
 | Path | Role |
 |------|------|
 | [`types.py`](types.py) | Shared enums and aliases: `SensorUUID`, `SupportedSensors`, `ObservedProperties`. |
-| [`messages.py`](messages.py) | **Message** types after decapsulation: `DecodedMessage`, `ParsedMessage`, and helpers (e.g. identity decode → parse). |
+| [`messages.py`](messages.py) | **Message** types: `DecodedMessage`, `ParsedMessage`, and list helpers. |
+| [`ingress_pipeline.py`](ingress_pipeline.py) | **Compose** deserialize → decapsulate → decode → parse (`ingest_to_parsed_messages`). |
 | [`envelopes/`](envelopes/README.md) | **Envelope strip** — wire / vendor shells → `list[DecapsulatedMessage]`. |
 | [`normalizers/`](normalizers/README.md) | **STA projection** — `ParsedMessage.body` → `Observation` via `NativePayloadTransformer` and `TRANSFORMER_MAP`. |
 | [`frames/`](frames/README.md) | *Stub* — stream / packet framing (not wired yet). |
-| [`deserializers/`](deserializers/README.md) | *Stub* — wire format → Python values (e.g. JSON text, CBOR). |
-| [`decoders/`](decoders/README.md) | *Stub* — semantic / codec decode toward `DecodedMessage` (not wired yet). |
+| [`deserializers/`](deserializers/README.md) | Wire format → Python; includes **identity** [`NullDeserializer`](deserializers/null.py) used by the ingress pipeline. |
+| [`decoders/`](decoders/README.md) | Post-envelope semantic decode; includes **identity** [`NullDecoder`](decoders/null.py). |
 
-Today, **decode** is effectively **identity** inside [`messages.decapsulated_to_parsed_identity_decode`](messages.py); **framing** and **deserialization** are often handled by the transport (e.g. MQTT `json.loads`). The stub directories reserve clear homes when those steps move in-tree.
+Providers call [`ingest_to_parsed_messages`](ingress_pipeline.py) with a decapsulator class; **deserialize** and **decode** default to the null implementations. **Framing** and raw **JSON** are still often handled by the transport (e.g. MQTT `json.loads`) before `_parse_application_payload` runs.
 
 ## End-to-end flow (current)
 
 1. **Transport** — `SensorTransport._process_payload` receives a wire-level payload.
-2. **Provider** — `_parse_application_payload` calls a **decapsulator** (under `envelopes/`), then the **messages** helper to get `list[ParsedMessage]`.
+2. **Provider** — `_parse_application_payload` uses [`ingest_to_parsed_messages`](ingress_pipeline.py) (deserialize → decapsulate → decode → parse) with vendor **decapsulators** and default **null** deserialize/decode.
 3. **Normalizers** — For each `ParsedMessage`, `TRANSFORMER_MAP` selects a model; `from_parsed` + `to_stObservations` build STA tuples.
 4. **FROST** — `frost_observation_upload` (outside this package).
 
