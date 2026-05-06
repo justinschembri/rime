@@ -2,7 +2,8 @@
 
 ## Shipped
 
-- [`NullDeserializer`](null.py) — **identity** `deserialize(x) -> x`, used by [`ingest_to_parsed_messages`](../ingress_pipeline.py) when ingest is already structured for the decapsulator.
+- [`NullDeserializer`](null.py) — **identity** `deserialize(msg) -> msg`, used as the
+  default model component in [`../ingest_registry.py`](../ingest_registry.py).
 
 ## Planned
 
@@ -25,4 +26,5 @@ Many paths still deserialize inside the transport (e.g. `json.loads` on MQTT pay
 
 Pure functions: `deserialize(payload: bytes | str, content_type: str) -> Any` or small strategy registry keyed by integration.
 
-Pass a custom class into [`ingest_to_parsed_messages`](../ingress_pipeline.py) via `deserializer=...`.
+Register a custom deserializer in [`../ingest_registry.py`](../ingest_registry.py)
+for the relevant `SupportedSensors` entry.

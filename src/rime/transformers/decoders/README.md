@@ -2,7 +2,7 @@
 
 ## Shipped
 
-- [`NullDecoder`](null.py) — **identity** `decode(msg: DecapsulatedMessage) -> DecodedMessage` via [`DecodedMessage.from_decapsulated`](../messages.py), used by [`ingest_to_parsed_messages`](../ingress_pipeline.py) by default.
+- [`NullDecoder`](null.py) — **identity** `decode(msg: DecapsulatedMessage) -> DecodedMessage` via [`DecodedMessage.from_decapsulated`](../messages.py), used as the default model component in [`../ingest_registry.py`](../ingest_registry.py).
 
 ## Planned
 
@@ -20,4 +20,4 @@ This aligns with [`DecodedMessage`](../messages.py): same `sensor_id` and timest
 
 ## Suggested contract (future)
 
-`Decoder` protocol: `decode(msg: DecapsulatedMessage) -> DecodedMessage`, or per-vendor callables. Pass via `decoder=...` to [`ingest_to_parsed_messages`](../ingress_pipeline.py).
+`Decoder` protocol: `decode(msg: DecapsulatedMessage) -> DecodedMessage`, or per-vendor callables. Register in [`../ingest_registry.py`](../ingest_registry.py).

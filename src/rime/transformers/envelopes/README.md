@@ -24,10 +24,13 @@ Import lazily if needed: `from rime.transformers.envelopes import TTNDecapsulato
 ## Where it sits in the pipeline
 
 ```text
-wire payload  →  envelopes (this package)  →  messages (Decoded / Parsed)
+wire payload  →  envelopes (this package)  →  model-specific deserialize/decode/parse
 ```
 
-Providers call [`ingest_to_parsed_messages`](../ingress_pipeline.py), or decapsulate manually then [`decapsulated_to_parsed_identity_decode`](../messages.py), for [`ParsedMessage`](../messages.py) → [`normalizers/`](../normalizers/README.md).
+Providers implement `_decapsulate_application_payload` by calling a decapsulator here.
+`SensorTransport` then resolves model-specific components from
+[`../ingest_registry.py`](../ingest_registry.py) and continues with
+[`ParsedMessage`](../messages.py) → [`normalizers/`](../normalizers/README.md).
 
 ## Adding a decapsulator
 

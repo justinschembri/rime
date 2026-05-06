@@ -6,7 +6,7 @@
 
 - [`VendorObservationTransformer`](core.py) — Pydantic base: field validation, `TRANSFORM` lambdas, `NAME_TRANSFORM` → `ObservedProperties`, `to_stObservations()`.
 - [`from_parsed(msg: ParsedMessage)`](core.py) — builds the model from `msg.body` and sets `app_phenomenon_time` from `msg.application_timestamp`.
-- [`TRANSFORMER_MAP`](registry.py) — maps [`SupportedSensors`](../types.py) to concrete normalizer classes.
+- [`TRANSFORMER_MAP`](../registry.py) — maps [`SupportedSensors`](../types.py) to concrete normalizer classes.
 
 ## Implementations
 
@@ -28,7 +28,7 @@ Selection uses `sensor_registry[sensor_id]` → `SupportedSensors` in [`SensorTr
 
 1. Subclass `VendorObservationTransformer` with fields matching **lowercased** keys in `ParsedMessage.body` (see `from_parsed`).
 2. Set `NAME_TRANSFORM` (and optional `TRANSFORM`) like existing devices.
-3. Register in [`registry.py`](registry.py).
+3. Register in [`../registry.py`](../registry.py).
 4. Ensure config / STA templates use the matching `SupportedSensors` value.
 
 This layer is **not** responsible for MQTT topics, HTTP shapes, or TTN JSON — that belongs to **envelopes** and **providers**.

@@ -5,6 +5,6 @@ see :data:`TRANSFORMER_MAP` and :class:`VendorObservationTransformer`.
 """
 
 from .core import VendorObservationTransformer
-from .registry import TRANSFORMER_MAP
+from ..registry import TRANSFORMER_MAP
 
 __all__ = ["VendorObservationTransformer", "TRANSFORMER_MAP"]

@@ -1,19 +1,20 @@
-"""Identity deserializer — wire object is already structured for decapsulation."""
+"""Identity deserializer — decapsulated message payload needs no preprocessing."""
 
 from __future__ import annotations
 
-from typing import Any
+from .core import Deserializer
+from ..envelopes.types import DecapsulatedMessage
 
 
-class NullDeserializer:
-    """Pass-through: ``deserialize(x)`` returns ``x`` unchanged.
+class NullDeserializer(Deserializer):
+    """Pass-through: ``deserialize(msg)`` returns ``msg`` unchanged.
 
     Replace with a real :mod:`rime.transformers.deserializers` implementation
-    when ingest is raw ``bytes`` / ``str`` before decapsulators see a ``dict``.
+    when a decapsulated payload still needs model-specific deserialization.
     """
 
     __slots__ = ()
 
     @staticmethod
-    def deserialize(payload: Any) -> Any:
-        return payload
+    def deserialize(msg: DecapsulatedMessage) -> DecapsulatedMessage:
+        return msg

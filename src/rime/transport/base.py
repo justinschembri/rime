@@ -24,8 +24,9 @@ from rime.exceptions import FrostUploadFailure, UnpackError, UnregisteredSensorE
 from rime.frost.post import frost_observation_upload
 
 from ..monitor import netmon
+from ..transformers.envelopes.types import DecapsulatedMessage
+from ..transformers.ingest_registry import INGEST_COMPONENT_MAP
 from ..transformers.messages import ParsedMessage
-from ..transformers.normalizers import TRANSFORMER_MAP
 from ..transformers.types import SensorUUID, SupportedSensors
 
 main_logger = logging.getLogger("main")
@@ -75,8 +76,10 @@ class SensorTransport(ABC):
         ...
 
     @abstractmethod
-    def _parse_application_payload(self, app_payload: Any) -> list[ParsedMessage]:
-        """Decapsulate / decode / parse one wire ingest into per-sensor messages."""
+    def _decapsulate_application_payload(
+        self, app_payload: Any
+    ) -> list[DecapsulatedMessage]:
+        """Decapsulate one application ingest to routed per-sensor messages."""
 
     # lifecycle ################################################################
     def _preflight(self) -> bool:
@@ -125,27 +128,35 @@ class SensorTransport(ABC):
 
     # processing ###############################################################
     def _process_payload(self, app_payload: Any) -> None:
-        """Unpack, transform, and push a single application payload."""
-        parsed_messages = self._parse_application_payload(app_payload)
-        for parsed in parsed_messages:
-            sensor_id = parsed.sensor_id
-            sensor_model = self.sensor_registry.get(sensor_id, None)
-            if not sensor_model:
-                raise UnregisteredSensorError
-            transformer = TRANSFORMER_MAP[sensor_model]
-            payload = transformer.from_parsed(parsed)
-            st_observations = payload.to_stObservations()
-            for st_obs in st_observations:
-                try:
-                    debug_logger.debug(f"{st_obs=} {sensor_id=}")
-                    frost_observation_upload(sensor_id, st_obs)
-                    event_logger.info(
-                        f"Received and processed a payload from {self.app_name} "
-                        f"from a {sensor_model.value} sensor."
-                    )
-                    netmon.add_named_count("push_success", f"{sensor_id}", 1)
-                except FrostUploadFailure as e:
-                    self._exception_handler(e, sensor_id=sensor_id)
+        """Decapsulate, model-process, and push a single application payload."""
+        decapsulated_messages = self._decapsulate_application_payload(app_payload)
+        for decapsulated in decapsulated_messages:
+            sensor_id = decapsulated.sensor_id
+            try:
+                sensor_model = self.sensor_registry.get(sensor_id, None)
+                if not sensor_model:
+                    raise UnregisteredSensorError
+
+                components = INGEST_COMPONENT_MAP[sensor_model]
+                deserialized = components.deserializer.deserialize(decapsulated)
+                decoded = components.decoder.decode(deserialized)
+                parsed = ParsedMessage.from_decoded(decoded)
+                payload = components.transformer.from_parsed(parsed)
+                st_observations = payload.to_stObservations()
+                for st_obs in st_observations:
+                    try:
+                        debug_logger.debug(f"{st_obs=} {sensor_id=}")
+                        frost_observation_upload(sensor_id, st_obs)
+                        event_logger.info(
+                            f"Received and processed a payload from {self.app_name} "
+                            f"from a {sensor_model.value} sensor."
+                        )
+                        netmon.add_named_count("push_success", f"{sensor_id}", 1)
+                    except FrostUploadFailure as e:
+                        self._exception_handler(e, sensor_id=sensor_id)
+            except (UnregisteredSensorError, UnpackError, KeyError) as e:
+                self._exception_handler(e, sensor_id=sensor_id, stage="model_ingest")
+                continue
 
     def _exception_handler(self, e: Exception | None, **kwargs) -> Literal[0, 1]:
         """Classify an exception. Return 0 if transient, 1 if a real failure."""
@@ -171,6 +182,10 @@ class SensorTransport(ABC):
             return 0
         elif isinstance(e, UnregisteredSensorError):
             msg = f"{name}: sensor is not registered."
+            _log((f"{self.app_name} " + msg), debug_context)
+            return 0
+        elif isinstance(e, KeyError):
+            msg = f"{name}: sensor model has no ingest components configured."
             _log((f"{self.app_name} " + msg), debug_context)
             return 0
         elif isinstance(e, FrostUploadFailure):

@@ -37,8 +37,9 @@ The package is organised in two layers:
 ## What `SensorTransport` owns
 
 - Threading lifecycle: `start()`, `stop()`, `restart()`, `is_alive`.
-- The shared processing pipeline: `_process_payload` runs `_parse_application_payload`,
-  registry lookup (`TRANSFORMER_MAP`), STA normalizers, and Frost push for each
+- The shared processing pipeline: `_process_payload` runs provider
+  `_decapsulate_application_payload`, model-component lookup (`INGEST_COMPONENT_MAP`),
+  deserialize/decode/parse + STA normalizers, and Frost push for each
   payload, regardless of transport.
 - Exception classification: `_exception_handler` returns `0` for
   transient errors and `1` for real failures, with `max_retries`

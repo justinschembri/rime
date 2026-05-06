@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+from .core import Decoder
 from ..envelopes.types import DecapsulatedMessage
 from ..messages import DecodedMessage
 
 
-class NullDecoder:
+class NullDecoder(Decoder):
     """Pass-through: wraps :meth:`DecodedMessage.from_decapsulated`."""
 
     __slots__ = ()

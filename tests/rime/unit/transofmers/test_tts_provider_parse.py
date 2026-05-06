@@ -6,11 +6,11 @@ from typing import Any
 import pytest
 
 from rime.providers.tts import TTSProvider
-from rime.transformers.messages import ParsedMessage
+from rime.transformers.envelopes.types import DecapsulatedMessage
 
 
 class TestTTSProviderPayload:
-    """Test TTN ingest via TTSProvider._parse_application_payload."""
+    """Test TTN ingest via TTSProvider._decapsulate_application_payload."""
 
     @pytest.fixture
     def valid_payload(self) -> dict[str, Any]:
@@ -102,16 +102,16 @@ class TestTTSProviderPayload:
             host="eu1.cloud.thethings.network",
             topic="v3/test-app@ttn/devices/+/up",
         )
-        parsed_list = provider._parse_application_payload(valid_payload)
+        parsed_list = provider._decapsulate_application_payload(valid_payload)
 
         assert len(parsed_list) == 1
         pm = parsed_list[0]
-        assert isinstance(pm, ParsedMessage)
+        assert isinstance(pm, DecapsulatedMessage)
 
         expected_sensor_id = "24E124707D378803"
         assert pm.sensor_id == expected_sensor_id
 
-        sensor_data = pm.body
+        sensor_data = pm.payload
         assert sensor_data["battery"] == 53
         assert sensor_data["co2"] == 4665
         assert sensor_data["humidity"] == 75.5

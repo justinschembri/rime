@@ -7,8 +7,8 @@ from datetime import datetime, timezone
 import pytest
 
 from rime.exceptions import MissingPayloadKeysError
+from rime.transformers.envelopes.types import DecapsulatedMessage
 from rime.providers.netatmo import NetatmoProvider
-from rime.transformers.messages import ParsedMessage
 from rime.transformers.envelopes import NetatmoDecapsulator
 
 
@@ -62,11 +62,11 @@ class TestNetatmoDecapsulator:
             NetatmoDecapsulator.decapsulate(raw)
 
 
-def test_netatmo_provider_parse_delegates():
+def test_netatmo_provider_decapsulate_delegates():
     raw = [_station("70:ee", True)]
-    parsed = NetatmoProvider("test")._parse_application_payload(raw)
-    assert len(parsed) == 1
-    assert isinstance(parsed[0], ParsedMessage)
-    assert parsed[0].sensor_id == "70:ee"
-    assert parsed[0].application_timestamp is None
-    assert parsed[0].body["Temperature"] == 23.3
+    decapped = NetatmoProvider("test")._decapsulate_application_payload(raw)
+    assert len(decapped) == 1
+    assert isinstance(decapped[0], DecapsulatedMessage)
+    assert decapped[0].sensor_id == "70:ee"
+    assert decapped[0].application_timestamp is None
+    assert decapped[0].payload["Temperature"] == 23.3
