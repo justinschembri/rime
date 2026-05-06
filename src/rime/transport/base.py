@@ -138,6 +138,7 @@ class SensorTransport(ABC):
                     raise UnregisteredSensorError
 
                 components = INGEST_COMPONENT_MAP[sensor_model]
+                #TODO: might be hidden bugs in this chunk:
                 deserialized = components.deserializer.deserialize(decapsulated)
                 decoded = components.decoder.decode(deserialized)
                 parsed = ParsedMessage.from_decoded(decoded)
