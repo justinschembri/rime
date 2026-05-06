@@ -1,6 +1,6 @@
-"""Vendor observation dict → SensorThings observations.
+"""Vendor observation dict -> SensorThings observations.
 
-Sits after :mod:`rime.transformers.envelopes` and :mod:`rime.transformers.messages`;
+Sits after :mod:`rime.transformers.decapsulators` and :mod:`rime.transformers.messages`;
 see :data:`TRANSFORMER_MAP` and :class:`VendorObservationTransformer`.
 """
 

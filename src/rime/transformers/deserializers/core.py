@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 
-from ..envelopes.types import DecapsulatedMessage
+from ..decapsulators.types import DecapsulatedMessage
 
 
 class Deserializer(ABC):

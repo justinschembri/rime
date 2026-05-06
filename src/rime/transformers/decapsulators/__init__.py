@@ -1,7 +1,7 @@
-"""Envelope stripping — wire/application shells → routed :class:`DecapsulatedMessage` lists.
+"""Decapsulation — wire/application shells -> routed :class:`DecapsulatedMessage` lists.
 
-Submodule imports (e.g. ``from rime.transformers.envelopes.ttn import ...``) avoid import cycles.
-Convenience ``from ...envelopes import TTNDecapsulator`` uses lazy :func:`__getattr__`.
+Submodule imports (e.g. ``from rime.transformers.decapsulators.ttn import ...``) avoid import cycles.
+Convenience ``from ...decapsulators import TTNDecapsulator`` uses lazy :func:`__getattr__`.
 """
 
 from __future__ import annotations

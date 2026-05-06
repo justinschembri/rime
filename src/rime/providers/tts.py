@@ -10,8 +10,8 @@ from typing import Any, ClassVar, Literal
 
 from ..exceptions import UnpackError
 from ..paths import CREDENTIALS_DIR
-from ..transformers.envelopes import TTNDecapsulator
-from ..transformers.envelopes.types import DecapsulatedMessage
+from ..transformers.decapsulators import TTNDecapsulator
+from ..transformers.decapsulators.types import DecapsulatedMessage
 from ..transport.subscription.mqtt import MQTTTransport
 
 event_logger = logging.getLogger("events")

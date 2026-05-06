@@ -1,4 +1,4 @@
-"""Netatmo: ``WeatherStationData.rawData`` → decapsulated per-station messages."""
+"""Netatmo: ``WeatherStationData.rawData`` -> decapsulated per-station messages."""
 
 from __future__ import annotations
 
@@ -22,11 +22,11 @@ def _phenomenon_from_dashboard(dashboard_data: dict[str, Any]) -> datetime | Non
 
 
 class NetatmoDecapsulator(Decapsulator):
-    """Envelope stripper for Netatmo Weather Station ``rawData``.
+    """Decapsulator for Netatmo Weather Station ``rawData``.
 
     Input shape matches ``lnetatmo.WeatherStationData.rawData`` (list of stations).
 
-    Drops station shell noise (wifi, module lists, naming, …) kept only insofar as
+    Drops station shell noise (wifi, module lists, naming, ...) kept only insofar as
     it is embedded inside ``dashboard_data`` along with readings. Routing uses the
     Netatmo MAC-style ``_id`` as ``sensor_id``.
     """

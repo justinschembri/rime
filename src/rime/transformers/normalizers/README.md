@@ -12,8 +12,8 @@
 
 | Sensor kind | Class |
 |-------------|--------|
-| Milesight AM103L | [`MilesightAm103lPayload`](milesight.py) |
-| Milesight AM308L | [`MilesightAm308lPayload`](milesight.py) |
+| Milesight AM103L | [`MilesightAm103lObservationTransformer`](milesight.py) |
+| Milesight AM308L | [`MilesightAm308lObservationTransformer`](milesight.py) |
 | Netatmo NWS03 | [`NetatmoNWS03`](netatmo.py) |
 
 ## Where it sits in the pipeline
@@ -31,4 +31,4 @@ Selection uses `sensor_registry[sensor_id]` -> `SupportedSensors` in [`SensorTra
 3. Register in [`../registry.py`](../registry.py).
 4. Ensure config / STA templates use the matching `SupportedSensors` value.
 
-This layer is **not** responsible for MQTT topics, HTTP shapes, or TTN JSON — that belongs to **envelopes** and **providers**.
+This layer is **not** responsible for MQTT topics, HTTP shapes, or TTN JSON — that belongs to **decapsulators** and **providers**.

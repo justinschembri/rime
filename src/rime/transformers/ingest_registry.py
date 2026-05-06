@@ -11,7 +11,10 @@ from typing import Type
 from .decoders import Decoder, NullDecoder
 from .deserializers import Deserializer, NullDeserializer
 from .normalizers.core import VendorObservationTransformer
-from .normalizers.milesight import MilesightAm103lPayload, MilesightAm308lPayload
+from .normalizers.milesight import (
+    MilesightAm103lObservationTransformer,
+    MilesightAm308lObservationTransformer,
+)
 from .normalizers.netatmo import NetatmoNWS03
 from .types import SupportedSensors
 
@@ -27,12 +30,12 @@ INGEST_COMPONENT_MAP: dict[SupportedSensors, IngestModelComponents] = {
     SupportedSensors.MILESIGHT_AM103L: IngestModelComponents(
         deserializer=NullDeserializer,
         decoder=NullDecoder,
-        transformer=MilesightAm103lPayload,
+        transformer=MilesightAm103lObservationTransformer,
     ),
     SupportedSensors.MILESIGHT_AM308L: IngestModelComponents(
         deserializer=NullDeserializer,
         decoder=NullDecoder,
-        transformer=MilesightAm308lPayload,
+        transformer=MilesightAm308lObservationTransformer,
     ),
     SupportedSensors.NETATMO_NWS03: IngestModelComponents(
         deserializer=NullDeserializer,

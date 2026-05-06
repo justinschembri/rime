@@ -6,7 +6,7 @@ from typing import Any
 import pytest
 
 from rime.providers.tts import TTSProvider
-from rime.transformers.envelopes.types import DecapsulatedMessage
+from rime.transformers.decapsulators.types import DecapsulatedMessage
 
 
 class TestTTSProviderPayload:

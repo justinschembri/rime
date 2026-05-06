@@ -1,11 +1,12 @@
-"""Shared types after envelope stripping (decapsulation)."""
+"""Shared types after decapsulation."""
 
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
-from abc import ABC, abstractmethod
+
 from ..types import SensorUUID
 
 
@@ -13,12 +14,12 @@ from ..types import SensorUUID
 class DecapsulatedMessage:
     """One routed sensor ingest: identity + timestamps + opaque payload body.
 
-    The **envelope** step removes transport/application scaffolding and keeps:
+    The decapsulation step removes transport/application scaffolding and keeps:
 
     - a **sensor key** usable with ``SensorConfig`` / ``sensor_registry``;
     - any **timing** hints needed downstream (received vs phenomenon);
-    - a **payload** that still reflects “what came from / about the sensor
-      readings” before decoder/normalizer specialization.
+    - a **payload** that still reflects "what came from / about the sensor
+      readings" before decoder/normalizer specialization.
     """
 
     sensor_id: SensorUUID

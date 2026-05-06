@@ -14,7 +14,7 @@ This aligns with [`DecodedMessage`](../messages.py): same `sensor_id` and timest
 
 ## Relationship to other stages
 
-- **After** [`envelopes`](../envelopes/README.md) — you already know **which device** the bytes belong to.
+- **After** [`decapsulators`](../decapsulators/README.md) — you already know **which device** the bytes belong to.
 - **Before** strict **parse to `dict[str, Any]`** — decoders may emit nested structures that a later normalizer or a dedicated “flatten” step consumes.
 - Distinct from **[`deserializers`](../deserializers/README.md)** — e.g. base64 **string** → **bytes** might be deserialization; **bytes** → **application fields** is decoding.
 

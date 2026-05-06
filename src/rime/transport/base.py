@@ -24,7 +24,7 @@ from rime.exceptions import FrostUploadFailure, UnpackError, UnregisteredSensorE
 from rime.frost.post import frost_observation_upload
 
 from ..monitor import netmon
-from ..transformers.envelopes.types import DecapsulatedMessage
+from ..transformers.decapsulators.types import DecapsulatedMessage
 from ..transformers.ingest_registry import INGEST_COMPONENT_MAP
 from ..transformers.messages import ParsedMessage
 from ..transformers.types import SensorUUID, SupportedSensors

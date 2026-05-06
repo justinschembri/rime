@@ -7,9 +7,9 @@ from datetime import datetime, timezone
 import pytest
 
 from rime.exceptions import MissingPayloadKeysError
-from rime.transformers.envelopes.types import DecapsulatedMessage
+from rime.transformers.decapsulators.types import DecapsulatedMessage
 from rime.providers.netatmo import NetatmoProvider
-from rime.transformers.envelopes import NetatmoDecapsulator
+from rime.transformers.decapsulators import NetatmoDecapsulator
 
 
 _TS = 1765374089

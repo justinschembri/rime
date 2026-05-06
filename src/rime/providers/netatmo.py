@@ -11,8 +11,8 @@ from typing import Any, ClassVar, Literal
 import lnetatmo
 
 from ..paths import TOKENS_DIR
-from ..transformers.envelopes import NetatmoDecapsulator
-from ..transformers.envelopes.types import DecapsulatedMessage
+from ..transformers.decapsulators import NetatmoDecapsulator
+from ..transformers.decapsulators.types import DecapsulatedMessage
 from ..transport.poll.http import HTTPTransport
 
 debug_logger = logging.getLogger("debug")

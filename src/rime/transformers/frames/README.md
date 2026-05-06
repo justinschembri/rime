@@ -10,10 +10,10 @@ Examples that might live here later:
 
 ## Current status
 
-**Not wired.** MQTT and HTTP providers already hand **one JSON object (or list)** per `_process_payload` call. When a transport delivers undelimited bytes, add framing helpers here and call them **before** [`envelopes`](../envelopes/README.md) decapsulators.
+**Not wired.** MQTT and HTTP providers already hand **one JSON object (or list)** per `_process_payload` call. When a transport delivers undelimited bytes, add framing helpers here and call them **before** [`decapsulators`](../decapsulators/README.md).
 
 ## Suggested contract (future)
 
 Something like `FrameIterator` / `next_frame(buffer) -> (message_bytes, remainder)` or a small class consumed before provider `_decapsulate_application_payload`.
 
-Keep this package **free of STA types** — output should still be `bytes` or a minimal wire object for **deserializers** or **envelopes**.
+Keep this package **free of STA types** — output should still be `bytes` or a minimal wire object for **deserializers** or **decapsulators**.

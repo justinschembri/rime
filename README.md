@@ -1,10 +1,10 @@
 # `rime` 
 
-RIME is in active development.
+rime is in active development.
 
 ## What is it?
 
-**RIME** is the **R**ealtime **I**ngestion and **M**anagement **E**ngine for
+**rime** is the **R**ealtime **I**ngestion and **M**anagement **E**ngine for
 Fraunhofer's [FROST Server](https://github.com/FraunhoferIOSB/FROST-Server). It
 helps ingest sensor data from upstream IoT applications, normalize it into the
 [OGC SensorThings API (STA)](https://www.ogc.org/publications/standard/sensorthings/)
@@ -18,15 +18,15 @@ Core features:
 
 ```mermaid
 flowchart TD
-    A["Upstream IoT applications<br/>(HTTP poll / MQTT subscription)"] --> B["Transport `_run` receives `app_payload`"]
-    B --> C["`SensorTransport._process_payload`"]
-    C --> D["Provider `_decapsulate_application_payload`"]
-    D --> E["Decapsulator (`envelopes/*`)<br/>-> `DecapsulatedMessage[]`"]
-    E --> F["Resolve sensor model from `sensor_registry`"]
-    F --> G["`INGEST_COMPONENT_MAP` selects:<br/>deserializer + decoder + transformer"]
+    A["Upstream IoT applications<br/>(HTTP poll / MQTT subscription)"] --> B["Transport run receives app payload"]
+    B --> C["SensorTransport process_payload"]
+    C --> D["Provider decapsulate_application_payload"]
+    D --> E["Decapsulator module<br/>-> DecapsulatedMessage list"]
+    E --> F["Resolve sensor model from sensor_registry"]
+    F --> G["INGEST_COMPONENT_MAP selects<br/>deserializer + decoder + transformer"]
     G --> H["Deserialize -> Decode -> Parse"]
-    H --> I["Normalizer builds SensorThings observations<br/>`to_stObservations()`"]
-    I --> J["`frost_observation_upload`"]
+    H --> I["Normalizer builds SensorThings observations<br/>to_stObservations"]
+    I --> J["frost_observation_upload"]
     J --> K["FROST Server (SensorThings API)"]
 ```
 
@@ -46,7 +46,7 @@ applications.
 ### Upstream Data Sources
 
 You must have authenticated access to one or more upstream data sources.
-RIME supports ingestion from:
+rime supports ingestion from:
 
 - RESTful APIs: Sources providing observations via HTTP GET/POST (e.g.,
   proprietary vendor clouds)
@@ -86,7 +86,7 @@ pip install -e .
 
 > [!TIP]
 > The application uses several configuration files. If you want to keep these
-> files separate from the RIME codebase, add a `.env` file to `/deploy/` and provide
+> files separate from the rime codebase, add a `.env` file to `/deploy/` and provide
 > the `SENSOR_CONFIG_PATH`
 > and the `APPLICATION_CONFIG_FILE` path variables; e.g.,:
 > 
@@ -96,7 +96,7 @@ pip install -e .
 
 ### Step 2: Set up mandatory internal credentials
 
-To quickly bootstrap a local instance, use:
+To quickly bootstrap a local rime instance, use:
 
 ```bash
 rime setup
@@ -144,7 +144,7 @@ You can check application status using item `[3]` in the same menu.
 
 Start the stack with `rime start`, and stop it with `rime stop`.
 
-By default, RIME starts in "public" mode with no read authentication. Write
+By default, rime starts in "public" mode with no read authentication. Write
 authentication is controlled by the FROST credentials configured earlier. To
 run in "private" mode (after setting up Tomcat users), pass `--private`:
 `rime start --private`.
@@ -177,7 +177,7 @@ vhs docs/tapes/start.tape
 
 ## Supported Applications
 
-RIME supports integration with the following IoT application platforms:
+rime supports integration with the following IoT application platforms:
 
 - **Netatmo** (`NetatmoProvider`): HTTP poll provider for Netatmo weather
   station APIs

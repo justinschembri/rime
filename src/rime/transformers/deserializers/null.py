@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from .core import Deserializer
-from ..envelopes.types import DecapsulatedMessage
+from ..decapsulators.types import DecapsulatedMessage
 
 
 class NullDeserializer(Deserializer):

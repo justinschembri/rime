@@ -1,6 +1,6 @@
 """Ingress pipeline message types after decapsulation (Message family).
 
-``DecapsulatedMessage`` (:mod:`rime.transformers.envelopes.types`) feeds
+``DecapsulatedMessage`` (:mod:`rime.transformers.decapsulators.types`) feeds
 ``DecodedMessage`` (transport / encoding undone) then ``ParsedMessage``
 (typed ``dict[str, Any]`` body for transformers).
 """
@@ -13,7 +13,7 @@ from typing import Any
 
 from ..exceptions import UnpackError
 
-from .envelopes.types import DecapsulatedMessage
+from .decapsulators.types import DecapsulatedMessage
 from .types import SensorUUID
 
 

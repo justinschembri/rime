@@ -68,8 +68,8 @@ import logging
 from typing import Any, ClassVar, Literal
 
 from ..paths import CREDENTIALS_DIR
-from ..transformers.envelopes import ChirpstackDecapsulator  # hypothetical
-from ..transformers.envelopes.types import DecapsulatedMessage
+from ..transformers.decapsulators import ChirpstackDecapsulator  # hypothetical
+from ..transformers.decapsulators.types import DecapsulatedMessage
 from ..transport import MQTTTransport
 
 event_logger = logging.getLogger("events")
@@ -129,7 +129,7 @@ introspect `auth_method` to know which credential setup to invoke.
 
 - [`../transport/`](../transport/README.md) — abstract transports that
   providers extend.
-- [`../transformers/envelopes/`](../transformers/envelopes/) —
+- [`../transformers/decapsulators/`](../transformers/decapsulators/) —
   application envelope decapsulators.
 - [`../transformers/ingest_registry.py`](../transformers/ingest_registry.py) —
   per-model deserializer/decoder/transformer wiring.

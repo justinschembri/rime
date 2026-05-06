@@ -1,4 +1,4 @@
-"""The Things Stack / TTN v3 application uplink JSON → decapsulated messages."""
+"""The Things Stack / TTN v3 application uplink JSON -> decapsulated messages."""
 
 from __future__ import annotations
 

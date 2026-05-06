@@ -10,7 +10,7 @@ from .core import VendorObservationTransformer
 logger = logging.getLogger(__name__)
 
 
-class MilesightAm103lPayload(VendorObservationTransformer):
+class MilesightAm103lObservationTransformer(VendorObservationTransformer):
     battery: int
     co2: float
     humidity: float
@@ -26,7 +26,7 @@ class MilesightAm103lPayload(VendorObservationTransformer):
     TRANSFORM: dict[str, Callable] = {}
 
 
-class MilesightAm308lPayload(VendorObservationTransformer):
+class MilesightAm308lObservationTransformer(VendorObservationTransformer):
     battery: int
     co2: float
     humidity: float

@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 import pytest
 
 from rime.exceptions import MissingPayloadKeysError
-from rime.transformers.envelopes import TTNDecapsulator
+from rime.transformers.decapsulators import TTNDecapsulator
 
 
 @pytest.fixture

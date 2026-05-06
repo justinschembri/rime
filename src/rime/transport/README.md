@@ -1,7 +1,7 @@
 # `transport`
 
 Abstractions describing **how** sensor data moves from an upstream source
-into the RIME pipeline. This package is framework code: it changes
+into the rime pipeline. This package is framework code: it changes
 rarely, and only when adding support for a fundamentally new way of
 communicating with a sensor application.
 
