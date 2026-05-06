@@ -5,12 +5,12 @@ from typing import Callable
 # external
 # internal
 from ..types import ObservedProperties
-from .core import NativePayloadTransformer
+from .core import VendorObservationTransformer
 
 logger = logging.getLogger(__name__)
 
 
-class MilesightAm103lPayload(NativePayloadTransformer):
+class MilesightAm103lPayload(VendorObservationTransformer):
     battery: int
     co2: float
     humidity: float
@@ -26,7 +26,7 @@ class MilesightAm103lPayload(NativePayloadTransformer):
     TRANSFORM: dict[str, Callable] = {}
 
 
-class MilesightAm308lPayload(NativePayloadTransformer):
+class MilesightAm308lPayload(VendorObservationTransformer):
     battery: int
     co2: float
     humidity: float

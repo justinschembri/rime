@@ -26,11 +26,11 @@ from datetime import datetime, timezone
 from typing import Callable
 
 # internal
-from .core import NativePayloadTransformer
+from .core import VendorObservationTransformer
 from ..types import ObservedProperties
 
 
-class NetatmoNWS03(NativePayloadTransformer):
+class NetatmoNWS03(VendorObservationTransformer):
     time_utc: int
     temperature: float
     co2: int

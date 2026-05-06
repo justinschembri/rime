@@ -10,7 +10,7 @@ Maps **upstream application payloads** into **SensorThings–shaped observations
 | [`messages.py`](messages.py) | **Message** types: `DecodedMessage`, `ParsedMessage`, and list helpers. |
 | [`ingress_pipeline.py`](ingress_pipeline.py) | **Compose** deserialize → decapsulate → decode → parse (`ingest_to_parsed_messages`). |
 | [`envelopes/`](envelopes/README.md) | **Envelope strip** — wire / vendor shells → `list[DecapsulatedMessage]`. |
-| [`normalizers/`](normalizers/README.md) | **STA projection** — `ParsedMessage.body` → `Observation` via `NativePayloadTransformer` and `TRANSFORMER_MAP`. |
+| [`normalizers/`](normalizers/README.md) | **STA projection** — `ParsedMessage.body` → `Observation` via `VendorObservationTransformer` and `TRANSFORMER_MAP`. |
 | [`frames/`](frames/README.md) | *Stub* — stream / packet framing (not wired yet). |
 | [`deserializers/`](deserializers/README.md) | Wire format → Python; includes **identity** [`NullDeserializer`](deserializers/null.py) used by the ingress pipeline. |
 | [`decoders/`](decoders/README.md) | Post-envelope semantic decode; includes **identity** [`NullDecoder`](decoders/null.py). |

@@ -11,8 +11,8 @@ from ..types import ObservedProperties
 from ...sta.core import Observation
 
 
-class NativePayloadTransformer(BaseModel):
-    """Transforms a native sensor payload into SensorThings Observations."""
+class VendorObservationTransformer(BaseModel):
+    """Maps vendor observation fields (``ParsedMessage.body``) to SensorThings observations."""
 
     app_phenomenon_time: datetime | None = None
     TRANSFORM: dict[str, Callable] = {}
