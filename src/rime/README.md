@@ -3,6 +3,9 @@
 Core runtime package for rime. This is where upstream payloads are ingested,
 decapsulated, transformed into SensorThings observations, and uploaded to FROST.
 
+For contribution decision paths (new transport vs provider vs decapsulator vs sensor model),
+see [`../../CONTRIBUTING.md`](../../CONTRIBUTING.md).
+
 ## End-to-end pipeline
 
 ```mermaid

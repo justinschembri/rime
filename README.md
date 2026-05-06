@@ -16,6 +16,8 @@ Core features:
 - Keep sensor data STA-compliant through a shared ingest pipeline
 - Run a built-in web dashboard for browsing and exporting data
 
+Contributor guide: see [`CONTRIBUTING.md`](CONTRIBUTING.md) for the transport/provider/decapsulator/sensor-model checklist.
+
 ```mermaid
 flowchart TD
     A["Upstream IoT applications<br/>(HTTP poll / MQTT subscription)"] --> B["Transport run receives app payload"]

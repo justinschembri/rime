@@ -1,7 +1,6 @@
 """Application management functions."""
 
 # standard
-import inspect
 import json
 import logging
 from pathlib import Path
@@ -16,23 +15,41 @@ from rich import print as rprint
 
 # internal
 from ..paths import CREDENTIALS_DIR, TOKENS_DIR, VARIABLE_APPLICATION_CONFIG_FILE
+from ..providers.registry import PROVIDER_REGISTRY
 from ..transport import HTTPTransport, MQTTTransport
 
 logger = logging.getLogger("rime")
 console = Console()
 
 
-def _resolve_auth_method(connection_class: str) -> str:
+def _resolve_provider_class(provider: str):
+    """Resolve provider id to provider class from PROVIDER_REGISTRY."""
+    if not provider:
+        return None
+    return PROVIDER_REGISTRY.get(provider.strip().lower())
+
+
+def _resolve_auth_method(provider: str) -> str:
     """Look up which credential helper a provider class needs.
 
     Falls back to "credentials" if the class can't be resolved.
     """
-    import rime.providers as providers_module
-
-    cls = getattr(providers_module, connection_class, None)
+    cls = _resolve_provider_class(provider)
     if cls is None:
         return "credentials"
     return getattr(cls, "auth_method", "credentials")
+
+
+def _get_connection_type_from_provider(provider: str) -> str:
+    """Infer transport type from the provider class."""
+    cls = _resolve_provider_class(provider)
+    if cls is None:
+        return "http"
+    if issubclass(cls, MQTTTransport):
+        return "mqtt"
+    if issubclass(cls, HTTPTransport):
+        return "http"
+    return "http"
 
 
 def _get_application_status():
@@ -43,7 +60,7 @@ def _get_application_status():
         Dictionary mapping app_name to dict with:
             - 'auth_type': 'credentials' or 'tokens' (derived from provider class)
             - 'configured': bool (whether auth is set up)
-            - 'connection_class': str
+            - 'provider': str
     """
     app_status = {}
 
@@ -72,8 +89,8 @@ def _get_application_status():
             pass
 
     for app_name, app_config in config["applications"].items():
-        connection_class = app_config.get("connection_class", "Unknown")
-        auth_type = _resolve_auth_method(connection_class)
+        provider = app_config.get("provider", "unknown")
+        auth_type = _resolve_auth_method(provider)
 
         configured = False
         if auth_type == "credentials":
@@ -85,35 +102,28 @@ def _get_application_status():
         app_status[app_name] = {
             "auth_type": auth_type,
             "configured": configured,
-            "connection_class": connection_class,
+            "provider": provider,
         }
 
     return app_status
 
 
-def _get_available_connection_classes(connection_type: str):
+def _get_available_providers(connection_type: str):
     """
-    Get available provider classes for a given transport type.
+    Get available provider ids for a given transport type.
 
     Args:
         connection_type: "http" or "mqtt"
 
     Returns:
-        List of provider class names
+        List of provider ids
     """
-    import rime.providers as providers_module
-
     base_class = HTTPTransport if connection_type == "http" else MQTTTransport
-    available_classes = []
-
-    for name, obj in inspect.getmembers(providers_module):
-        if (inspect.isclass(obj) and
-            name.endswith("Provider") and
-            issubclass(obj, base_class) and
-            obj is not base_class):
-            available_classes.append(name)
-
-    return sorted(available_classes)
+    available = []
+    for provider_id, provider_cls in PROVIDER_REGISTRY.items():
+        if issubclass(provider_cls, base_class):
+            available.append(provider_id)
+    return sorted(available)
 
 
 def _show_application_status():
@@ -145,13 +155,13 @@ def _show_application_status():
             creds_table = Table(title="📋 Applications using Credentials", show_header=True, header_style="bold")
             creds_table.add_column("Status", style="magenta", width=8)
             creds_table.add_column("Application", style="cyan")
-            creds_table.add_column("Connection", style="blue")
+            creds_table.add_column("Provider", style="blue")
             creds_table.add_column("Notes", style="yellow")
             
             for app_name, status in apps_by_auth["credentials"]:
                 status_icon = "[green]✓[/green]" if status["configured"] else "[red]✗[/red]"
                 notes = "" if status["configured"] else "[yellow]⚠️  Missing in application_credentials.json[/yellow]"
-                creds_table.add_row(status_icon, app_name, status['connection_class'], notes)
+                creds_table.add_row(status_icon, app_name, status["provider"], notes)
             
             console.print(creds_table)
         
@@ -160,13 +170,13 @@ def _show_application_status():
             tokens_table = Table(title="🔑 Applications using Tokens", show_header=True, header_style="bold")
             tokens_table.add_column("Status", style="magenta", width=8)
             tokens_table.add_column("Application", style="cyan")
-            tokens_table.add_column("Connection", style="blue")
+            tokens_table.add_column("Provider", style="blue")
             tokens_table.add_column("Notes", style="yellow")
             
             for app_name, status in apps_by_auth["tokens"]:
                 status_icon = "[green]✓[/green]" if status["configured"] else "[red]✗[/red]"
                 notes = "" if status["configured"] else f"[yellow]⚠️  Missing token file: {app_name}.json[/yellow]"
-                tokens_table.add_row(status_icon, app_name, status['connection_class'], notes)
+                tokens_table.add_row(status_icon, app_name, status["provider"], notes)
             
             console.print(tokens_table)
         
@@ -266,14 +276,7 @@ def _show_application_status():
 
 def _get_connection_type_from_config(app_config: dict) -> str:
     """Determine connection type (http/mqtt) from application config."""
-    # MQTT connections typically have 'host', 'port', and 'topic'
-    if "host" in app_config or "topic" in app_config:
-        return "mqtt"
-    # HTTP connections typically have 'interval'
-    elif "interval" in app_config:
-        return "http"
-    # Default to http if unclear
-    return "http"
+    return _get_connection_type_from_provider(app_config.get("provider", ""))
 
 
 def _manage_application(app_name: str):
@@ -343,54 +346,54 @@ def _modify_application_config(app_name: str) -> bool:
     # Show current values and allow modification
     new_config = {}
 
-    # Connection class
-    current_class = current_config.get("connection_class", "")
-    available_classes = _get_available_connection_classes(connection_type)
-    if not available_classes:
-        console.print(f"\n[bold red]No {connection_type.upper()} connection classes found[/bold red]")
+    # Provider
+    current_provider = current_config.get("provider", "")
+    available_providers = _get_available_providers(connection_type)
+    if not available_providers:
+        console.print(f"\n[bold red]No {connection_type.upper()} providers found[/bold red]")
         return False
     
-    console.print(f"\n[bold]Current connection class:[/bold] {current_class}")
-    console.print(f"[bold]Available {connection_type.upper()} connection classes:[/bold]")
-    class_table = Table(show_header=False, box=None, padding=(0, 2))
-    for i, class_name in enumerate(available_classes, 1):
-        marker = " [dim]<-- current[/dim]" if class_name == current_class else ""
-        class_table.add_row(f"[cyan][{i}][/cyan]", f"{class_name}{marker}")
-    console.print(class_table)
+    console.print(f"\n[bold]Current provider:[/bold] {current_provider}")
+    console.print(f"[bold]Available {connection_type.upper()} providers:[/bold]")
+    provider_table = Table(show_header=False, box=None, padding=(0, 2))
+    for i, provider in enumerate(available_providers, 1):
+        marker = " [dim]<-- current[/dim]" if provider == current_provider else ""
+        provider_table.add_row(f"[cyan][{i}][/cyan]", f"{provider}{marker}")
+    console.print(provider_table)
     
     choice = Prompt.ask(
-        f"Select connection class",
+        f"Select provider",
         default="",
-        choices=[str(i) for i in range(1, len(available_classes) + 1)] + [""]
+        choices=[str(i) for i in range(1, len(available_providers) + 1)] + [""]
     )
     if not choice:
-        new_config["connection_class"] = current_class
+        new_config["provider"] = current_provider
     else:
         try:
             idx = int(choice) - 1
-            if 0 <= idx < len(available_classes):
-                new_config["connection_class"] = available_classes[idx]
+            if 0 <= idx < len(available_providers):
+                new_config["provider"] = available_providers[idx]
         except ValueError:
             console.print("[red]Invalid input.[/red]")
             return False
     
     # HTTP-specific fields
     if connection_type == "http":
-        current_interval = current_config.get("interval", "")
+        current_interval = current_config.get("request_interval", "")
         new_interval = Prompt.ask(
             f"\nRequest Interval (seconds)",
             default=str(current_interval) if current_interval else ""
         )
         if new_interval:
             try:
-                new_config["interval"] = int(new_interval)
+                new_config["request_interval"] = int(new_interval)
             except ValueError:
                 console.print("[yellow]Invalid interval value. Keeping current value.[/yellow]")
                 if current_interval:
-                    new_config["interval"] = current_interval
+                    new_config["request_interval"] = current_interval
         else:
             if current_interval:
-                new_config["interval"] = current_interval
+                new_config["request_interval"] = current_interval
         
         current_max_retries = current_config.get("max_retries", "")
         new_max_retries = Prompt.ask(
@@ -505,7 +508,7 @@ def _remove_application(app_name: str) -> bool:
         return False
     
     app_config = config["applications"][app_name]
-    auth_type = _resolve_auth_method(app_config.get("connection_class", ""))
+    auth_type = _resolve_auth_method(app_config.get("provider", ""))
     
     # Confirm removal
     warning_text = f"[bold yellow]⚠️  WARNING:[/bold yellow] This will remove '{app_name}' from the configuration.\n"
@@ -641,30 +644,33 @@ def _add_application_to_config():
     # Build application config
     app_config = {}
 
-    # Connection class - show available options
-    available_classes = _get_available_connection_classes(connection_type)
-    if not available_classes:
-        console.print(f"\n[bold red]No {connection_type.upper()} connection classes found in connections.py[/bold red]")
+    # Provider - show available options
+    available_providers = _get_available_providers(connection_type)
+    if not available_providers:
+        console.print(f"\n[bold red]No {connection_type.upper()} providers found[/bold red]")
         return (False, None, None)
     
-    class_table = Table(show_header=False, box=None, padding=(0, 2))
-    for i, class_name in enumerate(available_classes, 1):
-        class_table.add_row(f"[cyan][{i}][/cyan]", class_name)
-    console.print(f"\n[bold]Available {connection_type.upper()} connection classes:[/bold]")
-    console.print(class_table)
+    provider_table = Table(show_header=False, box=None, padding=(0, 2))
+    for i, provider in enumerate(available_providers, 1):
+        provider_table.add_row(f"[cyan][{i}][/cyan]", provider)
+    console.print(f"\n[bold]Available {connection_type.upper()} providers:[/bold]")
+    console.print(provider_table)
     
     choice = IntPrompt.ask(
-        f"Select connection class",
+        f"Select provider",
         default=1
     )
-    app_config["connection_class"] = available_classes[choice - 1]
+    if choice < 1 or choice > len(available_providers):
+        console.print("[bold red]Invalid provider selection.[/bold red]")
+        return (False, None, None)
+    app_config["provider"] = available_providers[choice - 1]
     
     if connection_type == "http":
         # HTTP-specific fields
         interval = Prompt.ask("\nRequest Interval (seconds)", default="")
         if interval:
             try:
-                app_config["interval"] = int(interval)
+                app_config["request_interval"] = int(interval)
             except ValueError:
                 console.print("[yellow]Invalid interval value. Skipping.[/yellow]")
         
@@ -725,7 +731,7 @@ def _add_application_to_config():
         with open(VARIABLE_APPLICATION_CONFIG_FILE, "w") as f:
             yaml.safe_dump(config, f, default_flow_style=False, sort_keys=False, indent=2)
         console.print(f"\n[bold green]✓ Added '{app_name}' to {VARIABLE_APPLICATION_CONFIG_FILE.name}[/bold green]")
-        auth_type = _resolve_auth_method(app_config.get("connection_class", ""))
+        auth_type = _resolve_auth_method(app_config.get("provider", ""))
         return (True, app_name, auth_type)
     except Exception as e:
         console.print(f"[bold red]Error saving config file:[/bold red] {e}")

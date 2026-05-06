@@ -14,6 +14,7 @@ possible.
 
 | Provider          | Transport                          | Auth            | Notes                                            |
 | ----------------- | ---------------------------------- | --------------- | ------------------------------------------------ |
+| `GenericHTTPProvider` | `HTTPTransport` (poll)         | Config headers  | Generic JSON HTTP pull + field-mapped decapsulation. |
 | `NetatmoProvider` | `HTTPTransport` (poll)             | OAuth tokens    | Polls `WeatherStationData.rawData` via lnetatmo. |
 | `TTSProvider`     | `MQTTTransport` (subscription)     | API key         | Subscribes to `v3/<app>/devices/+/up` topics.    |
 
@@ -109,18 +110,40 @@ Providers are wired up via `deploy/application-configs.yml`:
 
 ```yaml
 applications:
+  generic-weather:
+    provider: generic-http
+    url: https://api.example.com/weather
+    method: GET
+    request_interval: 300
+    response_items_field: data
+    sensor_id_field: station_id
+    payload_field: readings
+    phenomenon_timestamp_field: observed_at
   multicare-acerra@ttn:
-    connection_class: TTSProvider
+    provider: tts
     host: eu1.cloud.thethings.network
     topic: v3/multicare-acerra@ttn/devices/+/up
   my-netatmo:
-    connection_class: NetatmoProvider
+    provider: netatmo
     request_interval: 600
 ```
 
-The `connection_class` value must match the class name in this package
-(`getattr` lookup). Any keys whose names match the provider's
+The `provider` value must match one of the ids in
+`rime.providers.PROVIDER_REGISTRY`. Any keys whose names match the provider's
 constructor parameters are forwarded automatically by `from_config`.
+
+### `generic-http` provider config
+
+`GenericHTTPProvider` is intended for plain JSON HTTP APIs where a lightweight
+field mapping is sufficient:
+
+- Required: `url`
+- Common: `method` (`GET` default), `request_interval`, `headers`, `params`
+- Decapsulation mapping:
+  - `response_items_field` (if the top-level response wraps a list)
+  - `sensor_id_field` (defaults to `sensor_id`)
+  - `payload_field` (optional nested dict of readings)
+  - `application_timestamp_field` / `phenomenon_timestamp_field` (optional, ISO or epoch)
 
 The CLI (`rime setup`) prefers to write this file for you and will
 introspect `auth_method` to know which credential setup to invoke.
