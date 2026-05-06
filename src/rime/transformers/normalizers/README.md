@@ -19,10 +19,10 @@
 ## Where it sits in the pipeline
 
 ```text
-ParsedMessage  →  TRANSFORMER_MAP  →  VendorObservationTransformer  →  list[Observation, datastream]
+ParsedMessage  →  model-selected normalizer  →  VendorObservationTransformer  →  list[Observation, datastream]
 ```
 
-Selection uses `sensor_registry[sensor_id]` → `SupportedSensors` in [`SensorTransport._process_payload`](../../transport/base.py).
+Selection uses `sensor_registry[sensor_id]` -> `SupportedSensors` in [`SensorTransport._process_payload`](../../transport/base.py), then `INGEST_COMPONENT_MAP` chooses the normalizer as the `transformer` component.
 
 ## Adding a normalizer
 

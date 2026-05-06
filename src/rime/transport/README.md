@@ -34,6 +34,16 @@ The package is organised in two layers:
    interaction model. SeedLink would land in `subscription/seedlink.py`;
    filesystem polling would land in `poll/filesystem.py`.
 
+## App payload lifecycle (from transport to FROST)
+
+| Stage | Owner | Input | Output | Responsibility |
+|------|------|------|------|------|
+| 1 | Transport implementation (`_run`) | Poll response / subscription message | `app_payload` | Receive one payload from upstream and hand it to `_process_payload`. |
+| 2 | Provider hook (`_decapsulate_application_payload`) | `app_payload` | `list[DecapsulatedMessage]` | Remove provider/application envelope; emit routed per-sensor messages. |
+| 3 | `SensorTransport` + `INGEST_COMPONENT_MAP` | `sensor_id` + `sensor_registry` | Model-specific ingest components | Resolve deserializer, decoder, transformer for the sensor model. |
+| 4 | Transformer stages | `DecapsulatedMessage` | SensorThings observation tuples | Run deserialize -> decode -> parse -> normalize (`to_stObservations`). |
+| 5 | FROST upload | `(sensor_id, st_observation)` | FROST Observation entity | Upload each observation through `frost_observation_upload`. |
+
 ## What `SensorTransport` owns
 
 - Threading lifecycle: `start()`, `stop()`, `restart()`, `is_alive`.
