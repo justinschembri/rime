@@ -1,7 +1,7 @@
 # `transport`
 
 Abstractions describing **how** sensor data moves from an upstream source
-into the RIME pipeline. This package is framework code: it changes
+into the rime pipeline. This package is framework code: it changes
 rarely, and only when adding support for a fundamentally new way of
 communicating with a sensor application.
 
@@ -34,12 +34,23 @@ The package is organised in two layers:
    interaction model. SeedLink would land in `subscription/seedlink.py`;
    filesystem polling would land in `poll/filesystem.py`.
 
+## App payload lifecycle (from transport to FROST)
+
+| Stage | Owner | Input | Output | Responsibility |
+|------|------|------|------|------|
+| 1 | Transport implementation (`_run`) | Poll response / subscription message | `app_payload` | Receive one payload from upstream and hand it to `_process_payload`. |
+| 2 | Provider hook (`_decapsulate_application_payload`) | `app_payload` | `list[DecapsulatedMessage]` | Remove provider/application envelope; emit routed per-sensor messages. |
+| 3 | `SensorTransport` + `INGEST_COMPONENT_MAP` | `sensor_id` + `sensor_registry` | Model-specific ingest components | Resolve deserializer, decoder, transformer for the sensor model. |
+| 4 | Transformer stages | `DecapsulatedMessage` | SensorThings observation tuples | Run deserialize -> decode -> parse -> normalize (`to_stObservations`). |
+| 5 | FROST upload | `(sensor_id, st_observation)` | FROST Observation entity | Upload each observation through `frost_observation_upload`. |
+
 ## What `SensorTransport` owns
 
 - Threading lifecycle: `start()`, `stop()`, `restart()`, `is_alive`.
-- The shared processing pipeline: `_process_payload` runs unpack →
-  registry lookup → transform → push for every payload, regardless of
-  transport.
+- The shared processing pipeline: `_process_payload` runs provider
+  `_decapsulate_application_payload`, model-component lookup (`INGEST_COMPONENT_MAP`),
+  deserialize/decode/parse + STA normalizers, and Frost push for each
+  payload, regardless of transport.
 - Exception classification: `_exception_handler` returns `0` for
   transient errors and `1` for real failures, with `max_retries`
   governing when the transport gives up.

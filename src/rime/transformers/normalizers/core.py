@@ -1,17 +1,18 @@
 # standard
-from typing import Callable, Tuple, Any
+from typing import Any, Callable, Tuple
 from datetime import datetime
 
 # external
 from pydantic import BaseModel, model_validator
 
 # internal
-from .types import ObservedProperties
-from ..sta.core import Observation
+from ..messages import ParsedMessage
+from ..types import ObservedProperties
+from ...sta.core import Observation
 
 
-class NativePayloadTransformer(BaseModel):
-    """Transforms a native sensor payload into SensorThings Observations."""
+class VendorObservationTransformer(BaseModel):
+    """Maps vendor observation fields (``ParsedMessage.body``) to SensorThings observations."""
 
     app_phenomenon_time: datetime | None = None
     TRANSFORM: dict[str, Callable] = {}
@@ -31,12 +32,11 @@ class NativePayloadTransformer(BaseModel):
         return self
 
     @classmethod
-    def from_unpack(
-        cls, observations: dict[str, Any], app_phenomenon_time: datetime | None
-    ):
+    def from_parsed(cls, msg: ParsedMessage):
+        observations = msg.body
         payload = {k.lower(): v for k, v in observations.items()}
         app_payload = cls(**payload)
-        app_payload.app_phenomenon_time = app_phenomenon_time
+        app_payload.app_phenomenon_time = msg.application_timestamp
         return app_payload
 
     def _transform(self) -> dict[ObservedProperties, Any]:

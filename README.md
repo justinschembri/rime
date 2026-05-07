@@ -1,42 +1,35 @@
 # `rime` 
 
-This project is in active development.
+rime is in active development.
 
 ## What is it?
 
-**RIME** is the **R**ealtime **I**ngestion and **M**anagement **E**ngine for
+**rime** is the **R**ealtime **I**ngestion and **M**anagement **E**ngine for
 Fraunhofer's [FROST Server](https://github.com/FraunhoferIOSB/FROST-Server). It
-makes deploying [OGC SensorThings API
-(STA)](https://www.ogc.org/publications/standard/sensorthings/) compliant sensor
-IoT applications easy! OGC is the Open Geospatial Consortium and develops
-geospatial standards that make sharing geospatial information interoperable.
+helps ingest sensor data from upstream IoT applications, normalize it into the
+[OGC SensorThings API (STA)](https://www.ogc.org/publications/standard/sensorthings/)
+model, and publish observations to FROST.
 
-Observations from sensors are used for many things, and having an interoperable
-data model and API like STA makes producing data products a walk in the park.
+Core features:
 
-This application is built in the spirit of that interoperability. The following
-are its core features:
+- Configure and manage upstream IoT applications through the CLI
+- Keep sensor data STA-compliant through a shared ingest pipeline
+- Run a built-in web dashboard for browsing and exporting data
 
-- Add, delete and manage IoT applications through an intuitive CLI,
-- Keep your sensors STA compliant - the app takes care of transformation and
-  management under the hood,
-- Spin up a batteries-included web-based Sensor Dashboard,
-
-The application currently supports a limited number of IoT applications and
-sensors: this list is expected to grow. 
+Contributor guide: see [`CONTRIBUTING.md`](CONTRIBUTING.md) for the transport/provider/decapsulator/sensor-model checklist.
 
 ```mermaid
-flowchart LR
-    A@{ shape: processes, label: HTTP IoT Applications}
-    B@{ shape: processes, label: MQTT IoT Applications}
-    A e1@==> |data stream| C
-    C@{ shape: fork, label: "RIME"}
-    B e2@==> |data stream| C
-    e1@{ animate: true }
-    e2@{ animate: true }
-    C --> D[Transform to `OGC SensorThings` Data Model]
-    D --> E[(Store)]
-    E --> F[Serve]
+flowchart TD
+    A["Upstream IoT applications<br/>(HTTP poll / MQTT subscription)"] --> B["Transport run receives app payload"]
+    B --> C["SensorTransport process_payload"]
+    C --> D["Provider decapsulate_application_payload"]
+    D --> E["Decapsulator module<br/>-> DecapsulatedMessage list"]
+    E --> F["Resolve sensor model from sensor_registry"]
+    F --> G["INGEST_COMPONENT_MAP selects<br/>deserializer + decoder + transformer"]
+    G --> H["Deserialize -> Decode -> Parse"]
+    H --> I["Normalizer builds SensorThings observations<br/>to_stObservations"]
+    I --> J["frost_observation_upload"]
+    J --> K["FROST Server (SensorThings API)"]
 ```
 
 ## System Requirements
@@ -49,42 +42,44 @@ The system requirements are fairly minimal:
 
 ## Deployment Requirements
 
-Deployment requires and assumes you have access (credentials) to sensor IoT
-applications. More technically:
+Deployment assumes you have credentials for one or more upstream IoT
+applications.
 
 ### Upstream Data Sources
 
-You must have authenticated access to one or more Upstream Data Sources.
-RIME supports ingestion from:
+You must have authenticated access to one or more upstream data sources.
+rime supports ingestion from:
 
 - RESTful APIs: Sources providing observations via HTTP GET/POST (e.g.,
   proprietary vendor clouds)
 
-- MQTT Brokers: Sources publishing to topics (e.g., The Things Network). 
+- MQTT brokers: Sources publishing to topics (e.g., The Things Network)
 
 ### Sensor Specifications and Architecture
 
-The application will do the heavy lifting in helping you set up your existing
-sensors to match the STA data model. It does however assume you have enough
-information about *what* the sensor is observing to be able to specify the
-*Thing* and *Location* components of the STA datamodel:
+The application helps map your sensors to the STA model, but you still need to
+know what each sensor observes so you can define the required entities in your
+sensor configs:
 
-![](docs/readme_sensorThingsDataModel.png)
+- `Thing` (what is being observed)
+- `Location` (where it is)
+- `Sensor` (which device)
+- `Datastream` (which variable/time-series)
 
 ## Setup
 
-The overall setup involves:
+The overall setup:
 
-1. Cloning the repository,
-2. Setting up mandatory internal credentials, 
-3. Setting up external IoT applications and credentials,
+1. Cloning the repository
+2. Setting up mandatory internal credentials
+3. Setting up external IoT applications and credentials
 4. Writing sensor configuration files.
-5. Launching the system!
+5. Launching the system
 
-### Step 1: Clone the Repo and Create a Python Virtual Environment
+### Step 1: Clone the repo and create a Python virtual environment
 
 ```bash
-git clone https://github.com/justinschembri/st-utils.git rime
+git clone https://github.com/justinschembri/rime.git rime
 cd rime
 python3 -m venv .venv
 source .venv/bin/activate
@@ -92,27 +87,25 @@ pip install -e .
 ```
 
 > [!TIP]
-> The application uses many configuration files. If you wish to keep these files
-> separate from the RIME code (for separate version control) this is
-> possible. Add a `.env` file to `/deploy/` and provide the `SENSOR_CONFIG_PATH`
+> The application uses several configuration files. If you want to keep these
+> files separate from the rime codebase, add a `.env` file to `/deploy/` and provide
+> the `SENSOR_CONFIG_PATH`
 > and the `APPLICATION_CONFIG_FILE` path variables; e.g.,:
 > 
 > SENSOR_CONFIG_PATH="/Users/johndoe/opt/st-utils-ops/sensor_configs/"
 > APPLICATION_CONFIG_FILE="/Users/johndoe/opt/st-utils-ops/application-configs.yml"
 
 
-### Step 2: Mandatory Internal Credentials
+### Step 2: Set up mandatory internal credentials
 
-To quickly set up your instance of RIME, use the inbuilt tooling:
+To quickly bootstrap a local rime instance, use:
 
 ```bash
-$ rime setup
+rime setup
 ```
 
 Upon the first launch of the CLI, you will be guided through setting up
-mandatory internal credentials. 
-
-![](./docs/tapes/credentials.gif)
+mandatory internal credentials.
 
 The system uses default usernames (`sta-admin`) which you can accept or
 override:
@@ -124,67 +117,69 @@ override:
 
 All credentials are stored in the `deploy/secrets/credentials` directory.
 
-### Step 3: Configure Applications
+### Step 3: Configure applications
 
-After setting up internal credentials, it's time to set up the IoT applications
-you have access to. Having 'access' to an IoT application means you have the
-required credentials or tokens to pull data from the IoT application. See
-[Supported Applications](#supported-applications) for the full list. 
+After internal credentials are configured, set up the IoT applications you can
+access. "Access" means you have the credentials or tokens needed to read
+payloads from that application. See [Supported Applications](#supported-applications)
+for the current list.
 
-Run `rime setup` if it's closed and select [1] to set up the IoT applications you
-have access to.  The app will guide you through the set up of (supported) HTTP
-and MQTT applications:
-
-![](./docs/tapes/application.gif)
+Run `rime setup` and select item `[1]` to configure supported HTTP and MQTT
+applications.
 
 Applications are controlled by the YAML file
 `deploy/application-configs.yml`. You should not need to manually touch this
 file.
 
-### Step 4: Configure Sensor Configurations
+### Step 4: Configure sensor definitions
 
 Each physical sensor in your network requires a configuration file that
 describes the sensor, its location, the thing it monitors, and the datastreams
-it produces. Again, using `rime setup` is the easiest, select item [2] and you'll
-again be guided through setting up of (supported) sensors:
+it produces. Using `rime setup` is the easiest path: select item `[2]` to create
+supported sensor configurations.
 
-![](./docs/tapes/config.gif)
+Sensor configs are YAML files in `deploy/sensor_configs/`.
 
-Sensor configs are finicky YAML files that live in the `deploy/sensor_configs/`
-directory. 
+You can check application status using item `[3]` in the same menu.
 
-You can check the status of your applications using item [3] in the menu:
+### Step 5: Start the app
 
-![](./docs/tapes/manage.gif)
+Start the stack with `rime start`, and stop it with `rime stop`.
 
-### Step 5: Start the App:
+By default, rime starts in "public" mode with no read authentication. Write
+authentication is controlled by the FROST credentials configured earlier. To
+run in "private" mode (after setting up Tomcat users), pass `--private`:
+`rime start --private`.
 
-Spin up the system using `rime start`, and stop it with `rime stop`.
+The application should now connect, ingest, transform, and store data. Open
+`http://localhost:8080/rime` to explore and export data as CSV. The backend FROST server is
+available at `http://localhost:8080/FROST-Server`.
 
-![](./docs/tapes/start.gif)
+## CLI Tapes
 
-By default, the application starts in a "public" mode that does not implement any
-*read* authentication. *Write* authentication is controlled by the FROST
-credentials you should have set up earlier. If you want to start in a "private"
-mode and have set up Tomcat users, then pass the --private flag: `rime start
---private`.
+The terminal demos live in `docs/tapes/` as VHS `.tape` files.
 
-The application should be connecting, receiving, parsing, transforming and
-storing your data. You can head over to `http://localhost:8080/rime` to
-check this out and explore your data visually and download it as a CSV. The
-back-end FROST server is available at `http://localhost:8080/FROST-Server`. 
+| Tape file | Output artifact | Covers |
+| --- | --- | --- |
+| `credentials-input.tape` | `docs/tapes/credentials.gif` | `rime setup` internal credential bootstrap |
+| `application-setup.tape` | `docs/tapes/application.gif` | adding/updating application connections |
+| `config-setup.tape` | `docs/tapes/config.gif` | creating sensor config entries |
+| `manage.tape` | `docs/tapes/manage.gif` | listing/managing configured applications |
+| `start.tape` | `docs/tapes/start.gif` | starting the stack with `rime start` |
 
-![](./docs/imgs/dashboard.jpg)
+Rebuild tapes (requires [VHS](https://github.com/charmbracelet/vhs)):
 
-![](./docs/imgs/graph.jpg)
-
-You can also check out the health monitor to see how your system is performing.
-
-![](./docs/imgs/health.jpg)
+```bash
+vhs docs/tapes/credentials-input.tape
+vhs docs/tapes/application-setup.tape
+vhs docs/tapes/config-setup.tape
+vhs docs/tapes/manage.tape
+vhs docs/tapes/start.tape
+```
 
 ## Supported Applications
 
-RIME supports integration with the following IoT application platforms:
+rime supports integration with the following IoT application platforms:
 
 - **Netatmo** (`NetatmoProvider`): HTTP poll provider for Netatmo weather
   station APIs

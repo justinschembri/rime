@@ -5,6 +5,41 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.6.0]
+
+### Changed
+
+- **Decapsulation package rename (BREAKING)** — `transformers/envelopes` is now
+  `transformers/decapsulators`. Imports and docs have been updated accordingly.
+- **Milesight normalizer naming (BREAKING)** — renamed
+  `MilesightAm103lPayload` / `MilesightAm308lPayload` to
+  `MilesightAm103lObservationTransformer` /
+  `MilesightAm308lObservationTransformer`.
+- **Application config provider key (BREAKING)** — application config now uses
+  `provider` ids instead of `connection_class` names. Runtime and CLI now
+  resolve providers through `providers/registry.py` (`PROVIDER_REGISTRY`), with
+  fail-fast validation for missing/unknown providers.
+- **HTTP config field alignment** — CLI-generated HTTP application config now
+  writes `request_interval` to match transport/provider constructor parameters.
+
+### Added
+
+- **Generic HTTP provider** — added `GenericHTTPProvider` and registry id
+  `generic-http` for config-driven JSON HTTP polling and field-mapped
+  decapsulation (`url`, method/headers/params, response item field, sensor id
+  field, payload field, optional timestamp fields).
+- **Contributor checklist** — added `CONTRIBUTING.md` with a decision-driven
+  checklist for adding transports, providers, decapsulators, and sensor model
+  mappings.
+
+### Documentation
+
+- Updated root and `src/rime` READMEs with current ingest lifecycle diagrams and
+  pipeline tables.
+- Refreshed provider and transformer docs to match decapsulator naming,
+  provider-id config, and current ingest-stage responsibilities.
+- Rebuilt CLI tape outputs and documented tape generation flow.
+
 ## [v0.5.0]
 
 ### Fixed

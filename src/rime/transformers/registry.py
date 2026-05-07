@@ -1,16 +1,18 @@
-"""All the transformer maps live here."""
+"""Top-level transformer registry.
 
-# standard
+Maps supported sensor models to their observation transformer implementation.
+"""
+
 from typing import Type
 
-# internal
+from .normalizers.core import VendorObservationTransformer
+from .normalizers import milesight
+from .normalizers import netatmo
 from .types import SupportedSensors
-from .core import NativePayloadTransformer
-from . import milesight
-from . import netatmo
 
-TRANSFORMER_MAP: dict[SupportedSensors, Type[NativePayloadTransformer]] = {
-    SupportedSensors.MILESIGHT_AM103L: milesight.MilesightAm103lPayload,
-    SupportedSensors.MILESIGHT_AM308L: milesight.MilesightAm308lPayload,
+TRANSFORMER_MAP: dict[SupportedSensors, Type[VendorObservationTransformer]] = {
+    SupportedSensors.MILESIGHT_AM103L: milesight.MilesightAm103lObservationTransformer,
+    SupportedSensors.MILESIGHT_AM308L: milesight.MilesightAm308lObservationTransformer,
     SupportedSensors.NETATMO_NWS03: netatmo.NetatmoNWS03,
 }
+

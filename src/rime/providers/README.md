@@ -14,6 +14,7 @@ possible.
 
 | Provider          | Transport                          | Auth            | Notes                                            |
 | ----------------- | ---------------------------------- | --------------- | ------------------------------------------------ |
+| `GenericHTTPProvider` | `HTTPTransport` (poll)         | Config headers  | Generic JSON HTTP pull + field-mapped decapsulation. |
 | `NetatmoProvider` | `HTTPTransport` (poll)             | OAuth tokens    | Polls `WeatherStationData.rawData` via lnetatmo. |
 | `TTSProvider`     | `MQTTTransport` (subscription)     | API key         | Subscribes to `v3/<app>/devices/+/up` topics.    |
 
@@ -25,9 +26,10 @@ upstream application. It declares:
 1. **The transport it uses.** By inheriting from `HTTPTransport` or
    `MQTTTransport` (or any future transport), it picks up the threading
    model, payload pipeline, and exception handling for free.
-2. **The unpacker for incoming payloads.** Set as the
-   `application_unpacker` class attribute. Unpackers live in
-   [`../transformers/application_unpackers.py`](../transformers/application_unpackers.py).
+2. **Application decapsulation.** Implement `_decapsulate_application_payload(self, app_payload)`
+   to strip the provider/application envelope and return `list[DecapsulatedMessage]`.
+   Model-specific deserialization/decoding/transforming is handled centrally by
+   `SensorTransport` using [`../transformers/ingest_registry.py`](../transformers/ingest_registry.py).
 3. **Authentication.** Provider-local. Resolve credentials from
    wherever they are stored (token file, credentials JSON, env vars,
    TLS certs) inside `_auth()`.
@@ -52,10 +54,11 @@ Helium Console, AWS IoT Core, ...) the steps are:
 
 1. Add `providers/<name>.py` with a class extending the appropriate
    transport ABC.
-2. Implement `_auth` and (for HTTP) `_pull_data`.
-3. Set `application_unpacker` and `auth_method`.
-4. Re-export from `providers/__init__.py`.
-5. Add an entry to the table above.
+2. Implement `_decapsulate_application_payload`.
+3. Implement `_auth` and (for HTTP) `_pull_data`.
+4. Set `auth_method`.
+5. Re-export from `providers/__init__.py`.
+6. Add an entry to the table above.
 
 Skeleton (MQTT-based provider):
 
@@ -63,10 +66,11 @@ Skeleton (MQTT-based provider):
 # providers/chirpstack.py
 import json
 import logging
-from typing import ClassVar, Literal
+from typing import Any, ClassVar, Literal
 
 from ..paths import CREDENTIALS_DIR
-from ..transformers.application_unpackers import ChirpstackUnpacker
+from ..transformers.decapsulators import ChirpstackDecapsulator  # hypothetical
+from ..transformers.decapsulators.types import DecapsulatedMessage
 from ..transport import MQTTTransport
 
 event_logger = logging.getLogger("events")
@@ -75,8 +79,12 @@ event_logger = logging.getLogger("events")
 class ChirpstackProvider(MQTTTransport):
     """Chirpstack provider over MQTT."""
 
-    application_unpacker = ChirpstackUnpacker()
     auth_method: ClassVar[Literal["tokens", "credentials"]] = "credentials"
+
+    def _decapsulate_application_payload(
+        self, app_payload: Any
+    ) -> list[DecapsulatedMessage]:
+        return ChirpstackDecapsulator.decapsulate(app_payload)
 
     @property
     def _credentials_file(self):
@@ -102,18 +110,40 @@ Providers are wired up via `deploy/application-configs.yml`:
 
 ```yaml
 applications:
+  generic-weather:
+    provider: generic-http
+    url: https://api.example.com/weather
+    method: GET
+    request_interval: 300
+    response_items_field: data
+    sensor_id_field: station_id
+    payload_field: readings
+    phenomenon_timestamp_field: observed_at
   multicare-acerra@ttn:
-    connection_class: TTSProvider
+    provider: tts
     host: eu1.cloud.thethings.network
     topic: v3/multicare-acerra@ttn/devices/+/up
   my-netatmo:
-    connection_class: NetatmoProvider
+    provider: netatmo
     request_interval: 600
 ```
 
-The `connection_class` value must match the class name in this package
-(`getattr` lookup). Any keys whose names match the provider's
+The `provider` value must match one of the ids in
+`rime.providers.PROVIDER_REGISTRY`. Any keys whose names match the provider's
 constructor parameters are forwarded automatically by `from_config`.
+
+### `generic-http` provider config
+
+`GenericHTTPProvider` is intended for plain JSON HTTP APIs where a lightweight
+field mapping is sufficient:
+
+- Required: `url`
+- Common: `method` (`GET` default), `request_interval`, `headers`, `params`
+- Decapsulation mapping:
+  - `response_items_field` (if the top-level response wraps a list)
+  - `sensor_id_field` (defaults to `sensor_id`)
+  - `payload_field` (optional nested dict of readings)
+  - `application_timestamp_field` / `phenomenon_timestamp_field` (optional, ISO or epoch)
 
 The CLI (`rime setup`) prefers to write this file for you and will
 introspect `auth_method` to know which credential setup to invoke.
@@ -122,7 +152,11 @@ introspect `auth_method` to know which credential setup to invoke.
 
 - [`../transport/`](../transport/README.md) — abstract transports that
   providers extend.
-- [`../transformers/application_unpackers.py`](../transformers/application_unpackers.py)
-  — unpackers that turn raw application payloads into per-sensor data.
+- [`../transformers/decapsulators/`](../transformers/decapsulators/) —
+  application envelope decapsulators.
+- [`../transformers/ingest_registry.py`](../transformers/ingest_registry.py) —
+  per-model deserializer/decoder/transformer wiring.
+- [`../transformers/messages.py`](../transformers/messages.py) — ingress message
+  types from decapsulate → decode → parse.
 - [`../paths.py`](../paths.py) — `TOKENS_DIR`, `CREDENTIALS_DIR`, and
   related helpers used to locate provider credentials.

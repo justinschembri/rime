@@ -2,7 +2,6 @@
 from typing import List, Optional
 import logging
 from pathlib import Path
-import importlib
 import yaml
 import time
 import threading
@@ -16,6 +15,7 @@ from rime.config import (
     get_frost_auth_header,
     get_frost_root_url,
 )
+from rime.providers.registry import PROVIDER_REGISTRY
 from rime.sta.extensions import SensorConfig
 from rime.frost.orchestrators import initial_setup
 from rime.transport import SensorTransport
@@ -43,24 +43,25 @@ def parse_application_config(config_path: Path) -> set[SensorTransport]:
         config = yaml.safe_load(f)
 
     connections = set()
-    providers_module = importlib.import_module("rime.providers")
 
     for app_name, app_config in config["applications"].items():
-        class_name = app_config["connection_class"]
-
-        try:
-            # `providers_module` exposes every provider class as an attribute
-            # via its __init__, so YAML can refer to them by name.
-            ProviderClass = getattr(providers_module, class_name)
-        except AttributeError:
+        provider_name = app_config.get("provider", "").strip().lower()
+        if not provider_name:
             raise ValueError(
-                f"Provider class '{class_name}' not found in "
-                "rime.providers"
+                f"Application '{app_name}' is missing required key 'provider'."
+            )
+
+        ProviderClass = PROVIDER_REGISTRY.get(provider_name)
+        if ProviderClass is None:
+            valid = ", ".join(sorted(PROVIDER_REGISTRY))
+            raise ValueError(
+                f"Unknown provider '{provider_name}' for application '{app_name}'. "
+                f"Valid providers: {valid}"
             )
 
         if not issubclass(ProviderClass, SensorTransport):
             raise ValueError(
-                f"{class_name} is not a valid SensorTransport subclass"
+                f"{ProviderClass.__name__} is not a valid SensorTransport subclass"
             )
         connections.add(ProviderClass.from_config(app_name, app_config))
 
