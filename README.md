@@ -18,7 +18,7 @@ Core features:
 
 Contributor guide: see [`CONTRIBUTING.md`](CONTRIBUTING.md) for the transport/provider/decapsulator/sensor-model checklist.
 
-![](docs/imgs/process-payload.drawio)
+![](docs/imgs/process-payload.drawio.svg)
 
 ## System Requirements
 
