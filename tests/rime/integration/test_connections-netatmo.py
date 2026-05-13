@@ -75,6 +75,6 @@ class TestNetatmoPulling:
     @pytest.mark.real
     def test_basic_pulling(self, valid_netatmo_connection: NetatmoProvider):
         """Happy path testing: data should arrive, check structure too."""
-        application_payload = valid_netatmo_connection._pull_data()
-        assert application_payload is not None
-        assert isinstance(application_payload, list)
+        wire_payload = valid_netatmo_connection._pull_data()
+        assert wire_payload is not None
+        assert isinstance(wire_payload, list)

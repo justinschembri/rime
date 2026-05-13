@@ -3,5 +3,6 @@
 from .base import SensorTransport
 from .poll.http import HTTPTransport
 from .subscription.mqtt import MQTTTransport
+from .subscription.seedlink import SeedLinkTransport
 
-__all__ = ["SensorTransport", "HTTPTransport", "MQTTTransport"]
+__all__ = ["SensorTransport", "HTTPTransport", "MQTTTransport", "SeedLinkTransport"]

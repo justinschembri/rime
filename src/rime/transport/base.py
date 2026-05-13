@@ -5,6 +5,27 @@ owns the threading model, the payload-processing pipeline, and the exception
 policy. Concrete subclasses specialise on the interaction model (poll vs.
 subscription) and ultimately on the provider (Netatmo, TTS, ...).
 
+## Ingest pipeline
+
+`_process_payload` drives a two-tier pipeline for every wire payload received:
+
+Provider tier (transport / provider level):
+
+    _decode_wire          raw wire data  →  decoded form   (identity by default)
+    _deserialize_wire     decoded form   →  Python object  (identity by default)
+    _decapsulate_provider_payload        →  list[DecapsulatedMessage]
+
+Model tier (per DecapsulatedMessage, keyed by sensor model from INGEST_COMPONENT_MAP):
+
+    deserializer.deserialize  →  remaining payload deserialization
+    decoder.decode            →  raw readings → physical values
+    transformer.from_parsed   →  vendor fields → SensorThings observations
+    frost_observation_upload  →  push to FROST
+
+The application-tier hooks default to identity so transports whose libraries
+already handle wire decoding (ObsPy for SeedLink, lnetatmo for Netatmo) need
+not override them. MQTT overrides `_deserialize_wire` with `json.loads`.
+
 Authentication is intentionally *not* a base-class concern — credential
 storage and resolution differ enough between providers (OAuth tokens, API
 keys, TLS certs, no auth at all) that pinning a shape here would force every
@@ -76,10 +97,15 @@ class SensorTransport(ABC):
         ...
 
     @abstractmethod
-    def _decapsulate_application_payload(
-        self, app_payload: Any
+    def _decapsulate_provider_payload(
+        self, wire_payload: Any
     ) -> list[DecapsulatedMessage]:
-        """Decapsulate one application ingest to routed per-sensor messages."""
+        """Strip the provider envelope and route to per-sensor messages.
+
+        Receives the output of ``_deserialize_wire`` — always a Python object,
+        never raw bytes. Returns one ``DecapsulatedMessage`` per sensor reading
+        contained in the payload.
+        """
 
     # lifecycle ################################################################
     def _preflight(self) -> bool:
@@ -127,9 +153,37 @@ class SensorTransport(ABC):
         self.start(self.sensor_registry)
 
     # processing ###############################################################
-    def _process_payload(self, app_payload: Any) -> None:
-        """Decapsulate, model-process, and push a single application payload."""
-        decapsulated_messages = self._decapsulate_application_payload(app_payload)
+    def _decode_wire(self, raw: Any) -> Any:
+        """Convert raw wire data to a decoded form suitable for deserialization.
+
+        Default: identity. Override when the transport delivers opaque bytes
+        that require a codec (e.g. base64, UTF-8) before deserialization.
+        """
+        return raw
+
+    def _deserialize_wire(self, decoded: Any) -> Any:
+        """Parse decoded wire data into a Python object.
+
+        Default: identity. Override when the wire format is a serialized
+        representation (JSON, CBOR, Protobuf, ...) that needs parsing into
+        an in-memory object before decapsulation. ``MQTTTransport`` overrides
+        this with ``json.loads``; SeedLink and HTTP leave it as the identity
+        because their libraries already return Python objects.
+        """
+        return decoded
+
+    def _process_payload(self, wire_payload: Any) -> None:
+        """Run the full two-tier ingest pipeline for a single wire payload.
+
+        Provider tier:
+            _decode_wire → _deserialize_wire → _decapsulate_provider_payload
+
+        Model tier (per DecapsulatedMessage):
+            deserializer → decoder → transformer → frost_observation_upload
+        """
+        decoded = self._decode_wire(wire_payload)
+        deserialized = self._deserialize_wire(decoded)
+        decapsulated_messages = self._decapsulate_provider_payload(deserialized)
         for decapsulated in decapsulated_messages:
             sensor_id = decapsulated.sensor_id
             try:

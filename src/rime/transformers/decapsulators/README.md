@@ -6,13 +6,13 @@ SensorThings `Observation` objects.
 
 ## Output
 
-`Decapsulator.decapsulate(app_payload) -> list[DecapsulatedMessage]`
+`Decapsulator.decapsulate(wire_payload) -> list[DecapsulatedMessage]`
 
 Each [`DecapsulatedMessage`](types.py) carries:
 
 - `sensor_id` - registry key (e.g. Netatmo `_id`, TTN `dev_eui`)
 - `payload` - still `Any` (often a `dict` of readings); refined in later stages
-- `application_timestamp` / `phenomenon_timestamp` - when present from the wire
+- `provider_timestamp` / `phenomenon_timestamp` - when present from the wire
 
 ## Implementations
 
@@ -29,13 +29,13 @@ Import lazily if needed: `from rime.transformers.decapsulators import TTNDecapsu
 wire payload -> decapsulators (this package) -> model-specific deserialize/decode/parse
 ```
 
-Providers implement `_decapsulate_application_payload` by calling a decapsulator here.
+Providers implement `_decapsulate_provider_payload` by calling a decapsulator here.
 `SensorTransport` then resolves model-specific components from
 [`../ingest_registry.py`](../ingest_registry.py) and continues with
 [`ParsedMessage`](../messages.py) -> [`normalizers/`](../normalizers/README.md).
 
 ## Adding a decapsulator
 
-1. Subclass [`Decapsulator`](types.py) with a static `decapsulate(app_payload: Any) -> list[DecapsulatedMessage]`.
+1. Subclass [`Decapsulator`](types.py) with a static `decapsulate(wire_payload: Any) -> list[DecapsulatedMessage]`.
 2. Raise `MissingPayloadKeysError` / wrap failures in `UnpackError` consistent with existing modules.
 3. Export from `decapsulators/__init__.py` (`__all__` + `__getattr__` if you want lazy import).

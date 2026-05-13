@@ -31,20 +31,20 @@ class TTNDecapsulator(Decapsulator):
 
     - ``sensor_id``: ``end_device_ids.dev_eui`` (registry key).
     - ``payload``: shallow copy of ``uplink_message.decoded_payload``.
-    - ``application_timestamp``: first ``rx_metadata[].received_at``.
+    - ``provider_timestamp``: first ``rx_metadata[].received_at``.
     - ``phenomenon_timestamp``: ``uplink_message.time`` when present.
     """
 
     @staticmethod
-    def decapsulate(app_payload: dict[str, Any]) -> list[DecapsulatedMessage]:
+    def decapsulate(wire_payload: dict[str, Any]) -> list[DecapsulatedMessage]:
         try:
-            sensor_id = app_payload["end_device_ids"]["dev_eui"]
-            uplink = app_payload["uplink_message"]
+            sensor_id = wire_payload["end_device_ids"]["dev_eui"]
+            uplink = wire_payload["uplink_message"]
             decoded = uplink["decoded_payload"]
             payload: Any = dict(decoded)
 
             received_raw = uplink["rx_metadata"][0]["received_at"]
-            application_ts = _parse_iso_utc(
+            provider_ts = _parse_iso_utc(
                 received_raw if isinstance(received_raw, str) else None
             )
 
@@ -63,7 +63,7 @@ class TTNDecapsulator(Decapsulator):
             DecapsulatedMessage(
                 sensor_id=sensor_id,
                 payload=payload,
-                application_timestamp=application_ts,
+                provider_timestamp=provider_ts,
                 phenomenon_timestamp=phenomenon_ts,
             )
         ]

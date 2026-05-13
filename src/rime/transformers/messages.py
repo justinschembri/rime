@@ -23,7 +23,7 @@ class DecodedMessage:
 
     sensor_id: SensorUUID
     payload: Any
-    application_timestamp: datetime | None = None
+    provider_timestamp: datetime | None = None
     phenomenon_timestamp: datetime | None = None
 
     @classmethod
@@ -31,7 +31,7 @@ class DecodedMessage:
         return cls(
             sensor_id=msg.sensor_id,
             payload=msg.payload,
-            application_timestamp=msg.application_timestamp,
+            provider_timestamp=msg.provider_timestamp,
             phenomenon_timestamp=msg.phenomenon_timestamp,
         )
 
@@ -42,7 +42,7 @@ class ParsedMessage:
 
     sensor_id: SensorUUID
     body: dict[str, Any]
-    application_timestamp: datetime | None = None
+    provider_timestamp: datetime | None = None
     phenomenon_timestamp: datetime | None = None
 
     @classmethod
@@ -57,7 +57,7 @@ class ParsedMessage:
         return cls(
             sensor_id=msg.sensor_id,
             body=dict(body),
-            application_timestamp=msg.application_timestamp,
+            provider_timestamp=msg.provider_timestamp,
             phenomenon_timestamp=msg.phenomenon_timestamp,
         )
 

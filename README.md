@@ -22,7 +22,7 @@ Contributor guide: see [`CONTRIBUTING.md`](CONTRIBUTING.md) for the transport/pr
 flowchart TD
     A["Upstream IoT applications<br/>(HTTP poll / MQTT subscription)"] --> B["Transport run receives app payload"]
     B --> C["SensorTransport process_payload"]
-    C --> D["Provider decapsulate_application_payload"]
+    C --> D["Provider decapsulate_provider_payload"]
     D --> E["Decapsulator module<br/>-> DecapsulatedMessage list"]
     E --> F["Resolve sensor model from sensor_registry"]
     F --> G["INGEST_COMPONENT_MAP selects<br/>deserializer + decoder + transformer"]

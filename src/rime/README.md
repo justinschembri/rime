@@ -11,7 +11,7 @@ see [`../../CONTRIBUTING.md`](../../CONTRIBUTING.md).
 ```mermaid
 flowchart TD
     A["Transport implementation<br/>poll or subscription receives app payload"] --> B["SensorTransport process_payload in transport/base.py"]
-    B --> C["Provider hook in providers package<br/>decapsulate_application_payload"]
+    B --> C["Provider hook in providers package<br/>decapsulate_provider_payload"]
     C --> D["Decapsulator in transformers/decapsulators<br/>DecapsulatedMessage list"]
     D --> E["Sensor registry lookup<br/>sensor_id to SupportedSensors"]
     E --> F["INGEST_COMPONENT_MAP in transformers/ingest_registry.py"]
@@ -35,7 +35,7 @@ flowchart TD
 
 ## Execution path in code
 
-1. Transport receives one `app_payload` and calls `SensorTransport._process_payload`.
+1. Transport receives one `wire_payload` and calls `SensorTransport._process_payload`.
 2. Provider decapsulates the payload into one or more `DecapsulatedMessage` entries.
 3. For each message, rime resolves the sensor model from `sensor_registry`.
 4. `INGEST_COMPONENT_MAP` selects deserializer, decoder, and transformer for that model.

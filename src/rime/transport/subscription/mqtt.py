@@ -1,23 +1,29 @@
 """MQTT subscription transport.
 
 `MQTTTransport` opens a long-lived broker connection, subscribes to a topic,
-and uses paho's network thread to push incoming messages into a thread-safe
-queue. The main worker thread drains the queue and forwards each message to
-the shared processing pipeline.
+and uses paho's network thread to push incoming raw ``bytes`` payloads into a
+thread-safe queue. The main worker thread drains the queue and forwards each
+payload to ``_process_payload``.
+
+Wire-format deserialization (``bytes`` → Python object) is handled by
+``_deserialize_wire``, which defaults to ``json.loads``. Providers that use a
+different wire format (CBOR, Protobuf, ...) override this method; those that
+use plain JSON inherit the default and need not mention it.
 
 Provider-specific authentication (username/password, TLS, certificates) is
-configured by the provider before `_connect` is called — typically by setting
-attributes on `self._mqtt_client` inside its own `_auth` method.
+configured by the provider before ``_connect`` is called — typically by setting
+attributes on ``self._mqtt_client`` inside its own ``_auth`` method.
 """
 
-import json
 import logging
 import queue
 from abc import abstractmethod
+from typing import Any
 
 from paho.mqtt.client import Client as MqttClient
 from paho.mqtt.enums import CallbackAPIVersion
 
+from ...transformers.deserializers import JsonWireDeserializer
 from ..base import SensorTransport
 
 main_logger = logging.getLogger("main")
@@ -57,6 +63,15 @@ class MQTTTransport(SensorTransport):
         self._subscribed: bool = False
         self._mqtt_client = MqttClient(CallbackAPIVersion.VERSION2)
 
+    def _deserialize_wire(self, decoded: Any) -> Any:
+        """Deserialize a raw MQTT payload to a Python object.
+
+        Defaults to ``JsonWireDeserializer.deserialize`` (``json.loads``), which
+        covers the vast majority of MQTT brokers in this system. Override for
+        non-JSON wire formats (CBOR, Protobuf, ...).
+        """
+        return JsonWireDeserializer.deserialize(decoded)
+
     @abstractmethod
     def _auth(self) -> None:
         """Configure broker authentication on `self._mqtt_client`."""
@@ -70,7 +85,7 @@ class MQTTTransport(SensorTransport):
         self._auth()
 
         def on_message(client, userdata, message):
-            self._payload_queue.put(json.loads(message.payload))
+            self._payload_queue.put(message.payload)
 
         def on_subscribe(client, userdata, mid, reason_code_list, properties):
             event_logger.info(
@@ -97,14 +112,14 @@ class MQTTTransport(SensorTransport):
             self._connect()
 
         failures = 0
-        app_payload = None
+        wire_payload = None
         while not self._stop_event.is_set():
             try:
-                app_payload = self._payload_queue.get(timeout=self.timeout)
-                self._process_payload(app_payload)
+                wire_payload = self._payload_queue.get(timeout=self.timeout)
+                self._process_payload(wire_payload)
                 failures = 0
             except Exception as e:
-                failures += self._exception_handler(e, app_payload=app_payload)
+                failures += self._exception_handler(e, wire_payload=wire_payload)
                 if failures >= self.max_retries:
                     main_logger.critical(
                         f"Exceeded max retries ({self.max_retries}) for "

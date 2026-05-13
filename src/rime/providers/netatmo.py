@@ -45,10 +45,10 @@ class NetatmoProvider(HTTPTransport):
         self._authenticated = True
         return self._auth_obj
 
-    def _decapsulate_application_payload(
-        self, app_payload: Any
+    def _decapsulate_provider_payload(
+        self, wire_payload: Any
     ) -> list[DecapsulatedMessage]:
-        return NetatmoDecapsulator.decapsulate(app_payload)
+        return NetatmoDecapsulator.decapsulate(wire_payload)
 
     def _pull_data(self) -> list[dict[str, Any]] | None:
         if not self._authenticated:

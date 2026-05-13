@@ -44,27 +44,27 @@ class HTTPTransport(SensorTransport):
 
     @abstractmethod
     def _pull_data(self) -> Any:
-        """Synchronously fetch the latest application payload."""
+        """Synchronously fetch the latest wire payload from the provider."""
         ...
 
     def _run(self) -> None:
         failures = 0
-        app_payload = None
+        wire_payload = None
         while not self._stop_event.is_set():
             try:
-                app_payload = self._pull_data()
-                if self._last_payload == app_payload:
+                wire_payload = self._pull_data()
+                if self._last_payload == wire_payload:
                     # a bit of a 'magic number' here:
                     time.sleep(self.request_interval / 4)
                     continue
-                self._last_payload = app_payload
-                self._process_payload(app_payload)
+                self._last_payload = wire_payload
+                self._process_payload(wire_payload)
                 netmon.add_named_count("payloads_received", self.app_name, 1)
                 failures = 0
                 time.sleep(self.request_interval)
             except Exception as e:
                 # TODO: consider carefully which exception types should be 'failures'
-                failures += self._exception_handler(e, app_payload=app_payload)
+                failures += self._exception_handler(e, wire_payload=wire_payload)
                 if failures == self.max_retries:
                     main_logger.critical(
                         f"Exceeded max retries ({self.max_retries}) for "

@@ -14,7 +14,7 @@ from ...sta.core import Observation
 class VendorObservationTransformer(BaseModel):
     """Maps vendor observation fields (``ParsedMessage.body``) to SensorThings observations."""
 
-    app_phenomenon_time: datetime | None = None
+    provider_phenomenon_time: datetime | None = None
     TRANSFORM: dict[str, Callable] = {}
     NAME_TRANSFORM: dict[str, ObservedProperties]
 
@@ -35,9 +35,9 @@ class VendorObservationTransformer(BaseModel):
     def from_parsed(cls, msg: ParsedMessage):
         observations = msg.body
         payload = {k.lower(): v for k, v in observations.items()}
-        app_payload = cls(**payload)
-        app_payload.app_phenomenon_time = msg.application_timestamp
-        return app_payload
+        obj = cls(**payload)
+        obj.provider_phenomenon_time = msg.provider_timestamp
+        return obj
 
     def _transform(self) -> dict[ObservedProperties, Any]:
         """Apply the transformations"""
@@ -63,7 +63,7 @@ class VendorObservationTransformer(BaseModel):
                 result=value,
                 phenomenonTime=(
                     transformed_results.get(ObservedProperties.PHENOMENON_TIME)
-                    or self.app_phenomenon_time
+                    or self.provider_phenomenon_time
                 ),
             )
             observations.append((observation, datastream.value))

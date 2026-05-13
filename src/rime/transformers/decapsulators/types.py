@@ -14,24 +14,24 @@ from ..types import SensorUUID
 class DecapsulatedMessage:
     """One routed sensor ingest: identity + timestamps + opaque payload body.
 
-    The decapsulation step removes transport/application scaffolding and keeps:
+    The decapsulation step removes transport/provider scaffolding and keeps:
 
     - a **sensor key** usable with ``SensorConfig`` / ``sensor_registry``;
-    - any **timing** hints needed downstream (received vs phenomenon);
+    - any **timing** hints needed downstream (provider-received vs phenomenon);
     - a **payload** that still reflects "what came from / about the sensor
       readings" before decoder/normalizer specialization.
     """
 
     sensor_id: SensorUUID
     payload: Any
-    application_timestamp: datetime | None = None
+    provider_timestamp: datetime | None = None
     phenomenon_timestamp: datetime | None = None
 
 
 class Decapsulator(ABC):
-    """ABC for decapsulators that strip vendor/application shells."""
+    """ABC for decapsulators that strip vendor/provider shells."""
 
     @staticmethod
     @abstractmethod
-    def decapsulate(app_payload: Any) -> list[DecapsulatedMessage]:
+    def decapsulate(wire_payload: Any) -> list[DecapsulatedMessage]:
         ...
