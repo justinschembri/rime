@@ -18,28 +18,7 @@ Core features:
 
 Contributor guide: see [`CONTRIBUTING.md`](CONTRIBUTING.md) for the transport/provider/decapsulator/sensor-model checklist.
 
-```mermaid
-flowchart LR
-    sensors([Sensors]) --> provider([Provider])
-    provider --> wire
-
-    subgraph PP["Provider Level Pipeline"]
-        wire{{Wire Payload}} --> dec1[/Decode/]
-        dec1 --> des1[/Deserialize/]
-        des1 --> decap[/Decapsulate/]
-        decap -->|"1..*"| msgs{{Decapsulated\nMessages}}
-    end
-
-    msgs --> des2
-
-    subgraph MP["Model Level Pipeline"]
-        des2[/Deserialize/] --> dec2[/Decode/]
-        dec2 --> parse[/Parse/]
-        parse --> xform[/Transform/]
-        xform --> obs{{SensorThings\nObservation}}
-        obs --> frost[(FROST Server)]
-    end
-```
+![](docs/imgs/process-payload.drawio.png)
 
 ## System Requirements
 
