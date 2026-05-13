@@ -18,19 +18,7 @@ Core features:
 
 Contributor guide: see [`CONTRIBUTING.md`](CONTRIBUTING.md) for the transport/provider/decapsulator/sensor-model checklist.
 
-```mermaid
-flowchart TD
-    A["Upstream IoT applications<br/>(HTTP poll / MQTT subscription)"] --> B["Transport run receives app payload"]
-    B --> C["SensorTransport process_payload"]
-    C --> D["Provider decapsulate_provider_payload"]
-    D --> E["Decapsulator module<br/>-> DecapsulatedMessage list"]
-    E --> F["Resolve sensor model from sensor_registry"]
-    F --> G["INGEST_COMPONENT_MAP selects<br/>deserializer + decoder + transformer"]
-    G --> H["Deserialize -> Decode -> Parse"]
-    H --> I["Normalizer builds SensorThings observations<br/>to_stObservations"]
-    I --> J["frost_observation_upload"]
-    J --> K["FROST Server (SensorThings API)"]
-```
+![](docs/imgs/process-payload.drawio)
 
 ## System Requirements
 
