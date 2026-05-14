@@ -45,7 +45,7 @@ class NetatmoProvider(HTTPTransport):
         self._authenticated = True
         return self._auth_obj
 
-    def _decapsulate_provider_payload(
+    def _decapsulate_wire(
         self, wire_payload: Any
     ) -> list[DecapsulatedMessage]:
         return NetatmoDecapsulator.decapsulate(wire_payload)

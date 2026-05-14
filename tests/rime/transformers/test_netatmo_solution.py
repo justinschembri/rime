@@ -64,7 +64,7 @@ class TestNetatmoDecapsulator:
 
 def test_netatmo_provider_decapsulate_delegates():
     raw = [_station("70:ee", True)]
-    decapped = NetatmoProvider("test")._decapsulate_provider_payload(raw)
+    decapped = NetatmoProvider("test")._decapsulate_wire(raw)
     assert len(decapped) == 1
     assert isinstance(decapped[0], DecapsulatedMessage)
     assert decapped[0].sensor_id == "70:ee"

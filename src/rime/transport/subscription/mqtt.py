@@ -72,10 +72,9 @@ class MQTTTransport(SensorTransport):
         """
         return JsonWireDeserializer.deserialize(decoded)
 
-    @abstractmethod
     def _auth(self) -> None:
         """Configure broker authentication on `self._mqtt_client`."""
-        ...
+        pass
 
     def _connect(self) -> None:
         """Authenticate, register callbacks, and connect to the broker.

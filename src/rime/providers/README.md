@@ -26,7 +26,7 @@ upstream application. It declares:
 1. **The transport it uses.** By inheriting from `HTTPTransport` or
    `MQTTTransport` (or any future transport), it picks up the threading
    model, payload pipeline, and exception handling for free.
-2. **Provider decapsulation.** Implement `_decapsulate_provider_payload(self, wire_payload)`
+2. **Provider decapsulation.** Implement `_decapsulate_wire(self, wire_payload)`
    to strip the provider envelope and return `list[DecapsulatedMessage]`.
    Model-specific deserialization/decoding/transforming is handled centrally by
    `SensorTransport` using [`../transformers/ingest_registry.py`](../transformers/ingest_registry.py).
@@ -54,7 +54,7 @@ Helium Console, AWS IoT Core, ...) the steps are:
 
 1. Add `providers/<name>.py` with a class extending the appropriate
    transport ABC.
-2. Implement `_decapsulate_provider_payload`.
+2. Implement `_decapsulate_wire`.
 3. Implement `_auth` and (for HTTP) `_pull_data`.
 4. Set `auth_method`.
 5. Re-export from `providers/__init__.py`.
@@ -81,7 +81,7 @@ class ChirpstackProvider(MQTTTransport):
 
     auth_method: ClassVar[Literal["tokens", "credentials"]] = "credentials"
 
-    def _decapsulate_provider_payload(
+    def _decapsulate_wire(
         self, wire_payload: Any
     ) -> list[DecapsulatedMessage]:
         return ChirpstackDecapsulator.decapsulate(wire_payload)

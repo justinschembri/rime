@@ -13,7 +13,7 @@ Provider tier (transport / provider level):
 
     _decode_wire          raw wire data  →  decoded form   (identity by default)
     _deserialize_wire     decoded form   →  Python object  (identity by default)
-    _decapsulate_provider_payload        →  list[DecapsulatedMessage]
+    _decapsulate_wire        →  list[DecapsulatedMessage]
 
 Model tier (per DecapsulatedMessage, keyed by sensor model from INGEST_COMPONENT_MAP):
 
@@ -61,6 +61,7 @@ class SensorTransport(ABC):
     def __init__(self, app_name: str, *, max_retries: int = 1):
         self.app_name = app_name
         self.max_retries = max_retries
+        #TODO: sensor_registry as an attr is a codesmell
         self.sensor_registry: dict[SensorUUID, SupportedSensors] = {}
         self._thread: threading.Thread | None = None
         self._stop_event = threading.Event()
@@ -90,23 +91,6 @@ class SensorTransport(ABC):
                 kwargs[param_name] = config[param_name]
         return cls(**kwargs)
 
-    # abstract #################################################################
-    @abstractmethod
-    def _run(self) -> None:
-        """Long-running loop that drives data acquisition and processing."""
-        ...
-
-    @abstractmethod
-    def _decapsulate_provider_payload(
-        self, wire_payload: Any
-    ) -> list[DecapsulatedMessage]:
-        """Strip the provider envelope and route to per-sensor messages.
-
-        Receives the output of ``_deserialize_wire`` — always a Python object,
-        never raw bytes. Returns one ``DecapsulatedMessage`` per sensor reading
-        contained in the payload.
-        """
-
     # lifecycle ################################################################
     def _preflight(self) -> bool:
         """Optional pre-start checks. Return False to abort startup."""
@@ -115,6 +99,15 @@ class SensorTransport(ABC):
     @property
     def is_alive(self) -> bool:
         return self._thread is not None and self._thread.is_alive()
+
+    @abstractmethod
+    def _run(self) -> None:
+        """
+        Long-running loop that drives data acquisition and processing.
+
+        This method must always call _process_payload().
+        """
+        ...
 
     def start(self, sensor_registry: dict[SensorUUID, SupportedSensors]) -> None:
         """Start the transport's worker thread.
@@ -172,18 +165,29 @@ class SensorTransport(ABC):
         """
         return decoded
 
+    @abstractmethod
+    def _decapsulate_wire(
+        self, wire_payload: Any
+    ) -> list[DecapsulatedMessage]:
+        """Strip the provider envelope and route to per-sensor messages.
+
+        Receives the output of ``_deserialize_wire`` — always a Python object,
+        never raw bytes. Returns one ``DecapsulatedMessage`` per sensor reading
+        contained in the payload.
+        """
+
     def _process_payload(self, wire_payload: Any) -> None:
         """Run the full two-tier ingest pipeline for a single wire payload.
 
         Provider tier:
-            _decode_wire → _deserialize_wire → _decapsulate_provider_payload
+            _decode_wire → _deserialize_wire → _decapsulate_wire
 
         Model tier (per DecapsulatedMessage):
             deserializer → decoder → transformer → frost_observation_upload
         """
         decoded = self._decode_wire(wire_payload)
         deserialized = self._deserialize_wire(decoded)
-        decapsulated_messages = self._decapsulate_provider_payload(deserialized)
+        decapsulated_messages = self._decapsulate_wire(deserialized)
         for decapsulated in decapsulated_messages:
             sensor_id = decapsulated.sensor_id
             try:
@@ -213,6 +217,7 @@ class SensorTransport(ABC):
                 self._exception_handler(e, sensor_id=sensor_id, stage="model_ingest")
                 continue
 
+    #TODO: reconsider exception handler as part of the class, should be a global concern
     def _exception_handler(self, e: Exception | None, **kwargs) -> Literal[0, 1]:
         """Classify an exception. Return 0 if transient, 1 if a real failure."""
 
