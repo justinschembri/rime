@@ -23,7 +23,7 @@ transport/
     └── seedlink.py          # SeedLinkTransport (ABC, ObsPy SeedLink TCP)
 ```
 
-![](../../../docs/imgs/transport-class-diagram.drawio.png)
+![](../../../docs/imgs/transport-class-diagram.drawio.svg)
 
 The package is organised in two layers:
 
