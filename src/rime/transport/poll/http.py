@@ -47,6 +47,7 @@ class HTTPTransport(SensorTransport):
 
     @abstractmethod
     def _pull_data(self) -> Any:
+        #TODO: does this need to be abstract?
         """Synchronously fetch the latest wire payload from the provider."""
         ...
 
