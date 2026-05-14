@@ -217,6 +217,7 @@ class SensorTransport(ABC):
                 self._exception_handler(e, sensor_id=sensor_id, stage="model_ingest")
                 continue
 
+    #TODO: reconsider exception handler as part of the class, should be a global concern
     def _exception_handler(self, e: Exception | None, **kwargs) -> Literal[0, 1]:
         """Classify an exception. Return 0 if transient, 1 if a real failure."""
 

@@ -42,12 +42,16 @@ class HTTPTransport(SensorTransport):
         self.request_interval = request_interval
         self._last_payload: Any = None
 
+    def auth(self) -> None:
+        pass
+
     @abstractmethod
     def _pull_data(self) -> Any:
         """Synchronously fetch the latest wire payload from the provider."""
         ...
 
     def _run(self) -> None:
+        self.auth()
         failures = 0
         wire_payload = None
         while not self._stop_event.is_set():
