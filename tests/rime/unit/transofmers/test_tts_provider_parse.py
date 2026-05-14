@@ -10,7 +10,7 @@ from rime.transformers.decapsulators.types import DecapsulatedMessage
 
 
 class TestTTSProviderPayload:
-    """Test TTN ingest via TTSProvider._decapsulate_provider_payload."""
+    """Test TTN ingest via TTSProvider._decapsulate_wire."""
 
     @pytest.fixture
     def valid_payload(self) -> dict[str, Any]:
@@ -102,7 +102,7 @@ class TestTTSProviderPayload:
             host="eu1.cloud.thethings.network",
             topic="v3/test-app@ttn/devices/+/up",
         )
-        parsed_list = provider._decapsulate_provider_payload(valid_payload)
+        parsed_list = provider._decapsulate_wire(valid_payload)
 
         assert len(parsed_list) == 1
         pm = parsed_list[0]

@@ -13,7 +13,7 @@ Provider tier (transport / provider level):
 
     _decode_wire          raw wire data  →  decoded form   (identity by default)
     _deserialize_wire     decoded form   →  Python object  (identity by default)
-    _decapsulate_provider_payload        →  list[DecapsulatedMessage]
+    _decapsulate_wire        →  list[DecapsulatedMessage]
 
 Model tier (per DecapsulatedMessage, keyed by sensor model from INGEST_COMPONENT_MAP):
 
@@ -180,7 +180,7 @@ class SensorTransport(ABC):
         """Run the full two-tier ingest pipeline for a single wire payload.
 
         Provider tier:
-            _decode_wire → _deserialize_wire → _decapsulate_provider_payload
+            _decode_wire → _deserialize_wire → _decapsulate_wire
 
         Model tier (per DecapsulatedMessage):
             deserializer → decoder → transformer → frost_observation_upload

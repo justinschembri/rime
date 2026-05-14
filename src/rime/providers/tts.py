@@ -38,7 +38,7 @@ class TTSProvider(MQTTTransport):
             return False
         return True
 
-    def _decapsulate_provider_payload(
+    def _decapsulate_wire(
         self, wire_payload: dict[str, Any]
     ) -> list[DecapsulatedMessage]:
         decapped = TTNDecapsulator.decapsulate(wire_payload)

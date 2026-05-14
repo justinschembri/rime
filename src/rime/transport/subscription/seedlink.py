@@ -9,7 +9,7 @@ ObsPy decodes the binary mini-SEED wire format internally before `on_data`
 fires, so the `Trace` arrives as a fully-parsed Python object. Both
 ``_decode_wire`` and ``_deserialize_wire`` are therefore left as the identity
 (inherited from ``SensorTransport``); the provider's
-``_decapsulate_provider_payload`` receives a ``Trace`` directly.
+``_decapsulate_wire`` receives a ``Trace`` directly.
 
 Stream selectors are specified as ``"NET.STA.LOC.CHA"`` dot-separated strings
 (e.g. ``"GE.WLF.00.BHZ"`` or ``"GE.UGM..HHZ"`` for an empty location code).

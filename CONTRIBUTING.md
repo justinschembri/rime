@@ -56,7 +56,7 @@ Use this checklist when adding new ingestion capabilities to `rime`.
 
 - [ ] Add `src/rime/providers/<name>.py`.
 - [ ] Subclass the correct transport class, e.g.,:` HTTPTransport`, or `MQTTTransport`,
-- [ ] Implement `_decapsulate_provider_payload(self, wire_payload) -> list[DecapsulatedMessage]`, usually this is a wrapper around a new or (unlikely) existing decapsulator,
+- [ ] Implement `_decapsulate_wire(self, wire_payload) -> list[DecapsulatedMessage]`, usually this is a wrapper around a new or (unlikely) existing decapsulator,
 - [ ] Implement provider auth method:
   - HTTP/MQTT provider still owns credential lookup and `_auth`.
 - [ ] Implement any `@abstractmethods` in the parent class, e.g.,: `HTTPTransport` requires the implementation of `_pull_data(self) -> Any` or the `_auth` method,

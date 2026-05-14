@@ -29,7 +29,7 @@ Import lazily if needed: `from rime.transformers.decapsulators import TTNDecapsu
 wire payload -> decapsulators (this package) -> model-specific deserialize/decode/parse
 ```
 
-Providers implement `_decapsulate_provider_payload` by calling a decapsulator here.
+Providers implement `_decapsulate_wire` by calling a decapsulator here.
 `SensorTransport` then resolves model-specific components from
 [`../ingest_registry.py`](../ingest_registry.py) and continues with
 [`ParsedMessage`](../messages.py) -> [`normalizers/`](../normalizers/README.md).
