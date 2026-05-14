@@ -47,7 +47,7 @@ The pipeline runs in two tiers inside `SensorTransport._process_payload`.
 | 1 | `_run` | — | Receive one wire payload from upstream; call `_process_payload`. |
 | 2 | `_decode_wire` | identity | Convert raw bytes to a decoded form (e.g. base64 → bytes, bytes → UTF-8). |
 | 3 | `_deserialize_wire` | identity (`json.loads` on MQTT) | Parse the decoded form into a Python object (JSON, CBOR, Protobuf, ...). |
-| 4 | `_decapsulate_provider_payload` | **abstract** | Strip the provider envelope; return one `DecapsulatedMessage` per sensor reading. |
+| 4 | `_decapsulate_wire` | **abstract** | Strip the provider envelope; return one `DecapsulatedMessage` per sensor reading. |
 
 Steps 2 and 3 default to the identity on `SensorTransport`. Transport
 subclasses override where needed: `MQTTTransport` overrides
@@ -64,7 +64,7 @@ Python objects.
 | 7 | `transformer.from_parsed` + `to_stObservations` | `INGEST_COMPONENT_MAP[model]` | Vendor fields → SensorThings Observation tuples. |
 | 8 | `frost_observation_upload` | `SensorTransport` | Push each observation to FROST. |
 
-## What `SensorTransport` owns
+## What the top level `SensorTransport` owns
 
 - Threading lifecycle: `start()`, `stop()`, `restart()`, `is_alive`.
 - The shared processing pipeline: `_process_payload` orchestrates both
@@ -77,15 +77,14 @@ Python objects.
   signature and forwards matching keys; subclasses rarely need to
   override.
 
-What it intentionally does **not** own:
+What it intentionally does **not** own and are specified in `providers`:
 
-- **Authentication.** Credential storage and resolution differ enough
-  between providers (OAuth, API keys, TLS certificates, no auth) that
-  forcing a shape here would be the wrong abstraction. Providers handle
-  their own auth.
-- **Sensor-specific decoding.** That is the
-  [`transformers`](../transformers/) and
-  [`providers`](../providers/README.md) concern.
+- **Authentication.** Credential storage and resolution differ enough between
+  providers (OAuth, API keys, TLS certificates, no auth) that forcing a shape
+  here would be the wrong abstraction. Providers handle their own auth.
+- **Sensor-specific decoding.** : `SensorTransport._process_payload` only calls
+  the `INGEST_MAP`, which maps a `SupportedSensor` to a suite of
+  `IngestModelComponents`. 
 
 ## Adding a new transport
 
