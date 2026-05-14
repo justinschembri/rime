@@ -34,7 +34,7 @@ def test_ttndecapsulator_timestamps(minimal_ttn_payload):
     m = msgs[0]
     assert m.sensor_id == "24E124707D378803"
     assert m.payload == {"temperature": 23.1, "battery": 53}
-    assert m.application_timestamp == datetime(
+    assert m.provider_timestamp == datetime(
         2025, 12, 25, 20, 8, 0, 937463, tzinfo=timezone.utc
     )
     assert m.phenomenon_timestamp == datetime(

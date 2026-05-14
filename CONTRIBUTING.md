@@ -45,7 +45,7 @@ Use this checklist when adding new ingestion capabilities to `rime`.
 - [ ] Implement required abstract method(s):
   - Base contract: `_run(self) -> None`
   - If you expose a protocol-specific base class, define its abstract hooks (similar to `_pull_data` in `HTTPTransport` or `_auth` in `MQTTTransport`).
-- [ ] Ensure `_run` forwards each payload into `self._process_payload(app_payload)`.
+- [ ] Ensure `_run` forwards each payload into `self._process_payload(wire_payload)`.
 - [ ] Respect lifecycle and failure semantics:
   - Honor `self._stop_event`
   - Use `self._exception_handler(...)`
@@ -56,7 +56,7 @@ Use this checklist when adding new ingestion capabilities to `rime`.
 
 - [ ] Add `src/rime/providers/<name>.py`.
 - [ ] Subclass the correct transport class, e.g.,:` HTTPTransport`, or `MQTTTransport`,
-- [ ] Implement `_decapsulate_application_payload(self, app_payload) -> list[DecapsulatedMessage]`, usually this is a wrapper around a new or (unlikely) existing decapsulator,
+- [ ] Implement `_decapsulate_provider_payload(self, wire_payload) -> list[DecapsulatedMessage]`, usually this is a wrapper around a new or (unlikely) existing decapsulator,
 - [ ] Implement provider auth method:
   - HTTP/MQTT provider still owns credential lookup and `_auth`.
 - [ ] Implement any `@abstractmethods` in the parent class, e.g.,: `HTTPTransport` requires the implementation of `_pull_data(self) -> Any` or the `_auth` method,
@@ -68,11 +68,11 @@ Use this checklist when adding new ingestion capabilities to `rime`.
 
 - [ ] Add module in `src/rime/transformers/decapsulators/`.
 - [ ] Implement class that subclasses `Decapsulator`.
-- [ ] Implement `decapsulate(app_payload: Any) -> list[DecapsulatedMessage]`.
+- [ ] Implement `decapsulate(wire_payload: Any) -> list[DecapsulatedMessage]`.
 - [ ] Ensure each output message contains:
   - `sensor_id` for `sensor_registry` lookup
   - `payload`
-  - optional `application_timestamp` and `phenomenon_timestamp`.
+  - optional `provider_timestamp` and `phenomenon_timestamp`.
 - [ ] Raise `MissingPayloadKeysError` on required-key shape failures; wrap unknown errors as `UnpackError`.
 - [ ] Export class in `decapsulators/__init__.py`.
 - [ ] Add/refresh docs in `decapsulators/README.md`.

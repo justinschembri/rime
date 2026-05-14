@@ -26,8 +26,8 @@ upstream application. It declares:
 1. **The transport it uses.** By inheriting from `HTTPTransport` or
    `MQTTTransport` (or any future transport), it picks up the threading
    model, payload pipeline, and exception handling for free.
-2. **Application decapsulation.** Implement `_decapsulate_application_payload(self, app_payload)`
-   to strip the provider/application envelope and return `list[DecapsulatedMessage]`.
+2. **Provider decapsulation.** Implement `_decapsulate_provider_payload(self, wire_payload)`
+   to strip the provider envelope and return `list[DecapsulatedMessage]`.
    Model-specific deserialization/decoding/transforming is handled centrally by
    `SensorTransport` using [`../transformers/ingest_registry.py`](../transformers/ingest_registry.py).
 3. **Authentication.** Provider-local. Resolve credentials from
@@ -54,7 +54,7 @@ Helium Console, AWS IoT Core, ...) the steps are:
 
 1. Add `providers/<name>.py` with a class extending the appropriate
    transport ABC.
-2. Implement `_decapsulate_application_payload`.
+2. Implement `_decapsulate_provider_payload`.
 3. Implement `_auth` and (for HTTP) `_pull_data`.
 4. Set `auth_method`.
 5. Re-export from `providers/__init__.py`.
@@ -81,10 +81,10 @@ class ChirpstackProvider(MQTTTransport):
 
     auth_method: ClassVar[Literal["tokens", "credentials"]] = "credentials"
 
-    def _decapsulate_application_payload(
-        self, app_payload: Any
+    def _decapsulate_provider_payload(
+        self, wire_payload: Any
     ) -> list[DecapsulatedMessage]:
-        return ChirpstackDecapsulator.decapsulate(app_payload)
+        return ChirpstackDecapsulator.decapsulate(wire_payload)
 
     @property
     def _credentials_file(self):
@@ -143,7 +143,7 @@ field mapping is sufficient:
   - `response_items_field` (if the top-level response wraps a list)
   - `sensor_id_field` (defaults to `sensor_id`)
   - `payload_field` (optional nested dict of readings)
-  - `application_timestamp_field` / `phenomenon_timestamp_field` (optional, ISO or epoch)
+  - `provider_timestamp_field` / `phenomenon_timestamp_field` (optional, ISO or epoch)
 
 The CLI (`rime setup`) prefers to write this file for you and will
 introspect `auth_method` to know which credential setup to invoke.

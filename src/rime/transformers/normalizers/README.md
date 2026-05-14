@@ -5,7 +5,7 @@
 ## Entry points
 
 - [`VendorObservationTransformer`](core.py) — Pydantic base: field validation, `TRANSFORM` lambdas, `NAME_TRANSFORM` → `ObservedProperties`, `to_stObservations()`.
-- [`from_parsed(msg: ParsedMessage)`](core.py) — builds the model from `msg.body` and sets `app_phenomenon_time` from `msg.application_timestamp`.
+- [`from_parsed(msg: ParsedMessage)`](core.py) — builds the model from `msg.body` and sets `provider_phenomenon_time` from `msg.provider_timestamp`.
 - [`TRANSFORMER_MAP`](../registry.py) — maps [`SupportedSensors`](../types.py) to concrete normalizer classes.
 
 ## Implementations

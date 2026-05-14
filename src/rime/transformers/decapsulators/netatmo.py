@@ -32,10 +32,10 @@ class NetatmoDecapsulator(Decapsulator):
     """
 
     @staticmethod
-    def decapsulate(app_payload: list[dict[str, Any]]) -> list[DecapsulatedMessage]:
+    def decapsulate(wire_payload: list[dict[str, Any]]) -> list[DecapsulatedMessage]:
         out: list[DecapsulatedMessage] = []
         try:
-            for device in app_payload:
+            for device in wire_payload:
                 if not device.get("reachable"):
                     continue
                 sensor_id = device["_id"]
@@ -44,7 +44,7 @@ class NetatmoDecapsulator(Decapsulator):
                     DecapsulatedMessage(
                         sensor_id=sensor_id,
                         payload=dashboard_data,
-                        application_timestamp=None,
+                        provider_timestamp=None,
                         phenomenon_timestamp=_phenomenon_from_dashboard(dashboard_data),
                     )
                 )
