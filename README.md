@@ -5,10 +5,19 @@ rime is in active development.
 ## What is it?
 
 **rime** is the **R**ealtime **I**ngestion and **M**anagement **E**ngine for
-Fraunhofer's [FROST Server](https://github.com/FraunhoferIOSB/FROST-Server). It
-helps ingest sensor data from upstream IoT applications, normalize it into the
-[OGC SensorThings API (STA)](https://www.ogc.org/publications/standard/sensorthings/)
-model, and publish observations to FROST.
+Fraunhofer's [FROST Server](https://github.com/FraunhoferIOSB/FROST-Server)
+which is a compliant implementation of the [OGC SensorThings
+API](https://www.ogc.org/publications/standard/sensorthings/) `rime` provides
+out-of-the-box support for various IoT transport protocols, IoT providers, and
+sensor-models through decoders, deserializers and decapsulators.
+
+Its two tiered pipeline first implements a decoding, deserialization and
+decapsulation pipeline for a given IoT *provider* such as
+[TheThingsNetwork](https://www.thethingsnetwork.org/). It second tier handles
+a similar pipeline on a model-by-model basis that ultimately parses, transforms
+and pushes to a local or remote FROST instance:
+
+![](docs/imgs/process-payload.drawio.png)
 
 Core features:
 
@@ -18,7 +27,6 @@ Core features:
 
 Contributor guide: see [`CONTRIBUTING.md`](CONTRIBUTING.md) for the transport/provider/decapsulator/sensor-model checklist.
 
-![](docs/imgs/process-payload.drawio.png)
 
 ## System Requirements
 
