@@ -23,6 +23,8 @@ transport/
     └── seedlink.py          # SeedLinkTransport (ABC, ObsPy SeedLink TCP)
 ```
 
+![](../../../docs/imgs/transport-class-diagram.drawio.png)
+
 The package is organised in two layers:
 
 1. **Interaction model** (`poll/`, `subscription/`) — *who drives the data

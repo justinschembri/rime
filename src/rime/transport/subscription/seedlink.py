@@ -14,16 +14,11 @@ fires, so the `Trace` arrives as a fully-parsed Python object. Both
 Stream selectors are specified as ``"NET.STA.LOC.CHA"`` dot-separated strings
 (e.g. ``"GE.WLF.00.BHZ"`` or ``"GE.UGM..HHZ"`` for an empty location code).
 Wildcards accepted by ObsPy (``"?"``, ``"*"``) are forwarded as-is.
-
-Provider-specific authentication (credentials embedded in the server URL,
-custom connection tuning, etc.) is delegated to the abstract ``_auth`` method,
-mirroring the role of ``_auth`` in ``MQTTTransport``.
 """
 
 import logging
 import queue
 import threading
-from abc import abstractmethod
 
 from obspy.clients.seedlink.easyseedlink import EasySeedLinkClient
 
@@ -67,7 +62,6 @@ class SeedLinkTransport(SensorTransport):
         self._connected: bool = False
         self._seedlink_client: EasySeedLinkClient | None = None
 
-    @abstractmethod
     def _auth(self) -> None:
         """Configure authentication or connection options before the client is created.
 
@@ -77,7 +71,7 @@ class SeedLinkTransport(SensorTransport):
         connection setup. Providers that need no authentication implement this
         as a no-op.
         """
-        ...
+        pass
 
     def _connect(self) -> None:
         """Authenticate, create the SeedLink client, register streams, and start streaming."""
