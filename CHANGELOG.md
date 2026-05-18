@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Dockerfile multi-stage build** - Refactored Dockerfile to use multi-stage build
+  pattern with `ghcr.io/astral-sh/uv:python3.13-bookworm` as builder stage and
+  `python:3.13-slim` as runtime stage. This resolves GitHub Container Registry
+  authentication issues, reduces final image size by excluding build tools, and
+  follows Docker best practices for production deployments.
+
 ### Fixed
 
 - **CLI indentation error** - Fixed `IndentationError` in `src/rime/cli/commands.py`
