@@ -193,7 +193,7 @@ def _generate_config(
         console.print(f"\n[bold green]✓ Configuration generated successfully:[/bold green] {output_path}")
         console.print("\n[bold]Next steps:[/bold]")
         console.print(f"  1. Review the configuration file")
-            console.print(f"  2. Validate it using: [cyan]rime validate {output_path}[/cyan]")
+        console.print(f"  2. Validate it using: [cyan]rime validate {output_path}[/cyan]")
     except Exception as e:
         console.print(f"\n[bold red]Error generating configuration:[/bold red] {e}")
         import traceback
