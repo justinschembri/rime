@@ -44,8 +44,8 @@ class TestNetatmoDecapsulator:
         dash = {"time_utc": _TS, "Temperature": 12.5}
         raw = [_station("70:cc", True, dash=dash)]
         msgs = NetatmoDecapsulator.decapsulate(raw)
-        assert msgs[0].payload["Temperature"] == 12.5
-        msgs[0].payload["Temperature"] = 99.0
+        assert msgs[0].sensor_message["Temperature"] == 12.5
+        msgs[0].sensor_message["Temperature"] = 99.0
         assert dash["Temperature"] == 12.5
 
     def test_phenomenon_timestamp(self):
@@ -69,4 +69,4 @@ def test_netatmo_provider_decapsulate_delegates():
     assert isinstance(decapped[0], DecapsulatedMessage)
     assert decapped[0].sensor_id == "70:ee"
     assert decapped[0].provider_timestamp is None
-    assert decapped[0].payload["Temperature"] == 23.3
+    assert decapped[0].sensor_message["Temperature"] == 23.3

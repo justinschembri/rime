@@ -33,7 +33,7 @@ def test_ttndecapsulator_timestamps(minimal_ttn_payload):
     assert len(msgs) == 1
     m = msgs[0]
     assert m.sensor_id == "24E124707D378803"
-    assert m.payload == {"temperature": 23.1, "battery": 53}
+    assert m.sensor_message == {"temperature": 23.1, "battery": 53}
     assert m.provider_timestamp == datetime(
         2025, 12, 25, 20, 8, 0, 937463, tzinfo=timezone.utc
     )
@@ -45,7 +45,7 @@ def test_ttndecapsulator_timestamps(minimal_ttn_payload):
 def test_ttndecapsulator_decoded_payload_shallow_copy(minimal_ttn_payload):
     inner = minimal_ttn_payload["uplink_message"]["decoded_payload"]
     msgs = TTNDecapsulator.decapsulate(minimal_ttn_payload)
-    msgs[0].payload["temperature"] = 99.0
+    msgs[0].sensor_message["temperature"] = 99.0
     assert inner["temperature"] == 23.1
 
 

@@ -111,7 +111,7 @@ class TestTTSProviderPayload:
         expected_sensor_id = "24E124707D378803"
         assert pm.sensor_id == expected_sensor_id
 
-        sensor_data = pm.payload
+        sensor_data = pm.sensor_message
         assert sensor_data["battery"] == 53
         assert sensor_data["co2"] == 4665
         assert sensor_data["humidity"] == 75.5

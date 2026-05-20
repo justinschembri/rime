@@ -30,7 +30,7 @@ class DecodedMessage:
     def from_decapsulated(cls, msg: DecapsulatedMessage) -> DecodedMessage:
         return cls(
             sensor_id=msg.sensor_id,
-            payload=msg.payload,
+            payload=msg.sensor_message,
             provider_timestamp=msg.provider_timestamp,
             phenomenon_timestamp=msg.phenomenon_timestamp,
         )

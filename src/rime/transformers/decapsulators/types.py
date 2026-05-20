@@ -5,27 +5,40 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any
+from typing import Any, Optional
 
 from ..types import SensorUUID
 
 
 @dataclass(frozen=True, slots=True)
-class DecapsulatedMessage:
-    """One routed sensor ingest: identity + timestamps + opaque payload body.
-
-    The decapsulation step removes transport/provider scaffolding and keeps:
-
-    - a **sensor key** usable with ``SensorConfig`` / ``sensor_registry``;
-    - any **timing** hints needed downstream (provider-received vs phenomenon);
-    - a **payload** that still reflects "what came from / about the sensor
-      readings" before decoder/normalizer specialization.
+class EnvelopeMetadata:
+    """
+    Residual metadata from the payload envelope that may be required downstream
+    for observation construction.
     """
 
-    sensor_id: SensorUUID
-    payload: Any
-    provider_timestamp: datetime | None = None
-    phenomenon_timestamp: datetime | None = None
+    app_name: Optional[str] = None
+    sensor_uuid: Optional[SensorUUID] = None
+    datastream_name: Optional[str] = None
+    provider_timestamp: Optional[datetime] = None
+    other: Optional[Any] = None
+
+@dataclass(frozen=True, slots=True)
+class DecapsulatedMessage:
+    """
+    An upstream message from a provider stripped of uneccessary information and
+    parsed on a payload-by-payload basis.
+
+    Attributes
+        sensor_payload (list[Any]): The native decoded, deserialized payload from the 
+            sensor. An identical sensor model connected to a different provider should
+            have the same shape as this.
+        envelope_metadata (EnvelopeMetadata): residual metadata from the envelope
+            which may be required downstream.
+    """
+
+    sensor_payloads: list[Any]
+    envelope_metadata: Optional[EnvelopeMetadata] = None
 
 
 class Decapsulator(ABC):
@@ -33,5 +46,5 @@ class Decapsulator(ABC):
 
     @staticmethod
     @abstractmethod
-    def decapsulate(wire_payload: Any) -> list[DecapsulatedMessage]:
+    def decapsulate(wire_payload: Any) -> DecapsulatedMessage:
         ...

@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from ...exceptions import MissingPayloadKeysError, UnpackError
-from .types import DecapsulatedMessage, Decapsulator
+from .types import DecapsulatedMessage, Decapsulator, EnvelopeMetadata
 
 
 def _phenomenon_from_dashboard(dashboard_data: dict[str, Any]) -> datetime | None:
@@ -32,26 +32,17 @@ class NetatmoDecapsulator(Decapsulator):
     """
 
     @staticmethod
-    def decapsulate(wire_payload: list[dict[str, Any]]) -> list[DecapsulatedMessage]:
-        out: list[DecapsulatedMessage] = []
+    def decapsulate(wire_payload: list[dict[str, Any]]) -> DecapsulatedMessage:
+        sensor_payloads= []
         try:
             for device in wire_payload:
                 if not device.get("reachable"):
                     continue
-                sensor_id = device["_id"]
-                dashboard_data = dict(device["dashboard_data"])
-                out.append(
-                    DecapsulatedMessage(
-                        sensor_id=sensor_id,
-                        payload=dashboard_data,
-                        provider_timestamp=None,
-                        phenomenon_timestamp=_phenomenon_from_dashboard(dashboard_data),
-                    )
-                )
+                sensor_payloads.append(dict(device["dashboard_data"]))
         except KeyError as e:
             raise MissingPayloadKeysError(e)
         except MissingPayloadKeysError:
             raise
         except Exception as e:
             raise UnpackError(e)
-        return out
+        return DecapsulatedMessage(sensor_payloads)
