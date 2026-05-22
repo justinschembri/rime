@@ -7,7 +7,7 @@ from pydantic import BaseModel, model_validator
 
 # internal
 from ..messages import ObservationRecord
-from ..types import ObservedProperties
+from ..types import CanonicalDatastreams
 from ...sta.core import Observation
 
 
@@ -16,7 +16,7 @@ class Normalizer(BaseModel):
 
     provider_phenomenon_time: datetime | None = None
     TRANSFORM: dict[str, Callable] = {}
-    NAME_TRANSFORM: dict[str, ObservedProperties]
+    NAME_TRANSFORM: dict[str, CanonicalDatastreams]
 
     @model_validator(mode="after")
     def _validate_transformers(self):
@@ -29,6 +29,15 @@ class Normalizer(BaseModel):
             raise AttributeError(
                 f"{self.__class__} must implement a NAME_TRANSFORM dict."
             )
+
+        invalid_names = (
+                set(self.NAME_TRANSFORM) - set(member.value for member in CanonicalDatastreams)
+                )
+        if invalid_names:
+            raise AttributeError(
+                    f"NameTransformer method has non-canonical datastream names:"
+                    f" {invalid_names}"
+                    )
         return self
 
     @classmethod
@@ -37,7 +46,7 @@ class Normalizer(BaseModel):
         obj.provider_phenomenon_time = record.phenomenon_timestamp or record.provider_timestamp
         return obj
 
-    def _transform(self) -> dict[ObservedProperties, Any]:
+    def _transform(self) -> dict[CanonicalDatastreams, Any]:
         """Apply the transformations"""
         for observed_property in self.TRANSFORM:
             value = getattr(self, observed_property)
@@ -45,7 +54,7 @@ class Normalizer(BaseModel):
                 observed_property, self.TRANSFORM[observed_property](value)
             )
 
-        transformed_results: dict[ObservedProperties, Any] = {}
+        transformed_results: dict[CanonicalDatastreams, Any] = {}
         for observed_property, datastream in self.NAME_TRANSFORM.items():
             transformed_results[datastream] = getattr(self, observed_property)
         return transformed_results
@@ -55,12 +64,13 @@ class Normalizer(BaseModel):
         transformed_results = self._transform()
         observations = []
         for datastream, value in transformed_results.items():
-            if datastream == ObservedProperties.PHENOMENON_TIME:
+            if datastream == CanonicalDatastreams.PHENOMENON_TIME:
                 continue
             observation = Observation(
+                id=None,
                 result=value,
                 phenomenonTime=(
-                    transformed_results.get(ObservedProperties.PHENOMENON_TIME)
+                    transformed_results.get(CanonicalDatastreams.PHENOMENON_TIME)
                     or self.provider_phenomenon_time
                 ),
             )

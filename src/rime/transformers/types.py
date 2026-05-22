@@ -1,4 +1,4 @@
-"""Result types from unpacking and transforming protocols."""
+"""Canonical data-types involved in various transformations."""
 
 # standard
 # external
@@ -8,7 +8,18 @@ from enum import Enum
 SensorUUID = str
 
 
-class ObservedProperties(Enum):
+class CanonicalDatastreams(Enum):
+    """
+    Enumerations for various canonical datastream names. It is imperative that
+    datastream names passed in the ingest application match the names of Datastream
+    entity in the FROST server. Thus:
+    
+    - This enum should be called by a `Normalizer` sublcass when applying the
+    `.to_stObservation` method. 
+
+    - The initial set-up which creates a FROST entity from a `SensorConfig` only
+    allows datastream names which are part of this enum.
+    """
     PHENOMENON_TIME = "phenomenon_time"
     BATTERY_LEVEL = "battery_level"
     HUMIDITY_INDOOR = "humidity"

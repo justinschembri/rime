@@ -3,7 +3,7 @@ import logging
 from typing import Callable
 
 # internal
-from ..types import ObservedProperties
+from ..types import CanonicalDatastreams
 from .core import Normalizer
 
 logger = logging.getLogger(__name__)
@@ -15,11 +15,11 @@ class MilesightAm103lNormalizer(Normalizer):
     humidity: float
     temperature: float
 
-    NAME_TRANSFORM: dict[str, ObservedProperties] = {
-        "battery": ObservedProperties.BATTERY_LEVEL,
-        "co2": ObservedProperties.CO2_INDOOR,
-        "humidity": ObservedProperties.HUMIDITY_INDOOR,
-        "temperature": ObservedProperties.TEMP_IN,
+    NAME_TRANSFORM: dict[str, CanonicalDatastreams] = {
+        "battery": CanonicalDatastreams.BATTERY_LEVEL,
+        "co2": CanonicalDatastreams.CO2_INDOOR,
+        "humidity": CanonicalDatastreams.HUMIDITY_INDOOR,
+        "temperature": CanonicalDatastreams.TEMP_IN,
     }
 
     TRANSFORM: dict[str, Callable] = {}
@@ -37,17 +37,17 @@ class MilesightAm308lNormalizer(Normalizer):
     temperature: float
     tvoc: float
 
-    NAME_TRANSFORM: dict[str, ObservedProperties] = {
-        "battery": ObservedProperties.BATTERY_LEVEL,
-        "co2": ObservedProperties.CO2_INDOOR,
-        "humidity": ObservedProperties.HUMIDITY_INDOOR,
-        "light_level": ObservedProperties.LIGHT_LVL_IN,
-        "pir": ObservedProperties.PIR,
-        "pm10": ObservedProperties.PM10,
-        "pm2_5": ObservedProperties.PM_2PT5,
-        "pressure": ObservedProperties.G_PRESSURE_IN,
-        "temperature": ObservedProperties.TEMP_IN,
-        "tvoc": ObservedProperties.TVOC,
+    NAME_TRANSFORM: dict[str, CanonicalDatastreams] = {
+        "battery": CanonicalDatastreams.BATTERY_LEVEL,
+        "co2": CanonicalDatastreams.CO2_INDOOR,
+        "humidity": CanonicalDatastreams.HUMIDITY_INDOOR,
+        "light_level": CanonicalDatastreams.LIGHT_LVL_IN,
+        "pir": CanonicalDatastreams.PIR,
+        "pm10": CanonicalDatastreams.PM10,
+        "pm2_5": CanonicalDatastreams.PM_2PT5,
+        "pressure": CanonicalDatastreams.G_PRESSURE_IN,
+        "temperature": CanonicalDatastreams.TEMP_IN,
+        "tvoc": CanonicalDatastreams.TVOC,
     }
 
     TRANSFORM: dict[str, Callable] = {
