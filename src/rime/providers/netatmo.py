@@ -12,7 +12,7 @@ import lnetatmo
 
 from ..paths import TOKENS_DIR
 from ..transformers.decapsulators import NetatmoDecapsulator
-from ..transformers.decapsulators.types import DecapsulatedMessage
+from ..transformers.messages import DecapsulatedMessage
 from ..transport.poll.http import HTTPTransport
 
 debug_logger = logging.getLogger("debug")
@@ -45,10 +45,8 @@ class NetatmoProvider(HTTPTransport):
         self._authenticated = True
         return self._auth_obj
 
-    def _decapsulate_wire(
-        self, wire_payload: Any
-    ) -> list[DecapsulatedMessage]:
-        return NetatmoDecapsulator.decapsulate(wire_payload)
+    def _decapsulate_wire(self, wire_message: Any) -> DecapsulatedMessage:
+        return NetatmoDecapsulator.decapsulate(wire_message)
 
     def _pull_data(self) -> list[dict[str, Any]] | None:
         if not self._authenticated:

@@ -6,13 +6,13 @@ from datetime import datetime
 from pydantic import BaseModel, model_validator
 
 # internal
-from ..messages import ParsedMessage
+from ..messages import ObservationRecord
 from ..types import ObservedProperties
 from ...sta.core import Observation
 
 
-class VendorObservationTransformer(BaseModel):
-    """Maps vendor observation fields (``ParsedMessage.body``) to SensorThings observations."""
+class Normalizer(BaseModel):
+    """Maps vendor observation fields (``ObservationRecord.observations``) to SensorThings observations."""
 
     provider_phenomenon_time: datetime | None = None
     TRANSFORM: dict[str, Callable] = {}
@@ -32,11 +32,9 @@ class VendorObservationTransformer(BaseModel):
         return self
 
     @classmethod
-    def from_parsed(cls, msg: ParsedMessage):
-        observations = msg.body
-        payload = {k.lower(): v for k, v in observations.items()}
-        obj = cls(**payload)
-        obj.provider_phenomenon_time = msg.provider_timestamp
+    def from_record(cls, record: ObservationRecord):
+        obj = cls(**record.observations)
+        obj.provider_phenomenon_time = record.phenomenon_timestamp or record.provider_timestamp
         return obj
 
     def _transform(self) -> dict[ObservedProperties, Any]:

@@ -28,8 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `transformers/decapsulators`. Imports and docs have been updated accordingly.
 - **Milesight normalizer naming (BREAKING)** — renamed
   `MilesightAm103lPayload` / `MilesightAm308lPayload` to
-  `MilesightAm103lObservationTransformer` /
-  `MilesightAm308lObservationTransformer`.
+  `MilesightAm103lNormalizer` / `MilesightAm308lNormalizer`.
 - **Application config provider key (BREAKING)** — application config now uses
   `provider` ids instead of `connection_class` names. Runtime and CLI now
   resolve providers through `providers/registry.py` (`PROVIDER_REGISTRY`), with

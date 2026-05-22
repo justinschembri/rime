@@ -1,4 +1,4 @@
-"""The Things Stack / TTN v3 application uplink JSON -> decapsulated messages."""
+"""The Things Stack / TTN v3 application uplink JSON -> decapsulated message."""
 
 from __future__ import annotations
 
@@ -6,7 +6,8 @@ from datetime import datetime, timezone
 from typing import Any
 
 from ...exceptions import MissingPayloadKeysError, UnpackError
-from .types import DecapsulatedMessage, Decapsulator
+from ..messages import DecapsulatedMessage, EnvelopeMetadata, IdentifiedPayload
+from .core import Decapsulator
 
 
 def _parse_iso_utc(value: str | None) -> datetime | None:
@@ -27,30 +28,29 @@ def _parse_iso_utc(value: str | None) -> datetime | None:
 class TTNDecapsulator(Decapsulator):
     """Strip TTS / TTN application uplink webhook or MQTT JSON.
 
-    One top-level object yields one :class:`DecapsulatedMessage`.
+    One top-level object yields one :class:`~rime.transformers.messages.DecapsulatedMessage`
+    containing a single :class:`~rime.transformers.messages.IdentifiedPayload`.
 
-    - ``sensor_id``: ``end_device_ids.dev_eui`` (registry key).
+    - ``sensor_uuid``: ``end_device_ids.dev_eui`` (registry key).
     - ``payload``: shallow copy of ``uplink_message.decoded_payload``.
-    - ``provider_timestamp``: first ``rx_metadata[].received_at``.
-    - ``phenomenon_timestamp``: ``uplink_message.time`` when present.
+    - ``envelope_metadata.provider_timestamp``: first ``rx_metadata[].received_at``.
+    - ``envelope_metadata.phenomenon_timestamp``: ``uplink_message.time`` when present.
     """
 
     @staticmethod
-    def decapsulate(wire_payload: dict[str, Any]) -> list[DecapsulatedMessage]:
+    def decapsulate(wire_message: dict[str, Any]) -> DecapsulatedMessage:
         try:
-            sensor_id = wire_payload["end_device_ids"]["dev_eui"]
-            uplink = wire_payload["uplink_message"]
-            decoded = uplink["decoded_payload"]
-            payload: Any = dict(decoded)
-
-            received_raw = uplink["rx_metadata"][0]["received_at"]
-            provider_ts = _parse_iso_utc(
-                received_raw if isinstance(received_raw, str) else None
+            sensor_uuid = wire_message["end_device_ids"]["dev_eui"]
+            sensor_payload = wire_message["uplink_message"]["decoded_payload"]
+            provider_timestamp = _parse_iso_utc(
+                wire_message["uplink_message"]["rx_metadata"][0].get("received_at")
             )
-
-            uplink_time = uplink.get("time")
-            phenomenon_ts = _parse_iso_utc(
-                uplink_time if isinstance(uplink_time, str) else None
+            phenomenon_timestamp = _parse_iso_utc(
+                wire_message["uplink_message"].get("time")
+            )
+            envelope_metadata = EnvelopeMetadata(
+                provider_timestamp=provider_timestamp,
+                phenomenon_timestamp=phenomenon_timestamp,
             )
         except KeyError as e:
             raise MissingPayloadKeysError(e)
@@ -59,11 +59,12 @@ class TTNDecapsulator(Decapsulator):
         except Exception as e:
             raise UnpackError(e)
 
-        return [
-            DecapsulatedMessage(
-                sensor_id=sensor_id,
-                payload=payload,
-                provider_timestamp=provider_ts,
-                phenomenon_timestamp=phenomenon_ts,
-            )
-        ]
+        return DecapsulatedMessage(
+            identified_payloads=[
+                IdentifiedPayload(
+                    sensor_uuid=sensor_uuid,
+                    payload=dict(sensor_payload),
+                )
+            ],
+            envelope_metadata=envelope_metadata,
+        )

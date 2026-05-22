@@ -1,12 +1,11 @@
-"""Test TTS provider payload parsing (TTN envelope → ParsedMessage)."""
-# standard
+"""Test TTS provider wire message decapsulation (TTN envelope → DecapsulatedMessage)."""
 from datetime import datetime, timezone
 from typing import Any
 
 import pytest
 
 from rime.providers.tts import TTSProvider
-from rime.transformers.decapsulators.types import DecapsulatedMessage
+from rime.transformers.messages import DecapsulatedMessage, IdentifiedPayload
 
 
 class TestTTSProviderPayload:
@@ -14,7 +13,7 @@ class TestTTSProviderPayload:
 
     @pytest.fixture
     def valid_payload(self) -> dict[str, Any]:
-        """Fixture providing a valid TTS payload."""
+        """Fixture providing a valid TTS wire message."""
         return {
             "end_device_ids": {
                 "device_id": "ieq-thcpvl-001",
@@ -96,22 +95,38 @@ class TestTTSProviderPayload:
             },
         }
 
-    def test_parse_valid_payload(self, valid_payload):
+    def test_decapsulate_returns_single_message(self, valid_payload):
         provider = TTSProvider(
             "test-app",
             host="eu1.cloud.thethings.network",
             topic="v3/test-app@ttn/devices/+/up",
         )
-        parsed_list = provider._decapsulate_wire(valid_payload)
+        decapped = provider._decapsulate_wire(valid_payload)
 
-        assert len(parsed_list) == 1
-        pm = parsed_list[0]
-        assert isinstance(pm, DecapsulatedMessage)
+        assert isinstance(decapped, DecapsulatedMessage)
+        assert len(decapped.identified_payloads) == 1
 
-        expected_sensor_id = "24E124707D378803"
-        assert pm.sensor_id == expected_sensor_id
+    def test_identified_payload_sensor_uuid(self, valid_payload):
+        provider = TTSProvider(
+            "test-app",
+            host="eu1.cloud.thethings.network",
+            topic="v3/test-app@ttn/devices/+/up",
+        )
+        decapped = provider._decapsulate_wire(valid_payload)
+        identified = decapped.identified_payloads[0]
 
-        sensor_data = pm.payload
+        assert isinstance(identified, IdentifiedPayload)
+        assert identified.sensor_uuid == "24E124707D378803"
+
+    def test_sensor_payload_contents(self, valid_payload):
+        provider = TTSProvider(
+            "test-app",
+            host="eu1.cloud.thethings.network",
+            topic="v3/test-app@ttn/devices/+/up",
+        )
+        decapped = provider._decapsulate_wire(valid_payload)
+        sensor_data = decapped.identified_payloads[0].payload
+
         assert sensor_data["battery"] == 53
         assert sensor_data["co2"] == 4665
         assert sensor_data["humidity"] == 75.5
@@ -123,6 +138,19 @@ class TestTTSProviderPayload:
         assert sensor_data["temperature"] == 23.1
         assert sensor_data["tvoc"] == 1
 
-        assert pm.provider_timestamp == datetime(
+    def test_envelope_timestamps(self, valid_payload):
+        provider = TTSProvider(
+            "test-app",
+            host="eu1.cloud.thethings.network",
+            topic="v3/test-app@ttn/devices/+/up",
+        )
+        decapped = provider._decapsulate_wire(valid_payload)
+        env = decapped.envelope_metadata
+
+        assert env is not None
+        assert env.provider_timestamp == datetime(
             2025, 12, 25, 20, 8, 0, 937463, tzinfo=timezone.utc
+        )
+        assert env.phenomenon_timestamp == datetime(
+            2025, 12, 25, 20, 8, 0, 920247, tzinfo=timezone.utc
         )

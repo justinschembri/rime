@@ -1,49 +1,32 @@
-"""
-FROST server support for Netatmo Sensor NWS03.
+"""STA transformer for Netatmo NWS03.
 
-A sample of the unpacked data:
-{
-    "70:ee:50:7f:9d:32":
-    {
-        "time_utc": 1765374089,
-        "Temperature": 23.3,
-        "CO2": 871,
-        "Humidity": 46,
-        "Noise": 33,
-        "Pressure": 1014.8,
-        "temp_trend": "stable",
-        "pressure_trend": "up",
-    },
-{
-    "70:ee:50:7f:a4:76":
-    {...}
-}
+Receives an :class:`~rime.transformers.messages.ObservationRecord` whose ``observations``
+have already been prepared by :class:`~rime.transformers.parsers.netatmo.NetatmoNWS03Parser`:
 
+- keys are lowercase
+- ``time_utc`` has been extracted as ``phenomenon_timestamp`` on the message
+- trend fields have been dropped
+
+The normalizer therefore only performs field → ObservedProperties mapping.
+No key normalisation or timestamp extraction happens here.
+
+Example ``observations`` shape received::
+
+    {"temperature": 23.3, "co2": 871, "humidity": 46, "noise": 33, "pressure": 1014.8}
 """
 
-# standard
-from datetime import datetime, timezone
-from typing import Callable
-
-# internal
-from .core import VendorObservationTransformer
+from .core import Normalizer
 from ..types import ObservedProperties
 
 
-class NetatmoNWS03(VendorObservationTransformer):
-    time_utc: int
+class NetatmoNWS03(Normalizer):
     temperature: float
     co2: int
     humidity: int
     noise: int
     pressure: float
 
-    TRANSFORM: dict[str, Callable] = {
-        "time_utc": lambda x: datetime.fromtimestamp(x, tz=timezone.utc)
-    }
-
     NAME_TRANSFORM: dict[str, ObservedProperties] = {
-        "time_utc": ObservedProperties.PHENOMENON_TIME,
         "temperature": ObservedProperties.TEMP_IN,
         "co2": ObservedProperties.CO2_INDOOR,
         "humidity": ObservedProperties.HUMIDITY_INDOOR,
