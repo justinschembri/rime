@@ -290,10 +290,11 @@ class SensorConfig:
         return (True, []) if not invalid else (False, error_list)
     
     def _validate_datastream_names(self) -> bool:
-        invalid_datastreams = []
-        for datastream in self.data["Datastreams"]:
-            if datastream not in CanonicalDatastreams:
-                invalid_datastreams.append(datastream)
+        """Check if non-canonical datastreams are in the config."""
+        invalid_datastreams = (
+                set(self.data["Datastreams"]) - 
+                set(member.value for member in CanonicalDatastreams)
+                )
 
         if invalid_datastreams:
             main_logger.error(
