@@ -1,11 +1,11 @@
 # `normalizers`
 
-**Parsed → STA** — turns a **parsed per-sensor body** (`dict[str, Any]`) into **SensorThings `Observation`** instances (and datastream names) for FROST upload.
+**Parsed → STA** — turns a **per-sensor observations dict** (`dict[str, Any]`) into **SensorThings `Observation`** instances (and datastream names) for FROST upload.
 
 ## Entry points
 
 - [`VendorObservationNormalizer`](core.py) — Pydantic base: field validation, `TRANSFORM` lambdas, `NAME_TRANSFORM` → `ObservedProperties`, `to_stObservations()`.
-- [`from_parsed(msg: ParsedMessage)`](core.py) — builds the model from `msg.body` and sets `provider_phenomenon_time` from `msg.phenomenon_timestamp`.
+- [`from_record(record: ObservationRecord)`](core.py) — builds the model from `record.observations` and sets `provider_phenomenon_time` from `record.phenomenon_timestamp`.
 - [`NORMALIZER_MAP`](../registry.py) — maps [`SupportedSensors`](../types.py) to concrete normalizer classes.
 
 ## Implementations
@@ -19,14 +19,14 @@
 ## Where it sits in the pipeline
 
 ```text
-ParsedMessage  →  model-selected normalizer (VendorObservationNormalizer)  →  list[(Observation, datastream)]
+ObservationRecord  →  model-selected normalizer (VendorObservationNormalizer)  →  list[(Observation, datastream)]
 ```
 
-Selection uses `sensor_registry[sensor_uuid]` → `SupportedSensors` in [`SensorTransport._process_payload`](../../transport/base.py), then `INGEST_COMPONENT_MAP` picks the normalizer.
+Selection uses `sensor_registry[sensor_uuid]` → `SupportedSensors` in [`SensorTransport._process_wire_message`](../../transport/base.py), then `INGEST_COMPONENT_MAP` picks the normalizer.
 
 ## Adding a normalizer
 
-1. Subclass `VendorObservationNormalizer` with fields matching the keys in `ParsedMessage.body` (the parser is responsible for normalization to lowercase before this stage).
+1. Subclass `VendorObservationNormalizer` with fields matching the keys in `ObservationRecord.observations` (the parser is responsible for delivering only observation-ready, lowercase-keyed fields).
 2. Set `NAME_TRANSFORM` (required) and optional `TRANSFORM` lambdas.
 3. Register in [`../ingest_registry.py`](../ingest_registry.py) under the `normalizer` key.
 4. Ensure config / STA templates use the matching `SupportedSensors` value.

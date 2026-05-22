@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 
-from ..decapsulators.types import EnvelopeMetadata, IdentifiedPayload
+from ..messages import EnvelopeMetadata, IdentifiedPayload
 
 
 class Deserializer(ABC):
@@ -15,7 +15,7 @@ class Deserializer(ABC):
     be converted into a Python structure before the decoder or parser can
     operate on it.
 
-    Returns a new :class:`~rime.transformers.decapsulators.types.IdentifiedPayload`
+    Returns a new :class:`~rime.transformers.messages.IdentifiedPayload`
     with the same ``sensor_uuid`` but a deserialized ``payload`` value.
 
     Most models whose provider already delivers a decoded dict (TTN

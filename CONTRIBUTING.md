@@ -45,7 +45,7 @@ Use this checklist when adding new ingestion capabilities to `rime`.
 - [ ] Implement required abstract method(s):
   - Base contract: `_run(self) -> None`
   - If you expose a protocol-specific base class, define its abstract hooks (similar to `_pull_data` in `HTTPTransport` or `_auth` in `MQTTTransport`).
-- [ ] Ensure `_run` forwards each payload into `self._process_payload(wire_payload)`.
+- [ ] Ensure `_run` forwards each wire message into `self._process_wire_message(wire_message)`.
 - [ ] Respect lifecycle and failure semantics:
   - Honor `self._stop_event`
   - Use `self._exception_handler(...)`
@@ -56,7 +56,7 @@ Use this checklist when adding new ingestion capabilities to `rime`.
 
 - [ ] Add `src/rime/providers/<name>.py`.
 - [ ] Subclass the correct transport class, e.g.: `HTTPTransport`, or `MQTTTransport`.
-- [ ] Implement `_decapsulate_wire(self, wire_payload) -> DecapsulatedMessage` — usually a wrapper around a new or existing decapsulator.
+- [ ] Implement `_decapsulate_wire(self, wire_message) -> DecapsulatedMessage` — usually a wrapper around a new or existing decapsulator.
 - [ ] Implement provider auth method:
   - HTTP/MQTT provider still owns credential lookup and `_auth`.
 - [ ] Implement any `@abstractmethods` in the parent class, e.g.: `HTTPTransport` requires `_pull_data(self) -> Any` and `_auth`.
@@ -68,24 +68,26 @@ Use this checklist when adding new ingestion capabilities to `rime`.
 
 - [ ] Add module in `src/rime/transformers/decapsulators/`.
 - [ ] Implement class that subclasses `Decapsulator`.
-- [ ] Implement `decapsulate(wire_payload: Any) -> DecapsulatedMessage`.
+- [ ] Implement `decapsulate(wire_message: Any) -> DecapsulatedMessage`.
 - [ ] Ensure the output contains:
-  - `sensor_payloads: list[IdentifiedPayload]` — one entry per logical sensor, each with `sensor_uuid` (the registry key) and `payload` (provider-independent native sensor data).
+  - `identified_payloads: list[IdentifiedPayload]` — one entry per logical sensor, each with `sensor_uuid` (the registry key) and `payload` (provider-independent native sensor data).
   - `envelope_metadata: EnvelopeMetadata | None` — `provider_timestamp`, `phenomenon_timestamp`, and any other provider-level context not embedded in the payload.
-- [ ] Log a warning (do not raise) when `sensor_payloads` is empty.
+- [ ] Log a warning (do not raise) when `identified_payloads` is empty.
 - [ ] Raise `MissingPayloadKeysError` on required-key shape failures; wrap unknown errors as `UnpackError`.
 - [ ] Export class in `decapsulators/__init__.py`.
 - [ ] Add/refresh docs in `decapsulators/README.md`.
 
 ## New Parser
 
-A parser is needed when a sensor model requires field restructuring, key
-renaming, or timestamp extraction before the transformer can run.  If the
-native payload is already in the right shape, `NullParser` is sufficient.
+Every sensor model requires a concrete `Parser`.  The parser is responsible for
+field validation, key normalization, timestamp extraction, and ensuring that
+`ObservationRecord.observations` contains only observation-ready fields.
 
 - [ ] Add module in `src/rime/transformers/parsers/`.
 - [ ] Implement class that subclasses `Parser`.
-- [ ] Implement `parse(identified: IdentifiedPayload, envelope: EnvelopeMetadata | None) -> ParsedMessage`.
+- [ ] Define `_REQUIRED_FIELDS` and validate them; raise `MissingPayloadKeysError` on missing keys.
+- [ ] Implement `parse(identified: IdentifiedPayload, envelope: EnvelopeMetadata | None) -> ObservationRecord`.
+- [ ] Ensure `ObservationRecord.observations` contains only physical observation fields (no timestamps, no metadata).
 - [ ] Register in `INGEST_COMPONENT_MAP` under the relevant `SupportedSensors` key.
 
 ## New Sensor Model
@@ -94,8 +96,7 @@ native payload is already in the right shape, `NullParser` is sufficient.
 - [ ] Ensure field mapping and transforms are correct:
   - [ ] `NAME_TRANSFORM` — maps vendor field names to `ObservedProperties`.
   - [ ] `TRANSFORM` — per-field coercion callables (e.g. unix epoch → `datetime`).
-- [ ] Register parser and transformer in `src/rime/transformers/ingest_registry.py` via `INGEST_COMPONENT_MAP`.
-  - Use `NullParser` if no body restructuring is needed.
+- [ ] Register parser and normalizer in `src/rime/transformers/ingest_registry.py` via `INGEST_COMPONENT_MAP`.
 - [ ] Ensure sensor config `sensor_model` matches `SupportedSensors` entry.
 - [ ] Update docs in `src/rime/transformers/normalizers/README.md` and `src/rime/transformers/README.md`.
 

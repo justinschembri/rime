@@ -1,9 +1,9 @@
 """MQTT subscription transport.
 
 `MQTTTransport` opens a long-lived broker connection, subscribes to a topic,
-and uses paho's network thread to push incoming raw ``bytes`` payloads into a
+and uses paho's network thread to push incoming raw ``bytes`` wire messages into a
 thread-safe queue. The main worker thread drains the queue and forwards each
-payload to ``_process_payload``.
+wire message to ``_process_wire_message``.
 
 Wire-format deserialization (``bytes`` → Python object) is handled by
 ``_deserialize_wire``, which defaults to ``json.loads``. Providers that use a
@@ -111,14 +111,14 @@ class MQTTTransport(SensorTransport):
             self._connect()
 
         failures = 0
-        wire_payload = None
+        wire_message = None
         while not self._stop_event.is_set():
             try:
-                wire_payload = self._payload_queue.get(timeout=self.timeout)
-                self._process_payload(wire_payload)
+                wire_message = self._payload_queue.get(timeout=self.timeout)
+                self._process_wire_message(wire_message)
                 failures = 0
             except Exception as e:
-                failures += self._exception_handler(e, wire_payload=wire_payload)
+                failures += self._exception_handler(e, wire_message=wire_message)
                 if failures >= self.max_retries:
                     main_logger.critical(
                         f"Exceeded max retries ({self.max_retries}) for "

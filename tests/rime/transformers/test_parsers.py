@@ -7,8 +7,7 @@ from datetime import datetime, timezone
 import pytest
 
 from rime.exceptions import MissingPayloadKeysError, UnpackError
-from rime.transformers.decapsulators.types import EnvelopeMetadata, IdentifiedPayload
-from rime.transformers.messages import ParsedMessage
+from rime.transformers.messages import EnvelopeMetadata, IdentifiedPayload, ObservationRecord
 from rime.transformers.parsers.netatmo import NetatmoNWS03Parser
 from rime.transformers.parsers.milesight import MilesightAm103lParser, MilesightAm308lParser
 
@@ -53,7 +52,7 @@ class TestNetatmoNWS03Parser:
 
     def test_returns_parsed_message(self):
         msg = NetatmoNWS03Parser.parse(_identified("70:aa", self._FULL), None)
-        assert isinstance(msg, ParsedMessage)
+        assert isinstance(msg, ObservationRecord)
 
     def test_sensor_uuid_forwarded(self):
         msg = NetatmoNWS03Parser.parse(_identified("70:aa", self._FULL), None)
@@ -61,21 +60,21 @@ class TestNetatmoNWS03Parser:
 
     def test_keys_lowercased(self):
         msg = NetatmoNWS03Parser.parse(_identified("70:aa", self._FULL), None)
-        assert "temperature" in msg.body
-        assert "Temperature" not in msg.body
+        assert "temperature" in msg.observations
+        assert "Temperature" not in msg.observations
 
     def test_time_utc_becomes_phenomenon_timestamp(self):
         msg = NetatmoNWS03Parser.parse(_identified("70:aa", self._FULL), None)
         assert msg.phenomenon_timestamp == _TS_DT
 
-    def test_time_utc_removed_from_body(self):
+    def test_time_utc_removed_from_observations(self):
         msg = NetatmoNWS03Parser.parse(_identified("70:aa", self._FULL), None)
-        assert "time_utc" not in msg.body
+        assert "time_utc" not in msg.observations
 
     def test_trend_fields_dropped(self):
         msg = NetatmoNWS03Parser.parse(_identified("70:aa", self._FULL), None)
-        assert "temp_trend" not in msg.body
-        assert "pressure_trend" not in msg.body
+        assert "temp_trend" not in msg.observations
+        assert "pressure_trend" not in msg.observations
 
     def test_provider_timestamp_is_none(self):
         msg = NetatmoNWS03Parser.parse(_identified("70:aa", self._FULL), None)
@@ -97,11 +96,11 @@ class TestNetatmoNWS03Parser:
         with pytest.raises(UnpackError):
             NetatmoNWS03Parser.parse(_identified("70:aa", "not-a-dict"), None)
 
-    def test_body_is_shallow_copy(self):
-        """Modifying body should not mutate the original payload."""
+    def test_observations_is_shallow_copy(self):
+        """Modifying observations should not mutate the original payload."""
         payload = dict(self._FULL)
         msg = NetatmoNWS03Parser.parse(_identified("70:aa", payload), None)
-        msg.body["temperature"] = 99.0
+        msg.observations["temperature"] = 99.0
         assert payload["Temperature"] == 23.3
 
 
@@ -115,7 +114,7 @@ class TestMilesightAm103lParser:
     def test_returns_parsed_message(self):
         env = _envelope(provider_ts=_PROVIDER_TS, phenomenon_ts=_PHENOMENON_TS)
         msg = MilesightAm103lParser.parse(_identified("AA:BB", self._FULL), env)
-        assert isinstance(msg, ParsedMessage)
+        assert isinstance(msg, ObservationRecord)
 
     def test_sensor_uuid_forwarded(self):
         msg = MilesightAm103lParser.parse(_identified("AA:BB", self._FULL), None)
@@ -132,14 +131,14 @@ class TestMilesightAm103lParser:
         assert msg.provider_timestamp is None
         assert msg.phenomenon_timestamp is None
 
-    def test_body_unchanged(self):
+    def test_observations_unchanged(self):
         msg = MilesightAm103lParser.parse(_identified("AA:BB", self._FULL), None)
-        assert msg.body == self._FULL
+        assert msg.observations == self._FULL
 
-    def test_body_is_shallow_copy(self):
+    def test_observations_is_shallow_copy(self):
         payload = dict(self._FULL)
         msg = MilesightAm103lParser.parse(_identified("AA:BB", payload), None)
-        msg.body["battery"] = 0
+        msg.observations["battery"] = 0
         assert payload["battery"] == 53
 
     def test_missing_required_field_raises(self):
@@ -172,7 +171,7 @@ class TestMilesightAm308lParser:
 
     def test_returns_parsed_message(self):
         msg = MilesightAm308lParser.parse(_identified("CC:DD", self._FULL), None)
-        assert isinstance(msg, ParsedMessage)
+        assert isinstance(msg, ObservationRecord)
 
     def test_timestamps_from_envelope(self):
         env = _envelope(provider_ts=_PROVIDER_TS, phenomenon_ts=_PHENOMENON_TS)

@@ -1,13 +1,13 @@
 """Abstract base for sensor transports.
 
 A `SensorTransport` is a managed engagement with an upstream data source. It
-owns the threading model, the payload-processing pipeline, and the exception
-policy. Concrete subclasses specialise on the interaction model (poll vs.
-subscription) and ultimately on the provider (Netatmo, TTS, ...).
+owns the threading model, the wire-message-processing pipeline, and the
+exception policy. Concrete subclasses specialise on the interaction model
+(poll vs. subscription) and ultimately on the provider (Netatmo, TTS, ...).
 
 ## Ingest pipeline
 
-`_process_payload` drives a two-stage pipeline for every wire payload received:
+`_process_wire_message` drives a two-stage pipeline for every wire message received:
 
 Provider tier (transport / provider level):
 
@@ -16,13 +16,13 @@ Provider tier (transport / provider level):
     _decapsulate_wire        →  DecapsulatedMessage
 
 The decapsulated message carries a list of IdentifiedPayload entries — one per
-logical sensor present in the wire payload — together with optional
+logical sensor present in the wire message — together with optional
 EnvelopeMetadata (timestamps and channel hints from the provider envelope).
 
 Model tier (per IdentifiedPayload, keyed by sensor model from INGEST_COMPONENT_MAP):
 
-    parser.parse          →  ParsedMessage (sensor_uuid + body + timestamps)
-    transformer.from_parsed  →  vendor fields → SensorThings observations
+    parser.parse          →  ObservationRecord (sensor_uuid + observations + timestamps)
+    normalizer.from_record  →  vendor fields → SensorThings observations
     frost_observation_upload →  push to FROST
 
 The application-tier hooks default to identity so transports whose libraries
@@ -48,8 +48,8 @@ from rime.exceptions import FrostUploadFailure, UnpackError, UnregisteredSensorE
 from rime.frost.post import frost_observation_upload
 
 from ..monitor import netmon
-from ..transformers.decapsulators.types import DecapsulatedMessage
 from ..transformers.ingest_registry import INGEST_COMPONENT_MAP
+from ..transformers.messages import DecapsulatedMessage
 from ..transformers.types import SensorUUID, SupportedSensors
 
 main_logger = logging.getLogger("main")
@@ -107,7 +107,7 @@ class SensorTransport(ABC):
         """
         Long-running loop that drives data acquisition and processing.
 
-        This method must always call _process_payload().
+        This method must always call _process_wire_message().
         """
         ...
 
@@ -168,29 +168,29 @@ class SensorTransport(ABC):
         return decoded
 
     @abstractmethod
-    def _decapsulate_wire(self, wire_payload: Any) -> DecapsulatedMessage:
-        """Strip the provider envelope; return a single :class:`DecapsulatedMessage`.
+    def _decapsulate_wire(self, wire_message: Any) -> DecapsulatedMessage:
+        """Strip the provider envelope; return a :class:`~rime.transformers.messages.DecapsulatedMessage`.
 
         Receives the output of ``_deserialize_wire`` — always a Python object,
-        never raw bytes.  The returned message's ``sensor_payloads`` list carries
-        one :class:`~rime.transformers.decapsulators.types.IdentifiedPayload` per
-        logical sensor present in the wire payload.
+        never raw bytes.  The returned message's ``identified_payloads`` list
+        carries one :class:`~rime.transformers.messages.IdentifiedPayload` per
+        logical sensor present in the wire message.
         """
 
-    def _process_payload(self, wire_payload: Any) -> None:
-        """Run the full two-stage ingest pipeline for a single wire payload.
+    def _process_wire_message(self, wire_message: Any) -> None:
+        """Run the full two-stage ingest pipeline for a single wire message.
 
         Provider tier:
             _decode_wire → _deserialize_wire → _decapsulate_wire
 
-        Model tier (per IdentifiedPayload in DecapsulatedMessage.sensor_payloads):
-            parser.parse → transformer.from_parsed → frost_observation_upload
+        Model tier (per IdentifiedPayload in DecapsulatedMessage.identified_payloads):
+            parser.parse → normalizer.from_record → frost_observation_upload
         """
-        decoded_wire = self._decode_wire(wire_payload)
+        decoded_wire = self._decode_wire(wire_message)
         deserialized_wire = self._deserialize_wire(decoded_wire)
         decapsulated = self._decapsulate_wire(deserialized_wire)
 
-        for identified in decapsulated.sensor_payloads:
+        for identified in decapsulated.identified_payloads:
             sensor_uuid = identified.sensor_uuid
             try:
                 sensor_model = self.sensor_registry.get(sensor_uuid, None)
@@ -203,15 +203,15 @@ class SensorTransport(ABC):
                     identified = components.deserializer.deserialize(identified, envelope)
                 if components.decoder:
                     identified = components.decoder.decode(identified, envelope)
-                parsed = components.parser.parse(identified, envelope)
-                normalizer = components.normalizer.from_parsed(parsed)
+                record = components.parser.parse(identified, envelope)
+                normalizer = components.normalizer.from_record(record)
                 st_observations = normalizer.to_stObservations()
                 for st_obs in st_observations:
                     try:
                         debug_logger.debug(f"{st_obs=} {sensor_uuid=}")
                         frost_observation_upload(sensor_uuid, st_obs)
                         event_logger.info(
-                            f"Received and processed a payload from {self.app_name} "
+                            f"Received and processed a wire message from {self.app_name} "
                             f"from a {sensor_model.value} sensor."
                         )
                         netmon.add_named_count("push_success", f"{sensor_uuid}", 1)
@@ -237,7 +237,7 @@ class SensorTransport(ABC):
         }
         name = e.__repr__()
         if isinstance(e, UnpackError):
-            msg = f"{name}: failed to unpack an application payload."
+            msg = f"{name}: failed to unpack a wire message."
             _log((f"{self.app_name} " + msg), debug_context)
             return 0
         elif isinstance(e, queue.Empty):

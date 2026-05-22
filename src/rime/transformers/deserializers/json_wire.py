@@ -11,8 +11,8 @@ class JsonWireDeserializer:
 
     This is a wire-format utility operating *before* application decapsulation.
     It is not a subclass of :class:`Deserializer`, which operates on
-    :class:`~rime.transformers.decapsulators.types.DecapsulatedMessage` at the
-    later model-level stage of the pipeline.
+    :class:`~rime.transformers.messages.IdentifiedPayload` at the later
+    model-level stage of the pipeline.
 
     ``MQTTTransport._deserialize_wire`` delegates to this class, so MQTT
     providers inherit JSON deserialization without referencing it directly.

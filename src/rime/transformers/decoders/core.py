@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 
-from ..decapsulators.types import EnvelopeMetadata, IdentifiedPayload
+from ..messages import EnvelopeMetadata, IdentifiedPayload
 
 
 class Decoder(ABC):
@@ -15,7 +15,7 @@ class Decoder(ABC):
     parsing — e.g. ADC counts → physical units, bit-field expansion,
     decryption, or decompression of a structured container.
 
-    Returns a new :class:`~rime.transformers.decapsulators.types.IdentifiedPayload`
+    Returns a new :class:`~rime.transformers.messages.IdentifiedPayload`
     with the same ``sensor_uuid`` but a semantically decoded ``payload`` value.
 
     If the payload arriving from the decapsulator (or a preceding

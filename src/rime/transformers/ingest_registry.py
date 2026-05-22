@@ -20,7 +20,7 @@ from typing import Type
 
 from .decoders.core import Decoder
 from .deserializers.core import Deserializer
-from .normalizers.core import VendorObservationNormalizer
+from .normalizers.core import Normalizer
 from .normalizers.milesight import (
     MilesightAm103lNormalizer,
     MilesightAm308lNormalizer,
@@ -33,7 +33,7 @@ from .types import SupportedSensors
 @dataclass(frozen=True, slots=True)
 class IngestModelComponents:
     parser: Type[Parser]
-    normalizer: Type[VendorObservationNormalizer]
+    normalizer: Type[Normalizer]
     deserializer: Type[Deserializer] | None = None
     decoder: Type[Decoder] | None = None
 

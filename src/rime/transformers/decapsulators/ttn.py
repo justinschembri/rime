@@ -6,7 +6,8 @@ from datetime import datetime, timezone
 from typing import Any
 
 from ...exceptions import MissingPayloadKeysError, UnpackError
-from .types import DecapsulatedMessage, Decapsulator, EnvelopeMetadata, IdentifiedPayload
+from ..messages import DecapsulatedMessage, EnvelopeMetadata, IdentifiedPayload
+from .core import Decapsulator
 
 
 def _parse_iso_utc(value: str | None) -> datetime | None:
@@ -27,8 +28,8 @@ def _parse_iso_utc(value: str | None) -> datetime | None:
 class TTNDecapsulator(Decapsulator):
     """Strip TTS / TTN application uplink webhook or MQTT JSON.
 
-    One top-level object yields one :class:`DecapsulatedMessage` containing
-    a single :class:`IdentifiedPayload`.
+    One top-level object yields one :class:`~rime.transformers.messages.DecapsulatedMessage`
+    containing a single :class:`~rime.transformers.messages.IdentifiedPayload`.
 
     - ``sensor_uuid``: ``end_device_ids.dev_eui`` (registry key).
     - ``payload``: shallow copy of ``uplink_message.decoded_payload``.
@@ -37,15 +38,15 @@ class TTNDecapsulator(Decapsulator):
     """
 
     @staticmethod
-    def decapsulate(wire_payload: dict[str, Any]) -> DecapsulatedMessage:
+    def decapsulate(wire_message: dict[str, Any]) -> DecapsulatedMessage:
         try:
-            sensor_uuid = wire_payload["end_device_ids"]["dev_eui"]
-            sensor_payload = wire_payload["uplink_message"]["decoded_payload"]
+            sensor_uuid = wire_message["end_device_ids"]["dev_eui"]
+            sensor_payload = wire_message["uplink_message"]["decoded_payload"]
             provider_timestamp = _parse_iso_utc(
-                wire_payload["uplink_message"]["rx_metadata"][0].get("received_at")
+                wire_message["uplink_message"]["rx_metadata"][0].get("received_at")
             )
             phenomenon_timestamp = _parse_iso_utc(
-                wire_payload["uplink_message"].get("time")
+                wire_message["uplink_message"].get("time")
             )
             envelope_metadata = EnvelopeMetadata(
                 provider_timestamp=provider_timestamp,
@@ -59,7 +60,7 @@ class TTNDecapsulator(Decapsulator):
             raise UnpackError(e)
 
         return DecapsulatedMessage(
-            sensor_payloads=[
+            identified_payloads=[
                 IdentifiedPayload(
                     sensor_uuid=sensor_uuid,
                     payload=dict(sensor_payload),

@@ -6,16 +6,16 @@ upstream provider produces the same payload shape**.
 
 ## Output
 
-`Decapsulator.decapsulate(wire_payload) -> DecapsulatedMessage`
+`Decapsulator.decapsulate(wire_message) -> DecapsulatedMessage`
 
-Each [`DecapsulatedMessage`](types.py) carries:
+Each [`DecapsulatedMessage`](../../transformers/messages.py) carries:
 
-- `sensor_payloads` — `list[IdentifiedPayload]`, one entry per logical sensor
-  present in the wire payload (e.g. multiple Netatmo stations, or a single
+- `identified_payloads` — `list[IdentifiedPayload]`, one entry per logical sensor
+  present in the wire message (e.g. multiple Netatmo stations, or a single
   TTN device).  Each `IdentifiedPayload` holds:
   - `sensor_uuid` — the registry key
   - `payload` — the native, provider-independent sensor reading
-- `envelope_metadata` — optional [`EnvelopeMetadata`](types.py) with
+- `envelope_metadata` — optional [`EnvelopeMetadata`](../../transformers/messages.py) with
   provider-level context not embedded in the sensor payload:
   - `provider_timestamp` — when the provider/gateway received the message
   - `phenomenon_timestamp` — observed sample time from the envelope (e.g.
@@ -35,23 +35,23 @@ Import lazily if needed: `from rime.transformers.decapsulators import TTNDecapsu
 ## Where it sits in the pipeline
 
 ```text
-wire payload
+wire_message
   → _decapsulate_wire (provider)
      → DecapsulatedMessage
-          sensor_payloads[]: IdentifiedPayload(sensor_uuid, payload)
+          identified_payloads[]: IdentifiedPayload(sensor_uuid, payload)
           envelope_metadata: EnvelopeMetadata(timestamps, ...)
      → parser.parse(identified, envelope)
-          → ParsedMessage
+          → ObservationRecord
 ```
 
 ## Adding a decapsulator
 
-1. Subclass [`Decapsulator`](types.py) with a static `decapsulate(wire_payload: Any) -> DecapsulatedMessage`.
+1. Subclass [`Decapsulator`](core.py) with a static `decapsulate(wire_message: Any) -> DecapsulatedMessage`.
 2. Build one `IdentifiedPayload` per logical sensor, using the wire field that
    acts as the registry key as `sensor_uuid`.
 3. Put provider-level timestamps/hints in `EnvelopeMetadata`; leave sensor-
    native data untouched in `payload`.
-4. Log a warning (do not raise) when `sensor_payloads` ends up empty.
+4. Log a warning (do not raise) when `identified_payloads` ends up empty.
 5. Raise `MissingPayloadKeysError` on required-key shape failures; wrap
    unknown errors as `UnpackError`.
 6. Export from `decapsulators/__init__.py` (`__all__` + `__getattr__`).

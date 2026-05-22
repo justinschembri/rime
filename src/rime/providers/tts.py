@@ -11,7 +11,7 @@ from typing import Any, ClassVar, Literal
 from ..exceptions import UnpackError
 from ..paths import CREDENTIALS_DIR
 from ..transformers.decapsulators import TTNDecapsulator
-from ..transformers.decapsulators.types import DecapsulatedMessage
+from ..transformers.messages import DecapsulatedMessage
 from ..transport.subscription.mqtt import MQTTTransport
 
 event_logger = logging.getLogger("events")
@@ -38,9 +38,9 @@ class TTSProvider(MQTTTransport):
             return False
         return True
 
-    def _decapsulate_wire(self, wire_payload: dict[str, Any]) -> DecapsulatedMessage:
-        decapped = TTNDecapsulator.decapsulate(wire_payload)
-        if len(decapped.sensor_payloads) != 1:
+    def _decapsulate_wire(self, wire_message: dict[str, Any]) -> DecapsulatedMessage:
+        decapped = TTNDecapsulator.decapsulate(wire_message)
+        if len(decapped.identified_payloads) != 1:
             raise UnpackError(
                 RuntimeError(
                     "TTN uplink must decapsulate to exactly one logical device payload."

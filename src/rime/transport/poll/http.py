@@ -1,8 +1,8 @@
 """HTTP poll transport.
 
-`HTTPTransport` drives a polling loop: at a fixed interval it pulls a payload
-via the provider's `_pull_data`, deduplicates against the previous payload,
-and forwards new payloads to the shared processing pipeline. There is no
+`HTTPTransport` drives a polling loop: at a fixed interval it pulls a wire
+message via the provider's `_pull_data`, deduplicates against the previous
+response, and forwards new messages to the shared processing pipeline. There is no
 persistent network connection — the "transport" here is really a scheduler
 on top of stateless requests.
 """
@@ -48,28 +48,28 @@ class HTTPTransport(SensorTransport):
     @abstractmethod
     def _pull_data(self) -> Any:
         #TODO: does this need to be abstract?
-        """Synchronously fetch the latest wire payload from the provider."""
+        """Synchronously fetch the latest wire message from the provider."""
         ...
 
     def _run(self) -> None:
         self.auth()
         failures = 0
-        wire_payload = None
+        wire_message = None
         while not self._stop_event.is_set():
             try:
-                wire_payload = self._pull_data()
-                if self._last_payload == wire_payload:
+                wire_message = self._pull_data()
+                if self._last_payload == wire_message:
                     # a bit of a 'magic number' here:
                     time.sleep(self.request_interval / 4)
                     continue
-                self._last_payload = wire_payload
-                self._process_payload(wire_payload)
-                netmon.add_named_count("payloads_received", self.app_name, 1)
+                self._last_payload = wire_message
+                self._process_wire_message(wire_message)
+                netmon.add_named_count("wire_messages_received", self.app_name, 1)
                 failures = 0
                 time.sleep(self.request_interval)
             except Exception as e:
                 # TODO: consider carefully which exception types should be 'failures'
-                failures += self._exception_handler(e, wire_payload=wire_payload)
+                failures += self._exception_handler(e, wire_message=wire_message)
                 if failures == self.max_retries:
                     main_logger.critical(
                         f"Exceeded max retries ({self.max_retries}) for "

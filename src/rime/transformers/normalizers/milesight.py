@@ -4,12 +4,12 @@ from typing import Callable
 
 # internal
 from ..types import ObservedProperties
-from .core import VendorObservationNormalizer
+from .core import Normalizer
 
 logger = logging.getLogger(__name__)
 
 
-class MilesightAm103lNormalizer(VendorObservationNormalizer):
+class MilesightAm103lNormalizer(Normalizer):
     battery: int
     co2: float
     humidity: float
@@ -25,7 +25,7 @@ class MilesightAm103lNormalizer(VendorObservationNormalizer):
     TRANSFORM: dict[str, Callable] = {}
 
 
-class MilesightAm308lNormalizer(VendorObservationNormalizer):
+class MilesightAm308lNormalizer(Normalizer):
     battery: int
     co2: float
     humidity: float

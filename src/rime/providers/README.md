@@ -26,10 +26,10 @@ upstream application. It declares:
 1. **The transport it uses.** By inheriting from `HTTPTransport` or
    `MQTTTransport` (or any future transport), it picks up the threading
    model, payload pipeline, and exception handling for free.
-2. **Provider decapsulation.** Implement `_decapsulate_wire(self, wire_payload)`
+2. **Provider decapsulation.** Implement `_decapsulate_wire(self, wire_message)`
    to strip the provider envelope and return a single `DecapsulatedMessage`
-   whose `sensor_payloads` list contains one `IdentifiedPayload` per logical
-   sensor in the wire payload.  Model-specific parsing and transformation are
+   whose `identified_payloads` list contains one `IdentifiedPayload` per logical
+   sensor in the wire message.  Model-specific parsing and transformation are
    handled centrally by `SensorTransport` using
    [`../transformers/ingest_registry.py`](../transformers/ingest_registry.py).
 3. **Authentication.** Provider-local. Resolve credentials from
@@ -72,7 +72,7 @@ from typing import Any, ClassVar, Literal
 
 from ..paths import CREDENTIALS_DIR
 from ..transformers.decapsulators import ChirpstackDecapsulator  # hypothetical
-from ..transformers.decapsulators.types import DecapsulatedMessage
+from ..transformers.messages import DecapsulatedMessage
 from ..transport import MQTTTransport
 
 event_logger = logging.getLogger("events")
@@ -83,8 +83,8 @@ class ChirpstackProvider(MQTTTransport):
 
     auth_method: ClassVar[Literal["tokens", "credentials"]] = "credentials"
 
-    def _decapsulate_wire(self, wire_payload: Any) -> DecapsulatedMessage:
-        return ChirpstackDecapsulator.decapsulate(wire_payload)
+    def _decapsulate_wire(self, wire_message: Any) -> DecapsulatedMessage:
+        return ChirpstackDecapsulator.decapsulate(wire_message)
 
     @property
     def _credentials_file(self):

@@ -1,4 +1,4 @@
-"""Decapsulation — wire/application shells -> :class:`DecapsulatedMessage`.
+"""Decapsulation — wire messages -> :class:`~rime.transformers.messages.DecapsulatedMessage`.
 
 Submodule imports (e.g. ``from rime.transformers.decapsulators.ttn import ...``) avoid import cycles.
 Convenience ``from ...decapsulators import TTNDecapsulator`` uses lazy :func:`__getattr__`.
@@ -8,7 +8,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from .types import DecapsulatedMessage, Decapsulator, EnvelopeMetadata, IdentifiedPayload
+from .core import Decapsulator
+from ..messages import DecapsulatedMessage, EnvelopeMetadata, IdentifiedPayload
 
 __all__ = [
     "DecapsulatedMessage",

@@ -8,7 +8,7 @@ import pytest
 
 from rime.exceptions import MissingPayloadKeysError
 from rime.transformers.decapsulators import TTNDecapsulator
-from rime.transformers.decapsulators.types import DecapsulatedMessage, IdentifiedPayload
+from rime.transformers.messages import DecapsulatedMessage, IdentifiedPayload
 
 
 @pytest.fixture
@@ -32,8 +32,8 @@ def minimal_ttn_payload() -> dict:
 def test_ttndecapsulator_structure(minimal_ttn_payload):
     msg = TTNDecapsulator.decapsulate(minimal_ttn_payload)
     assert isinstance(msg, DecapsulatedMessage)
-    assert len(msg.sensor_payloads) == 1
-    identified = msg.sensor_payloads[0]
+    assert len(msg.identified_payloads) == 1
+    identified = msg.identified_payloads[0]
     assert isinstance(identified, IdentifiedPayload)
     assert identified.sensor_uuid == "24E124707D378803"
     assert identified.payload == {"temperature": 23.1, "battery": 53}
@@ -54,7 +54,7 @@ def test_ttndecapsulator_envelope_timestamps(minimal_ttn_payload):
 def test_ttndecapsulator_decoded_payload_shallow_copy(minimal_ttn_payload):
     inner = minimal_ttn_payload["uplink_message"]["decoded_payload"]
     msg = TTNDecapsulator.decapsulate(minimal_ttn_payload)
-    msg.sensor_payloads[0].payload["temperature"] = 99.0
+    msg.identified_payloads[0].payload["temperature"] = 99.0
     assert inner["temperature"] == 23.1
 
 

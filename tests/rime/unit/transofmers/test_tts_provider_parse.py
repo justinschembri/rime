@@ -1,11 +1,11 @@
-"""Test TTS provider payload decapsulation (TTN envelope → DecapsulatedMessage)."""
+"""Test TTS provider wire message decapsulation (TTN envelope → DecapsulatedMessage)."""
 from datetime import datetime, timezone
 from typing import Any
 
 import pytest
 
 from rime.providers.tts import TTSProvider
-from rime.transformers.decapsulators.types import DecapsulatedMessage, IdentifiedPayload
+from rime.transformers.messages import DecapsulatedMessage, IdentifiedPayload
 
 
 class TestTTSProviderPayload:
@@ -13,7 +13,7 @@ class TestTTSProviderPayload:
 
     @pytest.fixture
     def valid_payload(self) -> dict[str, Any]:
-        """Fixture providing a valid TTS payload."""
+        """Fixture providing a valid TTS wire message."""
         return {
             "end_device_ids": {
                 "device_id": "ieq-thcpvl-001",
@@ -104,7 +104,7 @@ class TestTTSProviderPayload:
         decapped = provider._decapsulate_wire(valid_payload)
 
         assert isinstance(decapped, DecapsulatedMessage)
-        assert len(decapped.sensor_payloads) == 1
+        assert len(decapped.identified_payloads) == 1
 
     def test_identified_payload_sensor_uuid(self, valid_payload):
         provider = TTSProvider(
@@ -113,7 +113,7 @@ class TestTTSProviderPayload:
             topic="v3/test-app@ttn/devices/+/up",
         )
         decapped = provider._decapsulate_wire(valid_payload)
-        identified = decapped.sensor_payloads[0]
+        identified = decapped.identified_payloads[0]
 
         assert isinstance(identified, IdentifiedPayload)
         assert identified.sensor_uuid == "24E124707D378803"
@@ -125,7 +125,7 @@ class TestTTSProviderPayload:
             topic="v3/test-app@ttn/devices/+/up",
         )
         decapped = provider._decapsulate_wire(valid_payload)
-        sensor_data = decapped.sensor_payloads[0].payload
+        sensor_data = decapped.identified_payloads[0].payload
 
         assert sensor_data["battery"] == 53
         assert sensor_data["co2"] == 4665

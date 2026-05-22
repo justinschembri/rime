@@ -1,25 +1,25 @@
 """STA transformer for Netatmo NWS03.
 
-Receives a :class:`~rime.transformers.messages.ParsedMessage` whose ``body``
-has already been normalised by :class:`~rime.transformers.parsers.netatmo.NetatmoNWS03Parser`:
+Receives an :class:`~rime.transformers.messages.ObservationRecord` whose ``observations``
+have already been prepared by :class:`~rime.transformers.parsers.netatmo.NetatmoNWS03Parser`:
 
 - keys are lowercase
 - ``time_utc`` has been extracted as ``phenomenon_timestamp`` on the message
 - trend fields have been dropped
 
-The transformer therefore only performs field → ObservedProperties mapping.
+The normalizer therefore only performs field → ObservedProperties mapping.
 No key normalisation or timestamp extraction happens here.
 
-Example ``body`` shape received::
+Example ``observations`` shape received::
 
     {"temperature": 23.3, "co2": 871, "humidity": 46, "noise": 33, "pressure": 1014.8}
 """
 
-from .core import VendorObservationNormalizer
+from .core import Normalizer
 from ..types import ObservedProperties
 
 
-class NetatmoNWS03(VendorObservationNormalizer):
+class NetatmoNWS03(Normalizer):
     temperature: float
     co2: int
     humidity: int
