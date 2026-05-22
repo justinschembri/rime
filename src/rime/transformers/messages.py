@@ -1,8 +1,14 @@
-"""Ingress pipeline message types after decapsulation (Message family).
+"""Ingress pipeline message types (Message family).
 
-``DecapsulatedMessage`` (:mod:`rime.transformers.decapsulators.types`) feeds
-``DecodedMessage`` (transport / encoding undone) then ``ParsedMessage``
-(typed ``dict[str, Any]`` body for transformers).
+:class:`ParsedMessage` is the output of the parser stage and the input to
+transformers.  It carries a fully-resolved sensor identity, an opaque ``body``
+(the native sensor reading — most commonly a ``dict[str, Any]`` for IoT
+sensors), and resolved timestamps.
+
+:class:`DecodedMessage` is retained for optional model-specific decoder
+components that perform binary / codec expansion *before* parsing.  It is
+not part of the default pipeline (which uses :class:`~rime.transformers.parsers.null.NullParser`
+directly), but remains available for future binary protocol support.
 """
 
 from __future__ import annotations
@@ -11,61 +17,36 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
-from ..exceptions import UnpackError
-
-from .decapsulators.types import DecapsulatedMessage
 from .types import SensorUUID
 
 
 @dataclass(frozen=True, slots=True)
 class DecodedMessage:
-    """Payload interpreted for transport/format; ``payload`` still ``Any``."""
+    """Payload with transport/encoding undone; ``payload`` still ``Any``.
 
-    sensor_id: SensorUUID
+    Used only when a model-specific :class:`~rime.transformers.decoders.core.Decoder`
+    is registered.  Not part of the default ``NullParser`` path.
+    """
+
+    sensor_uuid: SensorUUID
     payload: Any
     provider_timestamp: datetime | None = None
     phenomenon_timestamp: datetime | None = None
 
-    @classmethod
-    def from_decapsulated(cls, msg: DecapsulatedMessage) -> DecodedMessage:
-        return cls(
-            sensor_id=msg.sensor_id,
-            payload=msg.sensor_message,
-            provider_timestamp=msg.provider_timestamp,
-            phenomenon_timestamp=msg.phenomenon_timestamp,
-        )
-
 
 @dataclass(frozen=True, slots=True)
 class ParsedMessage:
-    """Structured per-sensor body + routing/timing for STA transformers."""
+    """Fully-resolved per-sensor record ready for the transformer.
 
-    sensor_id: SensorUUID
-    body: dict[str, Any]
+    Produced by :class:`~rime.transformers.parsers.core.Parser` subclasses.
+
+    ``body`` is intentionally ``Any`` — transformers are responsible for
+    knowing the expected shape.  For standard IoT sensors this will be a
+    ``dict[str, Any]``; time-series sources (e.g. SeedLink) may use other
+    types.
+    """
+
+    sensor_uuid: SensorUUID
+    body: Any
     provider_timestamp: datetime | None = None
     phenomenon_timestamp: datetime | None = None
-
-    @classmethod
-    def from_decoded(cls, msg: DecodedMessage) -> ParsedMessage:
-        body = msg.payload
-        if not isinstance(body, dict):
-            raise UnpackError(
-                TypeError(
-                    "DecodedMessage payload must be dict[str, Any] before parse."
-                )
-            )
-        return cls(
-            sensor_id=msg.sensor_id,
-            body=dict(body),
-            provider_timestamp=msg.provider_timestamp,
-            phenomenon_timestamp=msg.phenomenon_timestamp,
-        )
-
-
-def decapsulated_to_parsed_identity_decode(
-    messages: list[DecapsulatedMessage],
-) -> list[ParsedMessage]:
-    """Decode (identity) then parse each decapsulated message to ``ParsedMessage``."""
-    from .decoders.null import NullDecoder
-
-    return [ParsedMessage.from_decoded(NullDecoder.decode(m)) for m in messages]

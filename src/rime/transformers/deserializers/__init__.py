@@ -1,15 +1,15 @@
-"""Wire-format parsing (e.g. JSON text, CBOR) and model-level deserializers.
+"""Model-level deserializers and wire-format parsing utilities.
 
-``JsonWireDeserializer`` — wire-format step (bytes → Python object, before
+``JsonWireDeserializer`` — wire-format step (bytes → Python object, *before*
     decapsulation). Used by ``MQTTTransport._deserialize_wire``.
 
-``Deserializer`` / ``NullDeserializer`` — model-level step (DecapsulatedMessage
-    → DecapsulatedMessage, after decapsulation, keyed by sensor model in
-    ``INGEST_COMPONENT_MAP``).
+``Deserializer`` — optional model-level step (IdentifiedPayload →
+    IdentifiedPayload, *after* decapsulation).  Register via
+    ``deserializer=`` in ``INGEST_COMPONENT_MAP``; leave as ``None`` to skip
+    when the payload is already structured.
 """
 
 from .core import Deserializer
 from .json_wire import JsonWireDeserializer
-from .null import NullDeserializer
 
-__all__ = ["Deserializer", "JsonWireDeserializer", "NullDeserializer"]
+__all__ = ["Deserializer", "JsonWireDeserializer"]

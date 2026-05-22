@@ -38,16 +38,16 @@ The package is organised in two layers:
 
 ## Ingest pipeline (transport → FROST)
 
-The pipeline runs in two tiers inside `SensorTransport._process_payload`.
+The pipeline runs in two stages inside `SensorTransport._process_payload`.
 
-### Application tier  *(transport / provider level)*
+### Provider tier  *(transport / provider level)*
 
 | Step | Hook | Default | Responsibility |
 |------|------|---------|----------------|
 | 1 | `_run` | — | Receive one wire payload from upstream; call `_process_payload`. |
 | 2 | `_decode_wire` | identity | Convert raw bytes to a decoded form (e.g. base64 → bytes, bytes → UTF-8). |
 | 3 | `_deserialize_wire` | identity (`json.loads` on MQTT) | Parse the decoded form into a Python object (JSON, CBOR, Protobuf, ...). |
-| 4 | `_decapsulate_wire` | **abstract** | Strip the provider envelope; return one `DecapsulatedMessage` per sensor reading. |
+| 4 | `_decapsulate_wire` | **abstract** | Strip the provider envelope; return a `DecapsulatedMessage` whose `sensor_payloads` list contains one `IdentifiedPayload` per logical sensor. |
 
 Steps 2 and 3 default to the identity on `SensorTransport`. Transport
 subclasses override where needed: `MQTTTransport` overrides
@@ -55,14 +55,13 @@ subclasses override where needed: `MQTTTransport` overrides
 identity because their underlying libraries (ObsPy, lnetatmo) already return
 Python objects.
 
-### Model tier  *(per `DecapsulatedMessage`, keyed by sensor model)*
+### Model tier  *(per `IdentifiedPayload` in `sensor_payloads`, keyed by sensor model)*
 
 | Step | Component | Source | Responsibility |
 |------|-----------|--------|----------------|
-| 5 | `deserializer.deserialize` | `INGEST_COMPONENT_MAP[model]` | Any remaining payload-level deserialization. |
-| 6 | `decoder.decode` | `INGEST_COMPONENT_MAP[model]` | Raw sensor readings → physical values. |
-| 7 | `transformer.from_parsed` + `to_stObservations` | `INGEST_COMPONENT_MAP[model]` | Vendor fields → SensorThings Observation tuples. |
-| 8 | `frost_observation_upload` | `SensorTransport` | Push each observation to FROST. |
+| 5 | `parser.parse(identified, envelope)` | `INGEST_COMPONENT_MAP[model]` | Assemble `ParsedMessage`: `sensor_uuid`, normalised body, resolved timestamps. |
+| 6 | `transformer.from_parsed` + `to_stObservations` | `INGEST_COMPONENT_MAP[model]` | Vendor fields → SensorThings Observation tuples. |
+| 7 | `frost_observation_upload` | `SensorTransport` | Push each observation to FROST. |
 
 ## What the top level `SensorTransport` owns
 

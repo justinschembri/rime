@@ -1,30 +1,40 @@
 # `deserializers`
 
-## Shipped
+Optional model-level step that converts an **opaque payload** (bytes, base64 string, CBOR blob) into a **structured Python object** the decoder or parser can work with.
 
-- [`NullDeserializer`](null.py) — **identity** `deserialize(msg) -> msg`, used as the
-  default model component in [`../ingest_registry.py`](../ingest_registry.py).
+## When to use
 
-## Planned
+Register a deserializer when the `IdentifiedPayload.payload` arriving after decapsulation is not yet a structured form.  Typical cases:
 
-Convert **serialized wire forms** into **Python values** (`Any`) without yet assigning sensor identity or applying decapsulation.
+- Raw LoRaWAN `frm_payload` (base64 string → bytes → dict via a vendor codec)
+- CBOR or MessagePack-encoded readings
+- zlib-compressed JSON
 
-Typical jobs:
+Leave `deserializer=None` in `IngestModelComponents` (the default) when the provider already delivers a decoded dict — e.g. TTN `decoded_payload`, Netatmo `dashboard_data`.
 
-- `str` / `bytes` → `dict` / `list` via **JSON**, **CBOR**, **msgpack**, etc.
-- Optional schema validation at the “syntax” level only (not STA semantics)
+## Contract
 
-Many paths still deserialize inside the transport (e.g. `json.loads` on MQTT payload) or receive already-parsed `dict`s from HTTP clients; move that here when formats multiply.
+```python
+Deserializer.deserialize(
+    identified: IdentifiedPayload,
+    envelope: EnvelopeMetadata | None,
+) -> IdentifiedPayload
+```
+
+Returns a new `IdentifiedPayload` with the same `sensor_uuid` but a deserialized `payload` value.
+
+## Wire-level utility (not a model-level deserializer)
+
+- [`JsonWireDeserializer`](json_wire.py) — `bytes | str → Any` via `json.loads`.  Used by `MQTTTransport._deserialize_wire` *before* decapsulation; not registered in `INGEST_COMPONENT_MAP`.
 
 ## Relationship to other stages
 
-- **After** [`frames`](../frames/README.md) if the input is still raw bytes.
-- **Before** [`decapsulators`](../decapsulators/README.md) when the decapsulator expects a **parsed tree**, not a string.
-- Distinct from **[`decoders`](../decoders/README.md)** — deserializers recover **structure**; decoders apply **vendor / crypto / compression semantics** to the payload body.
+- Runs **after** [`decapsulators`](../decapsulators/README.md): identity is already known.
+- Runs **before** [`decoders`](../decoders/README.md): payload is still opaque.
+- Distinct from **[`decoders`](../decoders/README.md)**: deserializers recover **structure**; decoders apply **vendor/semantic interpretation** to an already-structured payload.
 
-## Suggested contract (future)
+## Adding a deserializer
 
-Pure functions: `deserialize(payload: bytes | str, content_type: str) -> Any` or small strategy registry keyed by integration.
-
-Register a custom deserializer in [`../ingest_registry.py`](../ingest_registry.py)
-for the relevant `SupportedSensors` entry.
+1. Subclass [`Deserializer`](core.py).
+2. Implement `deserialize(identified, envelope) -> IdentifiedPayload`.
+3. Register under `deserializer=` in [`../ingest_registry.py`](../ingest_registry.py).

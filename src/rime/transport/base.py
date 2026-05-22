@@ -7,20 +7,23 @@ subscription) and ultimately on the provider (Netatmo, TTS, ...).
 
 ## Ingest pipeline
 
-`_process_payload` drives a two-tier pipeline for every wire payload received:
+`_process_payload` drives a two-stage pipeline for every wire payload received:
 
 Provider tier (transport / provider level):
 
     _decode_wire          raw wire data  →  decoded form   (identity by default)
     _deserialize_wire     decoded form   →  Python object  (identity by default)
-    _decapsulate_wire        →  list[DecapsulatedMessage]
+    _decapsulate_wire        →  DecapsulatedMessage
 
-Model tier (per DecapsulatedMessage, keyed by sensor model from INGEST_COMPONENT_MAP):
+The decapsulated message carries a list of IdentifiedPayload entries — one per
+logical sensor present in the wire payload — together with optional
+EnvelopeMetadata (timestamps and channel hints from the provider envelope).
 
-    deserializer.deserialize  →  remaining payload deserialization
-    decoder.decode            →  raw readings → physical values
-    transformer.from_parsed   →  vendor fields → SensorThings observations
-    frost_observation_upload  →  push to FROST
+Model tier (per IdentifiedPayload, keyed by sensor model from INGEST_COMPONENT_MAP):
+
+    parser.parse          →  ParsedMessage (sensor_uuid + body + timestamps)
+    transformer.from_parsed  →  vendor fields → SensorThings observations
+    frost_observation_upload →  push to FROST
 
 The application-tier hooks default to identity so transports whose libraries
 already handle wire decoding (ObsPy for SeedLink, lnetatmo for Netatmo) need
@@ -47,7 +50,6 @@ from rime.frost.post import frost_observation_upload
 from ..monitor import netmon
 from ..transformers.decapsulators.types import DecapsulatedMessage
 from ..transformers.ingest_registry import INGEST_COMPONENT_MAP
-from ..transformers.messages import ParsedMessage
 from ..transformers.types import SensorUUID, SupportedSensors
 
 main_logger = logging.getLogger("main")
@@ -166,55 +168,57 @@ class SensorTransport(ABC):
         return decoded
 
     @abstractmethod
-    def _decapsulate_wire(
-        self, wire_payload: Any
-    ) -> list[DecapsulatedMessage]:
-        """Strip the provider envelope and route to per-sensor messages.
+    def _decapsulate_wire(self, wire_payload: Any) -> DecapsulatedMessage:
+        """Strip the provider envelope; return a single :class:`DecapsulatedMessage`.
 
         Receives the output of ``_deserialize_wire`` — always a Python object,
-        never raw bytes. Returns one ``DecapsulatedMessage`` per sensor reading
-        contained in the payload.
+        never raw bytes.  The returned message's ``sensor_payloads`` list carries
+        one :class:`~rime.transformers.decapsulators.types.IdentifiedPayload` per
+        logical sensor present in the wire payload.
         """
 
     def _process_payload(self, wire_payload: Any) -> None:
-        """Run the full two-tier ingest pipeline for a single wire payload.
+        """Run the full two-stage ingest pipeline for a single wire payload.
 
         Provider tier:
             _decode_wire → _deserialize_wire → _decapsulate_wire
 
-        Model tier (per DecapsulatedMessage):
-            deserializer → decoder → transformer → frost_observation_upload
+        Model tier (per IdentifiedPayload in DecapsulatedMessage.sensor_payloads):
+            parser.parse → transformer.from_parsed → frost_observation_upload
         """
-        decoded = self._decode_wire(wire_payload)
-        deserialized = self._deserialize_wire(decoded)
-        decapsulated_messages = self._decapsulate_wire(deserialized)
-        for decapsulated in decapsulated_messages:
-            sensor_id = decapsulated.sensor_id
+        decoded_wire = self._decode_wire(wire_payload)
+        deserialized_wire = self._deserialize_wire(decoded_wire)
+        decapsulated = self._decapsulate_wire(deserialized_wire)
+
+        for identified in decapsulated.sensor_payloads:
+            sensor_uuid = identified.sensor_uuid
             try:
-                sensor_model = self.sensor_registry.get(sensor_id, None)
+                sensor_model = self.sensor_registry.get(sensor_uuid, None)
                 if not sensor_model:
                     raise UnregisteredSensorError
 
                 components = INGEST_COMPONENT_MAP[sensor_model]
-                #TODO: might be hidden bugs in this chunk:
-                deserialized = components.deserializer.deserialize(decapsulated)
-                decoded = components.decoder.decode(deserialized)
-                parsed = ParsedMessage.from_decoded(decoded)
-                payload = components.transformer.from_parsed(parsed)
-                st_observations = payload.to_stObservations()
+                envelope = decapsulated.envelope_metadata
+                if components.deserializer:
+                    identified = components.deserializer.deserialize(identified, envelope)
+                if components.decoder:
+                    identified = components.decoder.decode(identified, envelope)
+                parsed = components.parser.parse(identified, envelope)
+                normalizer = components.normalizer.from_parsed(parsed)
+                st_observations = normalizer.to_stObservations()
                 for st_obs in st_observations:
                     try:
-                        debug_logger.debug(f"{st_obs=} {sensor_id=}")
-                        frost_observation_upload(sensor_id, st_obs)
+                        debug_logger.debug(f"{st_obs=} {sensor_uuid=}")
+                        frost_observation_upload(sensor_uuid, st_obs)
                         event_logger.info(
                             f"Received and processed a payload from {self.app_name} "
                             f"from a {sensor_model.value} sensor."
                         )
-                        netmon.add_named_count("push_success", f"{sensor_id}", 1)
+                        netmon.add_named_count("push_success", f"{sensor_uuid}", 1)
                     except FrostUploadFailure as e:
-                        self._exception_handler(e, sensor_id=sensor_id)
+                        self._exception_handler(e, sensor_id=sensor_uuid)
             except (UnregisteredSensorError, UnpackError, KeyError) as e:
-                self._exception_handler(e, sensor_id=sensor_id, stage="model_ingest")
+                self._exception_handler(e, sensor_id=sensor_uuid, stage="model_ingest")
                 continue
 
     #TODO: reconsider exception handler as part of the class, should be a global concern

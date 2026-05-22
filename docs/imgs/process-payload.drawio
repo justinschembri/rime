@@ -1,35 +1,35 @@
 <mxfile host="app.diagrams.net">
   <diagram name="Page-1" id="zslSuMcQuhMjCawqLiqm">
-    <mxGraphModel dx="788" dy="514" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+    <mxGraphModel dx="1222" dy="830" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
         <mxCell id="pTr_LYJ15uaenPGCWmsZ-21" parent="1" style="shape=hexagon;perimeter=hexagonPerimeter2;whiteSpace=wrap;html=1;fixedSize=1;" value="DecapsulatedMessage" vertex="1">
-          <mxGeometry height="33.5" width="165" x="667" y="273" as="geometry" />
+          <mxGeometry height="33.5" width="165" x="625.1" y="112" as="geometry" />
         </mxCell>
         <mxCell id="pTr_LYJ15uaenPGCWmsZ-20" parent="1" style="shape=hexagon;perimeter=hexagonPerimeter2;whiteSpace=wrap;html=1;fixedSize=1;" value="DecapsulatedMessage" vertex="1">
-          <mxGeometry height="33.5" width="165" x="665" y="277" as="geometry" />
+          <mxGeometry height="33.5" width="165" x="623.1" y="116" as="geometry" />
         </mxCell>
         <mxCell id="pTr_LYJ15uaenPGCWmsZ-4" edge="1" parent="1" source="pTr_LYJ15uaenPGCWmsZ-1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" target="pTr_LYJ15uaenPGCWmsZ-3">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
         <mxCell id="pTr_LYJ15uaenPGCWmsZ-1" parent="1" style="image;aspect=fixed;perimeter=ellipsePerimeter;html=1;align=center;shadow=0;dashed=0;spacingTop=3;image=img/lib/active_directory/generic_server.svg;" value="" vertex="1">
-          <mxGeometry height="50" width="28.000000000000004" x="154" y="277" as="geometry" />
+          <mxGeometry height="50" width="28.000000000000004" x="112.1" y="116" as="geometry" />
         </mxCell>
         <mxCell id="pTr_LYJ15uaenPGCWmsZ-2" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="&lt;i&gt;Provider&lt;/i&gt;" vertex="1">
-          <mxGeometry height="30" width="60" x="138" y="242" as="geometry" />
+          <mxGeometry height="30" width="60" x="96.1" y="81" as="geometry" />
         </mxCell>
         <mxCell id="pTr_LYJ15uaenPGCWmsZ-13" edge="1" parent="1" source="pTr_LYJ15uaenPGCWmsZ-3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" target="pTr_LYJ15uaenPGCWmsZ-5">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
         <mxCell id="pTr_LYJ15uaenPGCWmsZ-3" parent="1" style="shape=hexagon;perimeter=hexagonPerimeter2;whiteSpace=wrap;html=1;fixedSize=1;fontFamily=Courier New;fontSize=10;" value="&lt;b&gt;Wire Payload&lt;/b&gt;" vertex="1">
-          <mxGeometry height="33.5" width="120" x="204" y="285.5" as="geometry" />
+          <mxGeometry height="33.5" width="120" x="162.1" y="124.5" as="geometry" />
         </mxCell>
         <mxCell id="pTr_LYJ15uaenPGCWmsZ-5" parent="1" style="shape=parallelogram;perimeter=parallelogramPerimeter;whiteSpace=wrap;html=1;fixedSize=1;fillColor=#647687;fontColor=#ffffff;strokeColor=#314354;" value="Decode" vertex="1">
-          <mxGeometry height="33" width="100" x="356" y="285.5" as="geometry" />
+          <mxGeometry height="33" width="100" x="314.1" y="124.5" as="geometry" />
         </mxCell>
         <mxCell id="pTr_LYJ15uaenPGCWmsZ-9" parent="1" style="shape=parallelogram;perimeter=parallelogramPerimeter;whiteSpace=wrap;html=1;fixedSize=1;fillColor=#647687;fontColor=#ffffff;strokeColor=#314354;" value="Deserialize" vertex="1">
-          <mxGeometry height="33" width="100" x="440" y="285.5" as="geometry" />
+          <mxGeometry height="33" width="100" x="398.1" y="124.5" as="geometry" />
         </mxCell>
         <mxCell id="pTr_LYJ15uaenPGCWmsZ-15" edge="1" parent="1" source="pTr_LYJ15uaenPGCWmsZ-10" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" target="pTr_LYJ15uaenPGCWmsZ-14" value="1..*">
           <mxGeometry relative="1" x="0.1099" as="geometry">
@@ -37,55 +37,55 @@
           </mxGeometry>
         </mxCell>
         <mxCell id="pTr_LYJ15uaenPGCWmsZ-10" parent="1" style="shape=parallelogram;perimeter=parallelogramPerimeter;whiteSpace=wrap;html=1;fixedSize=1;fillColor=#e51400;fontColor=#ffffff;strokeColor=#B20000;" value="Decapsulate" vertex="1">
-          <mxGeometry height="33" width="100" x="524" y="285.5" as="geometry" />
+          <mxGeometry height="33" width="100" x="482.1" y="124.5" as="geometry" />
         </mxCell>
         <mxCell id="pTr_LYJ15uaenPGCWmsZ-16" parent="1" style="shape=hexagon;perimeter=hexagonPerimeter2;whiteSpace=wrap;html=1;fixedSize=1;" value="DecapsulatedMessage" vertex="1">
-          <mxGeometry height="33.5" width="165" x="663" y="281" as="geometry" />
+          <mxGeometry height="33.5" width="165" x="621.1" y="120" as="geometry" />
         </mxCell>
         <mxCell id="pTr_LYJ15uaenPGCWmsZ-14" parent="1" style="shape=hexagon;perimeter=hexagonPerimeter2;whiteSpace=wrap;html=1;fixedSize=1;fontFamily=Courier New;fontSize=10;" value="&lt;b&gt;Decapsulated Messages&lt;/b&gt;" vertex="1">
-          <mxGeometry height="33.5" width="165" x="661" y="285.5" as="geometry" />
+          <mxGeometry height="33.5" width="165" x="619.1" y="124.5" as="geometry" />
         </mxCell>
         <mxCell id="pTr_LYJ15uaenPGCWmsZ-23" parent="1" style="shape=parallelogram;perimeter=parallelogramPerimeter;whiteSpace=wrap;html=1;fixedSize=1;fillColor=#647687;fontColor=#ffffff;strokeColor=#314354;" value="Decode" vertex="1">
-          <mxGeometry height="33" width="100" x="524" y="358.5" as="geometry" />
+          <mxGeometry height="33" width="100" x="482.1" y="197.5" as="geometry" />
         </mxCell>
         <mxCell id="pTr_LYJ15uaenPGCWmsZ-24" parent="1" style="shape=parallelogram;perimeter=parallelogramPerimeter;whiteSpace=wrap;html=1;fixedSize=1;fillColor=#647687;fontColor=#ffffff;strokeColor=#314354;" value="Deserialize" vertex="1">
-          <mxGeometry height="33" width="100" x="608" y="358.5" as="geometry" />
+          <mxGeometry height="33" width="100" x="566.1" y="197.5" as="geometry" />
         </mxCell>
         <mxCell id="pTr_LYJ15uaenPGCWmsZ-34" edge="1" parent="1" source="pTr_LYJ15uaenPGCWmsZ-24" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;startArrow=block;startFill=1;endArrow=none;endFill=0;" target="pTr_LYJ15uaenPGCWmsZ-14">
           <mxGeometry relative="1" as="geometry">
             <Array as="points">
-              <mxPoint x="746" y="377" />
+              <mxPoint x="704.1" y="216" />
             </Array>
-            <mxPoint x="882.8939393939393" y="377.0000000000001" as="sourcePoint" />
+            <mxPoint x="840.9939393939393" y="216.0000000000001" as="sourcePoint" />
           </mxGeometry>
         </mxCell>
         <mxCell id="pTr_LYJ15uaenPGCWmsZ-27" parent="1" style="shape=parallelogram;perimeter=parallelogramPerimeter;whiteSpace=wrap;html=1;fixedSize=1;fillColor=#e51400;fontColor=#ffffff;strokeColor=#B20000;" value="Parse" vertex="1">
-          <mxGeometry height="33" width="100" x="440" y="358.5" as="geometry" />
+          <mxGeometry height="33" width="100" x="398.1" y="197.5" as="geometry" />
         </mxCell>
         <mxCell id="pTr_LYJ15uaenPGCWmsZ-35" edge="1" parent="1" source="pTr_LYJ15uaenPGCWmsZ-28" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" target="pTr_LYJ15uaenPGCWmsZ-29">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
         <mxCell id="pTr_LYJ15uaenPGCWmsZ-28" parent="1" style="shape=parallelogram;perimeter=parallelogramPerimeter;whiteSpace=wrap;html=1;fixedSize=1;fillColor=#e51400;fontColor=#ffffff;strokeColor=#B20000;" value="Transform" vertex="1">
-          <mxGeometry height="33" width="100" x="356" y="358.5" as="geometry" />
+          <mxGeometry height="33" width="100" x="314.1" y="197.5" as="geometry" />
         </mxCell>
         <mxCell id="pTr_LYJ15uaenPGCWmsZ-32" edge="1" parent="1" source="pTr_LYJ15uaenPGCWmsZ-29" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;">
           <mxGeometry relative="1" as="geometry">
-            <mxPoint x="157" y="376" as="targetPoint" />
+            <mxPoint x="115.1" y="215" as="targetPoint" />
           </mxGeometry>
         </mxCell>
         <mxCell id="pTr_LYJ15uaenPGCWmsZ-29" parent="1" style="shape=hexagon;perimeter=hexagonPerimeter2;whiteSpace=wrap;html=1;fixedSize=1;fontSize=10;" value="&lt;font face=&quot;Courier New&quot;&gt;&lt;b&gt;SensorThings Observation&lt;/b&gt;&lt;/font&gt;" vertex="1">
-          <mxGeometry height="33.5" width="120" x="204" y="359" as="geometry" />
+          <mxGeometry height="33.5" width="120" x="162.1" y="198" as="geometry" />
         </mxCell>
         <mxCell id="pTr_LYJ15uaenPGCWmsZ-33" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="&lt;i&gt;FROST&lt;/i&gt;&lt;div&gt;&lt;i&gt;Server&lt;/i&gt;&lt;/div&gt;" vertex="1">
-          <mxGeometry height="30" width="60" x="137.9" y="415" as="geometry" />
+          <mxGeometry height="30" width="60" x="96" y="254" as="geometry" />
         </mxCell>
         <mxCell id="pTr_LYJ15uaenPGCWmsZ-38" edge="1" parent="1" style="endArrow=block;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;startArrow=baseDash;startFill=0;endFill=1;endSize=10;startSize=20;" value="">
           <mxGeometry height="50" relative="1" width="50" as="geometry">
             <Array as="points">
-              <mxPoint x="525" y="264.52" />
+              <mxPoint x="483.1" y="103.51999999999998" />
             </Array>
-            <mxPoint x="359" y="264" as="sourcePoint" />
-            <mxPoint x="624" y="264" as="targetPoint" />
+            <mxPoint x="317.1" y="103" as="sourcePoint" />
+            <mxPoint x="582.1" y="103" as="targetPoint" />
           </mxGeometry>
         </mxCell>
         <mxCell id="pTr_LYJ15uaenPGCWmsZ-39" connectable="0" parent="pTr_LYJ15uaenPGCWmsZ-38" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="&amp;nbsp; &amp;nbsp; Provider Level Pipeline&amp;nbsp; &amp;nbsp;" vertex="1">
@@ -96,10 +96,10 @@
         <mxCell id="pTr_LYJ15uaenPGCWmsZ-40" edge="1" parent="1" style="endArrow=baseDash;html=1;rounded=0;edgeStyle=orthogonalEdgeStyle;startArrow=block;startFill=1;endFill=0;endSize=20;startSize=10;" value="">
           <mxGeometry height="50" relative="1" width="50" as="geometry">
             <Array as="points">
-              <mxPoint x="514" y="416.2" />
+              <mxPoint x="472.1" y="255.2" />
             </Array>
-            <mxPoint x="334" y="415.68" as="sourcePoint" />
-            <mxPoint x="681" y="416" as="targetPoint" />
+            <mxPoint x="292.1" y="254.68" as="sourcePoint" />
+            <mxPoint x="639.1" y="255" as="targetPoint" />
           </mxGeometry>
         </mxCell>
         <mxCell id="pTr_LYJ15uaenPGCWmsZ-41" connectable="0" parent="pTr_LYJ15uaenPGCWmsZ-40" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="&amp;nbsp; &amp;nbsp; Model Level Pipeline&amp;nbsp; &amp;nbsp;" vertex="1">
@@ -111,13 +111,13 @@
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
         <mxCell id="pTr_LYJ15uaenPGCWmsZ-43" parent="1" style="image;aspect=fixed;html=1;points=[];align=center;fontSize=12;image=img/lib/azure2/other/Defender_Sensor.svg;" value="" vertex="1">
-          <mxGeometry height="25" width="33.81" x="91" y="289.5" as="geometry" />
+          <mxGeometry height="25" width="33.81" x="49.1" y="128.5" as="geometry" />
         </mxCell>
         <mxCell id="pTr_LYJ15uaenPGCWmsZ-46" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="&lt;i&gt;Sensors&lt;/i&gt;" vertex="1">
-          <mxGeometry height="30" width="60" x="77.9" y="255.5" as="geometry" />
+          <mxGeometry height="30" width="60" x="36.00000000000001" y="94.5" as="geometry" />
         </mxCell>
         <mxCell id="pTr_LYJ15uaenPGCWmsZ-48" parent="1" style="image;aspect=fixed;perimeter=ellipsePerimeter;html=1;align=center;shadow=0;dashed=0;spacingTop=3;image=img/lib/active_directory/database_server.svg;" value="" vertex="1">
-          <mxGeometry height="50" width="41" x="154.9" y="351" as="geometry" />
+          <mxGeometry height="50" width="41" x="113" y="190" as="geometry" />
         </mxCell>
       </root>
     </mxGraphModel>

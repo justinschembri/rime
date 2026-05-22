@@ -11,7 +11,7 @@ from ..types import ObservedProperties
 from ...sta.core import Observation
 
 
-class VendorObservationTransformer(BaseModel):
+class VendorObservationNormalizer(BaseModel):
     """Maps vendor observation fields (``ParsedMessage.body``) to SensorThings observations."""
 
     provider_phenomenon_time: datetime | None = None
@@ -33,10 +33,8 @@ class VendorObservationTransformer(BaseModel):
 
     @classmethod
     def from_parsed(cls, msg: ParsedMessage):
-        observations = msg.body
-        payload = {k.lower(): v for k, v in observations.items()}
-        obj = cls(**payload)
-        obj.provider_phenomenon_time = msg.provider_timestamp
+        obj = cls(**msg.body)
+        obj.provider_phenomenon_time = msg.phenomenon_timestamp or msg.provider_timestamp
         return obj
 
     def _transform(self) -> dict[ObservedProperties, Any]:

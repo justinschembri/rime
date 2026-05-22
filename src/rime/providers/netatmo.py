@@ -45,9 +45,7 @@ class NetatmoProvider(HTTPTransport):
         self._authenticated = True
         return self._auth_obj
 
-    def _decapsulate_wire(
-        self, wire_payload: Any
-    ) -> list[DecapsulatedMessage]:
+    def _decapsulate_wire(self, wire_payload: Any) -> DecapsulatedMessage:
         return NetatmoDecapsulator.decapsulate(wire_payload)
 
     def _pull_data(self) -> list[dict[str, Any]] | None:

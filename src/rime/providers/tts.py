@@ -38,14 +38,12 @@ class TTSProvider(MQTTTransport):
             return False
         return True
 
-    def _decapsulate_wire(
-        self, wire_payload: dict[str, Any]
-    ) -> list[DecapsulatedMessage]:
+    def _decapsulate_wire(self, wire_payload: dict[str, Any]) -> DecapsulatedMessage:
         decapped = TTNDecapsulator.decapsulate(wire_payload)
-        if len(decapped) != 1:
+        if len(decapped.sensor_payloads) != 1:
             raise UnpackError(
                 RuntimeError(
-                    "TTN uplink must decapsulate to exactly one logical device message."
+                    "TTN uplink must decapsulate to exactly one logical device payload."
                 )
             )
         return decapped
