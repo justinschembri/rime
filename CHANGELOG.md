@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Set canonical names** - Define canonical `CanonicalDatastreams` which
+  restrict the allowable names for Datastreams, ensuring consitency between 
+  internal application and FROST entities.
 - **Dockerfile multi-stage build** - Refactored Dockerfile to use multi-stage build
   pattern with `ghcr.io/astral-sh/uv:python3.13-bookworm` as builder stage and
   `python:3.13-slim` as runtime stage. This resolves GitHub Container Registry

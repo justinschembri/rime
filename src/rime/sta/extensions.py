@@ -13,7 +13,7 @@ import yaml
 
 from rime.exceptions import FailedSensorConfigValidation
 from rime.sta.maps import SENSOR_THINGS_CLASS_MAP
-from rime.transformers.types import SensorUUID, SupportedSensors
+from rime.transformers.types import CanonicalDatastreams, SensorUUID, SupportedSensors
 
 # internal
 if TYPE_CHECKING:
@@ -126,12 +126,14 @@ class SensorConfig:
         valid_entity_contents = self._validate_entity_contents(self.data)
         valid_entity_sizes = self._validate_entity_sizes(self.data)
         valid_iot_link = self._validate_iot_links(self.data)
+        valid_datastream_names = self._validate_datastream_names()
 
         if not all(
             [
                 valid_entity_contents[0],
                 valid_entity_sizes[0],
                 valid_iot_link[0],
+                valid_datastream_names,
             ]
         ):
             main_error = f"{self._filepath.name} is an invalid config."
@@ -286,4 +288,18 @@ class SensorConfig:
                 # several lines removed here which can be reimplemented,
                 # see 32392b2
         return (True, []) if not invalid else (False, error_list)
+    
+    def _validate_datastream_names(self) -> bool:
+        invalid_datastreams = []
+        for datastream in self.data["Datastreams"]:
+            if datastream not in CanonicalDatastreams:
+                invalid_datastreams.append(datastream)
 
+        if invalid_datastreams:
+            main_logger.error(
+                    f"{self._filepath.name} is non-canonical datastream names: "
+                    f"{invalid_datastreams}"
+                    )
+            return False
+
+        return True

@@ -16,7 +16,7 @@ Example ``observations`` shape received::
 """
 
 from .core import Normalizer
-from ..types import ObservedProperties
+from ..types import CanonicalDatastreams
 
 
 class NetatmoNWS03(Normalizer):
@@ -26,10 +26,10 @@ class NetatmoNWS03(Normalizer):
     noise: int
     pressure: float
 
-    NAME_TRANSFORM: dict[str, ObservedProperties] = {
-        "temperature": ObservedProperties.TEMP_IN,
-        "co2": ObservedProperties.CO2_INDOOR,
-        "humidity": ObservedProperties.HUMIDITY_INDOOR,
-        "noise": ObservedProperties.NOISE_IN,
-        "pressure": ObservedProperties.G_PRESSURE_IN,
+    NAME_TRANSFORM: dict[str, CanonicalDatastreams] = {
+        "temperature": CanonicalDatastreams.TEMP_IN,
+        "co2": CanonicalDatastreams.CO2_INDOOR,
+        "humidity": CanonicalDatastreams.HUMIDITY_INDOOR,
+        "noise": CanonicalDatastreams.NOISE_IN,
+        "pressure": CanonicalDatastreams.G_PRESSURE_IN,
     }
