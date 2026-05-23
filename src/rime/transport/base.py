@@ -108,6 +108,7 @@ class SensorTransport(ABC):
         Long-running loop that drives data acquisition and processing.
 
         This method must always call _process_wire_message().
+        Implement in a direct `SensorTransport` class such as HTTP or MQTT.
         """
         ...
 
@@ -175,6 +176,8 @@ class SensorTransport(ABC):
         never raw bytes.  The returned message's ``identified_payloads`` list
         carries one :class:`~rime.transformers.messages.IdentifiedPayload` per
         logical sensor present in the wire message.
+
+        Implement in a concrete providers. .
         """
 
     def _process_wire_message(self, wire_message: Any) -> None:
