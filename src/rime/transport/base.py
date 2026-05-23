@@ -44,7 +44,7 @@ import traceback
 from abc import ABC, abstractmethod
 from typing import Any, Literal
 
-from rime.exceptions import FrostUploadFailure, UnpackError, UnregisteredSensorError
+from rime.exceptions import FrostUploadFailure, UnexpectedProviderMessage, UnpackError, UnregisteredSensorError
 from rime.frost.post import frost_observation_upload
 
 from ..monitor import netmon
@@ -107,8 +107,9 @@ class SensorTransport(ABC):
         """
         Long-running loop that drives data acquisition and processing.
 
-        This method must always call _process_wire_message().
-        Implement in a direct `SensorTransport` class such as HTTP or MQTT.
+        This method must receive a wire message and pass it to 
+        _process_wire_message(). Implemented in a direct descendant of 
+        `SensorTransport`.
         """
         ...
 
@@ -253,6 +254,10 @@ class SensorTransport(ABC):
             return 0
         elif isinstance(e, KeyError):
             msg = f"{name}: sensor model has no ingest components configured."
+            _log((f"{self.app_name} " + msg), debug_context)
+            return 0
+        elif isinstance(e, UnexpectedProviderMessage):
+            msg = f"{name}: unexpected provider message."
             _log((f"{self.app_name} " + msg), debug_context)
             return 0
         elif isinstance(e, FrostUploadFailure):

@@ -16,3 +16,6 @@ class FailedSensorConfigValidation(Exception):
 
 class FrostUploadFailure(Exception):
     """Failure to push to FROST server."""
+
+class UnexpectedProviderMessage(Exception):
+    """Unexpected provider message type or shape."""
