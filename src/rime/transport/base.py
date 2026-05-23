@@ -105,11 +105,12 @@ class SensorTransport(ABC):
     @abstractmethod
     def _run(self) -> None:
         """
+        Implemented in a direct descendant of `SensorTransport`.
+        This method must receive a wire message and pass it to 
+        the implemented _process_wire_message(). 
+
         Long-running loop that drives data acquisition and processing.
 
-        This method must receive a wire message and pass it to 
-        _process_wire_message(). Implemented in a direct descendant of 
-        `SensorTransport`.
         """
         ...
 
@@ -171,14 +172,16 @@ class SensorTransport(ABC):
 
     @abstractmethod
     def _decapsulate_wire(self, wire_message: Any) -> DecapsulatedMessage:
-        """Strip the provider envelope; return a :class:`~rime.transformers.messages.DecapsulatedMessage`.
+        """
+        Implement in a concrete providers.
+
+        Strip the provider envelope; return a :class:`~rime.transformers.messages.DecapsulatedMessage`.
 
         Receives the output of ``_deserialize_wire`` — always a Python object,
         never raw bytes.  The returned message's ``identified_payloads`` list
         carries one :class:`~rime.transformers.messages.IdentifiedPayload` per
         logical sensor present in the wire message.
 
-        Implement in a concrete providers. .
         """
 
     def _process_wire_message(self, wire_message: Any) -> None:

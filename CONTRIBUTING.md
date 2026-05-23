@@ -54,12 +54,28 @@ Use this checklist when adding new ingestion capabilities to `rime`.
 
 ## New Provider
 
+A provider inherits from a `SensorTransport` child such as
+`HTTPTransport`, `MQTTTransport`:
+
+```
+SensorTransport
+└── Child (e.g., HTTPTransport)
+    └── Grandchild / provider transport (e.g., NetatmoProvider) <--- you are here
+```
+
+To implement a new provider:
 - [ ] Add `src/rime/providers/<name>.py`.
-- [ ] Subclass the correct transport class, e.g.: `HTTPTransport`, or `MQTTTransport`.
-- [ ] Implement `_decapsulate_wire(self, wire_message) -> DecapsulatedMessage` — usually a wrapper around a new or existing decapsulator.
-- [ ] Implement provider auth method:
-  - HTTP/MQTT provider still owns credential lookup and `_auth`.
-- [ ] Implement any `@abstractmethods` in the parent class, e.g.: `HTTPTransport` requires `_pull_data(self) -> Any` and `_auth`.
+- [ ] Subclass the correct child class, 
+- [ ] Implement a provider decapsulator in `transformers/decapsulators` which
+  inherits from a the `Decapsulator` ABC,
+- [ ] Wrap the new decapsulator in the `<NewProvider>._decapsulate_wire(...)`
+  method, 
+- [ ] Implement any remaining `@abstractmethods` in the `SensorTransport` child
+  class,
+- [ ] If needed, override:
+        -  _auth method for provider specific auth,:
+        - `<NewProvider>._decapsulate_wire(...)` method,
+        - `<NewProvider>._deserialize_wire(...)` method,
 - [ ] Optionally implement `_preflight(self) -> bool` for sanity checks.
 - [ ] Re-export provider in `src/rime/providers/__init__.py`.
 - [ ] Add/refresh provider docs in `src/rime/providers/README.md`.
