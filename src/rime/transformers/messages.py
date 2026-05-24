@@ -18,7 +18,20 @@ Payload
 IdentifiedPayload
     A ``Payload`` enriched with rime routing metadata — specifically
     ``sensor_uuid``, the registry key used to look up model components.
-    Compositionally: ``IdentifiedPayload = Payload + identity``.
+    Compositionally: ``IdentifiedPayload = Payload + identity``.  After
+    registry resolution, ``sensor_model`` and ``components`` are populated
+    (see :func:`~rime.transformers.ingest_registry.resolve_identified_payload`).
+
+IdentifiedTimeSeriesPayload
+    Time-series analogue of ``IdentifiedPayload`` for providers that
+    homogeneously deliver readings as evenly- or unevenly-sampled series
+    (e.g. SeedLink mini-SEED). ``payloads`` is a sequence of per-sample
+    elements, each the same shape as one ``IdentifiedPayload.payload`` would
+    be for that sensor model; ``time_axis`` carries the shared timeline.
+    Datastream hints not embedded in the payload live on
+    ``DecapsulatedMessage.envelope_metadata``.  A decapsulator emits either
+    ``IdentifiedPayload`` *or* ``IdentifiedTimeSeriesPayload`` per message —
+    never both.
 
 DecapsulatedMessage  ("Message")
     The ingest unit produced by a :class:`~rime.transformers.decapsulators.core.Decapsulator`.
@@ -39,11 +52,19 @@ ObservationRecord
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import datetime
-from typing import Any, Optional
+from collections.abc import Iterator
+from dataclasses import dataclass, replace
+from datetime import datetime, timedelta
+from typing import TYPE_CHECKING, Any, Optional
 
-from .types import SensorUUID
+from numpy import ndarray
+
+from rime.exceptions import UnpackError
+
+from .types import SensorUUID, SupportedSensors
+
+if TYPE_CHECKING:
+    from .ingest_registry import IngestModelComponents
 
 
 # ---------------------------------------------------------------------------
@@ -57,10 +78,106 @@ class IdentifiedPayload:
     ``payload`` is provider-independent: the same sensor model connected to a
     different upstream provider produces the same ``payload`` shape.  Identity
     extraction is provider-dependent and happens inside the decapsulator.
+    ``sensor_model`` and ``components`` are filled by
+    :func:`~rime.transformers.ingest_registry.resolve_identified_payload`.
     """
 
     sensor_uuid: SensorUUID
     payload: Any
+    sensor_model: SupportedSensors | None = None
+    components: IngestModelComponents | None = None
+
+@dataclass(frozen=True, slots=True)
+class RegularTimeAxis:
+    """Compact time axis for evenly-sampled series.
+
+    Mirrors ObsPy's ``Trace.stats`` time model: a start instant, a fixed
+    inter-sample interval, and a sample count. ``endtime`` is derived; the
+    per-sample timeline is materialised on demand via :meth:`iter_timestamps`.
+    """
+
+    starttime: datetime
+    delta: float
+    npts: int
+
+    @property
+    def endtime(self) -> datetime:
+        return self.starttime + timedelta(seconds=(self.npts - 1) * self.delta)
+
+    def iter_timestamps(self) -> Iterator[datetime]:
+        delta_us = self.delta * 1_000_000
+        for i in range(self.npts):
+            yield self.starttime + timedelta(microseconds=int(round(i * delta_us)))
+
+
+@dataclass(frozen=True, slots=True)
+class IrregularTimeAxis:
+    """Explicit per-sample timestamps for non-uniformly-sampled series."""
+
+    timestamps: list[datetime]
+
+    def iter_timestamps(self) -> Iterator[datetime]:
+        yield from self.timestamps
+
+
+TimeAxis = RegularTimeAxis | IrregularTimeAxis
+
+
+@dataclass(frozen=True, slots=True)
+class IdentifiedTimeSeriesPayload:
+    """A native sensor time-series paired with its rime registry identity.
+
+    Used instead of :class:`IdentifiedPayload` when the provider chooses to
+    homogeneously deliver readings as time series rather than point-in-time
+    samples (common for high-rate digitisers — e.g. SeedLink / mini-SEED).
+
+    ``payloads`` is a sequence of per-sample elements — each the same shape as
+    one :attr:`IdentifiedPayload.payload` for that sensor model (e.g. a scalar
+    ``ndarray`` for one channel, or a ``dict`` for one multi-field snapshot).
+    All elements share a single :attr:`time_axis`. Provider-independent: the
+    same sensor model carried by a different upstream produces the same shape.
+    ``sensor_model`` and ``components`` are filled by
+    :func:`~rime.transformers.ingest_registry.resolve_time_series_payload`.
+    """
+
+    sensor_uuid: SensorUUID
+    payloads: list[Any] | ndarray
+    time_axis: TimeAxis
+    sensor_model: SupportedSensors | None = None
+    components: IngestModelComponents | None = None
+
+    def iter_samples(self) -> Iterator[tuple[Any, datetime]]:
+        """Yield ``(payload_element, phenomenon_timestamp)`` pairs."""
+        timestamps = list(self.time_axis.iter_timestamps())
+        payloads = self.payloads
+        n = len(payloads) if isinstance(payloads, list) else int(payloads.shape[0])
+        if n != len(timestamps):
+            raise UnpackError(
+                ValueError(
+                    f"time axis length {len(timestamps)} != payload length {n}"
+                )
+            )
+        if isinstance(payloads, ndarray):
+            for i, timestamp in enumerate(timestamps):
+                yield payloads[i], timestamp
+        else:
+            yield from zip(payloads, timestamps)
+
+    def expand_to_point_in_time(
+        self,
+        envelope: EnvelopeMetadata | None,
+    ) -> Iterator[tuple[IdentifiedPayload, EnvelopeMetadata]]:
+        """Fan out into per-sample :class:`IdentifiedPayload` + envelope pairs."""
+        for element, timestamp in self.iter_samples():
+            yield (
+                IdentifiedPayload(
+                    sensor_uuid=self.sensor_uuid,
+                    payload=element,
+                    sensor_model=self.sensor_model,
+                    components=self.components,
+                ),
+                envelope_at_phenomenon_time(envelope, timestamp),
+            )
 
 
 @dataclass(frozen=True, slots=True)
@@ -79,6 +196,19 @@ class EnvelopeMetadata:
     phenomenon_timestamp: Optional[datetime] = None
     other: Optional[Any] = None
 
+    def with_phenomenon_time(self, phenomenon_timestamp: datetime) -> EnvelopeMetadata:
+        return replace(self, phenomenon_timestamp=phenomenon_timestamp)
+
+
+def envelope_at_phenomenon_time(
+    envelope: EnvelopeMetadata | None,
+    phenomenon_timestamp: datetime,
+) -> EnvelopeMetadata:
+    """Return *envelope* with ``phenomenon_timestamp`` set for one sample."""
+    if envelope is None:
+        return EnvelopeMetadata(phenomenon_timestamp=phenomenon_timestamp)
+    return envelope.with_phenomenon_time(phenomenon_timestamp)
+
 
 @dataclass(frozen=True, slots=True)
 class DecapsulatedMessage:
@@ -93,7 +223,7 @@ class DecapsulatedMessage:
     sensor-native payload.
     """
 
-    identified_payloads: list[IdentifiedPayload]
+    identified_payloads: list[IdentifiedPayload] | list[IdentifiedTimeSeriesPayload]
     envelope_metadata: Optional[EnvelopeMetadata] = None
 
 

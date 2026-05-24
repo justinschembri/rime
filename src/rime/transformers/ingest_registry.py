@@ -15,11 +15,14 @@ parser can handle:
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, replace
 from typing import Type
+
+from rime.exceptions import UnregisteredSensorError
 
 from .decoders.core import Decoder
 from .deserializers.core import Deserializer
+from .messages import IdentifiedPayload, IdentifiedTimeSeriesPayload
 from .normalizers.core import Normalizer
 from .normalizers.milesight import (
     MilesightAm103lNormalizer,
@@ -27,7 +30,7 @@ from .normalizers.milesight import (
 )
 from .normalizers.netatmo import NetatmoNWS03
 from .parsers import MilesightAm103lParser, MilesightAm308lParser, NetatmoNWS03Parser, Parser
-from .types import SupportedSensors
+from .types import SensorUUID, SupportedSensors
 
 
 @dataclass(frozen=True, slots=True)
@@ -52,3 +55,35 @@ INGEST_COMPONENT_MAP: dict[SupportedSensors, IngestModelComponents] = {
         normalizer=NetatmoNWS03,
     ),
 }
+
+
+def _lookup_ingest_components(
+    sensor_uuid: SensorUUID,
+    sensor_registry: dict[SensorUUID, SupportedSensors],
+) -> tuple[SupportedSensors, IngestModelComponents]:
+    sensor_model = sensor_registry.get(sensor_uuid)
+    if sensor_model is None:
+        raise UnregisteredSensorError
+    return sensor_model, INGEST_COMPONENT_MAP[sensor_model]
+
+
+def resolve_identified_payload(
+    identified: IdentifiedPayload,
+    sensor_registry: dict[SensorUUID, SupportedSensors],
+) -> IdentifiedPayload:
+    """Attach ``sensor_model`` and ``components`` from deployment + code registries."""
+    sensor_model, components = _lookup_ingest_components(
+        identified.sensor_uuid, sensor_registry
+    )
+    return replace(identified, sensor_model=sensor_model, components=components)
+
+
+def resolve_time_series_payload(
+    identified: IdentifiedTimeSeriesPayload,
+    sensor_registry: dict[SensorUUID, SupportedSensors],
+) -> IdentifiedTimeSeriesPayload:
+    """Attach ``sensor_model`` and ``components`` for a time-series carrier."""
+    sensor_model, components = _lookup_ingest_components(
+        identified.sensor_uuid, sensor_registry
+    )
+    return replace(identified, sensor_model=sensor_model, components=components)

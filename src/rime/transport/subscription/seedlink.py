@@ -21,6 +21,9 @@ import queue
 import threading
 
 from obspy.clients.seedlink.easyseedlink import EasySeedLinkClient
+from obspy.core import Trace
+
+from rime.exceptions import UnexpectedProviderMessage
 
 from ..base import SensorTransport
 
@@ -80,7 +83,7 @@ class SeedLinkTransport(SensorTransport):
         payload_queue = self._payload_queue
 
         class _Client(EasySeedLinkClient):
-            def on_data(self, trace) -> None:
+            def on_data(self, trace:Trace) -> None:
                 payload_queue.put(trace)
 
         self._seedlink_client = _Client(self.host, autoconnect=False)
@@ -113,6 +116,12 @@ class SeedLinkTransport(SensorTransport):
         while not self._stop_event.is_set():
             try:
                 wire_message = self._payload_queue.get(timeout=self.timeout)
+                if not isinstance(wire_message, Trace):
+                    e = UnexpectedProviderMessage(
+                            f"Unexpected provider message, expected Trace, got: "
+                            f"{wire_message}"
+                            )
+                    raise e
                 self._process_wire_message(wire_message)
                 failures = 0
             except Exception as e:

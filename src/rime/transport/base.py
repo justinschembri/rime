@@ -25,6 +25,10 @@ Model tier (per IdentifiedPayload, keyed by sensor model from INGEST_COMPONENT_M
     normalizer.from_record  →  vendor fields → SensorThings observations
     frost_observation_upload →  push to FROST
 
+Time-series carriers (:class:`~rime.transformers.messages.IdentifiedTimeSeriesPayload`)
+are expanded in ``_process_wire_message`` into one :class:`~rime.transformers.messages.IdentifiedPayload`
+per sample before the model tier runs.
+
 The application-tier hooks default to identity so transports whose libraries
 already handle wire decoding (ObsPy for SeedLink, lnetatmo for Netatmo) need
 not override them. MQTT overrides `_deserialize_wire` with `json.loads`.
@@ -44,12 +48,20 @@ import traceback
 from abc import ABC, abstractmethod
 from typing import Any, Literal
 
-from rime.exceptions import FrostUploadFailure, UnpackError, UnregisteredSensorError
+from rime.exceptions import FrostUploadFailure, UnexpectedProviderMessage, UnpackError, UnregisteredSensorError
 from rime.frost.post import frost_observation_upload
 
 from ..monitor import netmon
-from ..transformers.ingest_registry import INGEST_COMPONENT_MAP
-from ..transformers.messages import DecapsulatedMessage
+from ..transformers.ingest_registry import (
+    resolve_identified_payload,
+    resolve_time_series_payload,
+)
+from ..transformers.messages import (
+    DecapsulatedMessage,
+    EnvelopeMetadata,
+    IdentifiedPayload,
+    IdentifiedTimeSeriesPayload,
+)
 from ..transformers.types import SensorUUID, SupportedSensors
 
 main_logger = logging.getLogger("main")
@@ -105,9 +117,12 @@ class SensorTransport(ABC):
     @abstractmethod
     def _run(self) -> None:
         """
+        Implemented in a direct descendant of `SensorTransport`.
+        This method must receive a wire message and pass it to 
+        the implemented _process_wire_message(). 
+
         Long-running loop that drives data acquisition and processing.
 
-        This method must always call _process_wire_message().
         """
         ...
 
@@ -169,12 +184,16 @@ class SensorTransport(ABC):
 
     @abstractmethod
     def _decapsulate_wire(self, wire_message: Any) -> DecapsulatedMessage:
-        """Strip the provider envelope; return a :class:`~rime.transformers.messages.DecapsulatedMessage`.
+        """
+        Implement in a concrete providers.
+
+        Strip the provider envelope; return a :class:`~rime.transformers.messages.DecapsulatedMessage`.
 
         Receives the output of ``_deserialize_wire`` — always a Python object,
         never raw bytes.  The returned message's ``identified_payloads`` list
         carries one :class:`~rime.transformers.messages.IdentifiedPayload` per
         logical sensor present in the wire message.
+
         """
 
     def _process_wire_message(self, wire_message: Any) -> None:
@@ -183,7 +202,7 @@ class SensorTransport(ABC):
         Provider tier:
             _decode_wire → _deserialize_wire → _decapsulate_wire
 
-        Model tier (per IdentifiedPayload in DecapsulatedMessage.identified_payloads):
+        Model tier (per sample after any time-series fan-out):
             parser.parse → normalizer.from_record → frost_observation_upload
         """
         decoded_wire = self._decode_wire(wire_message)
@@ -193,33 +212,59 @@ class SensorTransport(ABC):
         for identified in decapsulated.identified_payloads:
             sensor_uuid = identified.sensor_uuid
             try:
-                sensor_model = self.sensor_registry.get(sensor_uuid, None)
-                if not sensor_model:
-                    raise UnregisteredSensorError
-
-                components = INGEST_COMPONENT_MAP[sensor_model]
                 envelope = decapsulated.envelope_metadata
-                if components.deserializer:
-                    identified = components.deserializer.deserialize(identified, envelope)
-                if components.decoder:
-                    identified = components.decoder.decode(identified, envelope)
-                record = components.parser.parse(identified, envelope)
-                normalizer = components.normalizer.from_record(record)
-                st_observations = normalizer.to_stObservations()
-                for st_obs in st_observations:
-                    try:
-                        debug_logger.debug(f"{st_obs=} {sensor_uuid=}")
-                        frost_observation_upload(sensor_uuid, st_obs)
-                        event_logger.info(
-                            f"Received and processed a wire message from {self.app_name} "
-                            f"from a {sensor_model.value} sensor."
-                        )
-                        netmon.add_named_count("push_success", f"{sensor_uuid}", 1)
-                    except FrostUploadFailure as e:
-                        self._exception_handler(e, sensor_id=sensor_uuid)
+                if isinstance(identified, IdentifiedTimeSeriesPayload):
+                    self._run_time_series_ingest(
+                        resolve_time_series_payload(identified, self.sensor_registry),
+                        envelope,
+                    )
+                else:
+                    self._run_model_ingest(
+                        resolve_identified_payload(identified, self.sensor_registry),
+                        envelope,
+                    )
             except (UnregisteredSensorError, UnpackError, KeyError) as e:
                 self._exception_handler(e, sensor_id=sensor_uuid, stage="model_ingest")
                 continue
+
+    def _run_time_series_ingest(
+        self,
+        identified: IdentifiedTimeSeriesPayload,
+        envelope: EnvelopeMetadata | None,
+    ) -> None:
+        for sample, sample_envelope in identified.expand_to_point_in_time(envelope):
+            self._run_model_ingest(sample, sample_envelope)
+
+    def _run_model_ingest(
+        self,
+        identified: IdentifiedPayload,
+        envelope: EnvelopeMetadata | None,
+    ) -> None:
+        components = identified.components
+        sensor_model = identified.sensor_model
+        sensor_uuid = identified.sensor_uuid
+        if components is None or sensor_model is None:
+            raise UnpackError(
+                RuntimeError("IdentifiedPayload must be resolved before model ingest.")
+            )
+        if components.deserializer:
+            identified = components.deserializer.deserialize(identified, envelope)
+        if components.decoder:
+            identified = components.decoder.decode(identified, envelope)
+        record = components.parser.parse(identified, envelope)
+        normalizer = components.normalizer.from_record(record)
+        st_observations = normalizer.to_stObservations()
+        for st_obs in st_observations:
+            try:
+                debug_logger.debug(f"{st_obs=} {sensor_uuid=}")
+                frost_observation_upload(sensor_uuid, st_obs)
+                event_logger.info(
+                    f"Received and processed a wire message from {self.app_name} "
+                    f"from a {sensor_model.value} sensor."
+                )
+                netmon.add_named_count("push_success", f"{sensor_uuid}", 1)
+            except FrostUploadFailure as e:
+                self._exception_handler(e, sensor_id=sensor_uuid)
 
     #TODO: reconsider exception handler as part of the class, should be a global concern
     def _exception_handler(self, e: Exception | None, **kwargs) -> Literal[0, 1]:
@@ -250,6 +295,10 @@ class SensorTransport(ABC):
             return 0
         elif isinstance(e, KeyError):
             msg = f"{name}: sensor model has no ingest components configured."
+            _log((f"{self.app_name} " + msg), debug_context)
+            return 0
+        elif isinstance(e, UnexpectedProviderMessage):
+            msg = f"{name}: unexpected provider message."
             _log((f"{self.app_name} " + msg), debug_context)
             return 0
         elif isinstance(e, FrostUploadFailure):
