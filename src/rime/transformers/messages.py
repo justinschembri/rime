@@ -18,7 +18,9 @@ Payload
 IdentifiedPayload
     A ``Payload`` enriched with rime routing metadata — specifically
     ``sensor_uuid``, the registry key used to look up model components.
-    Compositionally: ``IdentifiedPayload = Payload + identity``.
+    Compositionally: ``IdentifiedPayload = Payload + identity``.  After
+    registry resolution, ``sensor_model`` and ``components`` are populated
+    (see :func:`~rime.transformers.ingest_registry.resolve_identified_payload`).
 
 IdentifiedTimeSeriesPayload
     Time-series analogue of ``IdentifiedPayload`` for providers that
@@ -51,13 +53,18 @@ ObservationRecord
 from __future__ import annotations
 
 from collections.abc import Iterator
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timedelta
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from numpy import ndarray
 
-from .types import SensorUUID
+from rime.exceptions import UnpackError
+
+from .types import SensorUUID, SupportedSensors
+
+if TYPE_CHECKING:
+    from .ingest_registry import IngestModelComponents
 
 
 # ---------------------------------------------------------------------------
@@ -71,10 +78,14 @@ class IdentifiedPayload:
     ``payload`` is provider-independent: the same sensor model connected to a
     different upstream provider produces the same ``payload`` shape.  Identity
     extraction is provider-dependent and happens inside the decapsulator.
+    ``sensor_model`` and ``components`` are filled by
+    :func:`~rime.transformers.ingest_registry.resolve_identified_payload`.
     """
 
     sensor_uuid: SensorUUID
     payload: Any
+    sensor_model: SupportedSensors | None = None
+    components: IngestModelComponents | None = None
 
 @dataclass(frozen=True, slots=True)
 class RegularTimeAxis:
@@ -125,11 +136,48 @@ class IdentifiedTimeSeriesPayload:
     ``ndarray`` for one channel, or a ``dict`` for one multi-field snapshot).
     All elements share a single :attr:`time_axis`. Provider-independent: the
     same sensor model carried by a different upstream produces the same shape.
+    ``sensor_model`` and ``components`` are filled by
+    :func:`~rime.transformers.ingest_registry.resolve_time_series_payload`.
     """
 
     sensor_uuid: SensorUUID
     payloads: list[Any] | ndarray
     time_axis: TimeAxis
+    sensor_model: SupportedSensors | None = None
+    components: IngestModelComponents | None = None
+
+    def iter_samples(self) -> Iterator[tuple[Any, datetime]]:
+        """Yield ``(payload_element, phenomenon_timestamp)`` pairs."""
+        timestamps = list(self.time_axis.iter_timestamps())
+        payloads = self.payloads
+        n = len(payloads) if isinstance(payloads, list) else int(payloads.shape[0])
+        if n != len(timestamps):
+            raise UnpackError(
+                ValueError(
+                    f"time axis length {len(timestamps)} != payload length {n}"
+                )
+            )
+        if isinstance(payloads, ndarray):
+            for i, timestamp in enumerate(timestamps):
+                yield payloads[i], timestamp
+        else:
+            yield from zip(payloads, timestamps)
+
+    def expand_to_point_in_time(
+        self,
+        envelope: EnvelopeMetadata | None,
+    ) -> Iterator[tuple[IdentifiedPayload, EnvelopeMetadata]]:
+        """Fan out into per-sample :class:`IdentifiedPayload` + envelope pairs."""
+        for element, timestamp in self.iter_samples():
+            yield (
+                IdentifiedPayload(
+                    sensor_uuid=self.sensor_uuid,
+                    payload=element,
+                    sensor_model=self.sensor_model,
+                    components=self.components,
+                ),
+                envelope_at_phenomenon_time(envelope, timestamp),
+            )
 
 
 @dataclass(frozen=True, slots=True)
@@ -147,6 +195,19 @@ class EnvelopeMetadata:
     provider_timestamp: Optional[datetime] = None
     phenomenon_timestamp: Optional[datetime] = None
     other: Optional[Any] = None
+
+    def with_phenomenon_time(self, phenomenon_timestamp: datetime) -> EnvelopeMetadata:
+        return replace(self, phenomenon_timestamp=phenomenon_timestamp)
+
+
+def envelope_at_phenomenon_time(
+    envelope: EnvelopeMetadata | None,
+    phenomenon_timestamp: datetime,
+) -> EnvelopeMetadata:
+    """Return *envelope* with ``phenomenon_timestamp`` set for one sample."""
+    if envelope is None:
+        return EnvelopeMetadata(phenomenon_timestamp=phenomenon_timestamp)
+    return envelope.with_phenomenon_time(phenomenon_timestamp)
 
 
 @dataclass(frozen=True, slots=True)
