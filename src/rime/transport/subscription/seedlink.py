@@ -110,7 +110,7 @@ class SeedLinkTransport(SensorTransport):
     def _run(self) -> None:
         if not self._connected:
             self._connect()
-
+        #TODO: must implement size (or time) buffer here, or in the parent class
         failures = 0
         wire_message = None
         while not self._stop_event.is_set():
@@ -122,6 +122,7 @@ class SeedLinkTransport(SensorTransport):
                             f"{wire_message}"
                             )
                     raise e
+                # if buffer ... 
                 self._process_wire_message(wire_message)
                 failures = 0
             except Exception as e:

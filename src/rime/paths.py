@@ -12,14 +12,17 @@ __all__ = [
     "VARIABLE_SENSOR_CONFIG_PATH",
     "CREDENTIALS_DIR",
     "TOKENS_DIR",
+    "DECODERS_DIR",
+    "DOWNLOADS_DIR",
     "VARIABLE_APPLICATION_CONFIG_FILE",
     "START_SCRIPT",
-    "STOP_SCRIPT"
+    "STOP_SCRIPT",
 ]
 
 ROOT_DIR = Path(__file__).parent.parent.parent
 # Derived paths
 DEPLOY_DIR = ROOT_DIR / "deploy"
+SRC_DIR = ROOT_DIR / "src"
 ENV_FILE = DEPLOY_DIR / ".env"
 START_SCRIPT = DEPLOY_DIR / "start-production.sh"
 STOP_SCRIPT = DEPLOY_DIR / "stop-production.sh"
@@ -27,6 +30,7 @@ LOGS_DIR = ROOT_DIR / "logs"
 CREDENTIALS_DIR = DEPLOY_DIR / "secrets" / "credentials"
 TOKENS_DIR = DEPLOY_DIR / "secrets" / "tokens"
 DOWNLOADS_DIR = ROOT_DIR / "downloads"
+DECODERS_DIR = SRC_DIR / "rime" / "transformers" / "decoders"
 
 # it is suggested that the sensor and application configuration files live 
 # outside the RIME codebase and are tracked independently. For this reason,

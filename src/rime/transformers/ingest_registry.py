@@ -68,9 +68,9 @@ def _lookup_ingest_components(
 
 
 def resolve_identified_payload(
-    identified: IdentifiedPayload,
+    identified: IdentifiedPayload | IdentifiedTimeSeriesPayload,
     sensor_registry: dict[SensorUUID, SupportedSensors],
-) -> IdentifiedPayload:
+) -> IdentifiedPayload | IdentifiedTimeSeriesPayload:
     """Attach ``sensor_model`` and ``components`` from deployment + code registries."""
     sensor_model, components = _lookup_ingest_components(
         identified.sensor_uuid, sensor_registry

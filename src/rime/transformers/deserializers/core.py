@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 
-from ..messages import EnvelopeMetadata, IdentifiedPayload
+from ..messages import EnvelopeMetadata, IdentifiedPayload, IdentifiedTimeSeriesPayload
 
 
 class Deserializer(ABC):
@@ -27,8 +27,8 @@ class Deserializer(ABC):
     @staticmethod
     @abstractmethod
     def deserialize(
-        identified: IdentifiedPayload,
+        identified: IdentifiedPayload | IdentifiedTimeSeriesPayload,
         envelope: EnvelopeMetadata | None,
-    ) -> IdentifiedPayload:
+    ) -> IdentifiedPayload | IdentifiedTimeSeriesPayload:
         """Return *identified* with its ``payload`` deserialized."""
         ...

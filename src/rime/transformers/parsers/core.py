@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Iterator
 
-from ..messages import EnvelopeMetadata, IdentifiedPayload, ObservationRecord
+from ..messages import EnvelopeMetadata, IdentifiedPayload, IdentifiedTimeSeriesPayload, ObservationRecord
 
 
 class Parser(ABC):
@@ -25,9 +26,9 @@ class Parser(ABC):
     @staticmethod
     @abstractmethod
     def parse(
-        identified: IdentifiedPayload,
+        identified: IdentifiedPayload | IdentifiedTimeSeriesPayload,
         envelope: EnvelopeMetadata | None,
-    ) -> ObservationRecord:
+    ) -> ObservationRecord | Iterator[ObservationRecord]:
         """Return an :class:`~rime.transformers.messages.ObservationRecord` for *identified*.
 
         Raise :class:`~rime.exceptions.UnpackError` on malformed payloads.

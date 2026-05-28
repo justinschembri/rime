@@ -47,7 +47,7 @@ class Normalizer(BaseModel):
         return obj
 
     def _transform(self) -> dict[CanonicalDatastreams, Any]:
-        """Apply the transformations"""
+        """Apply the transformations to names and values."""
         for observed_property in self.TRANSFORM:
             value = getattr(self, observed_property)
             self.__setattr__(
