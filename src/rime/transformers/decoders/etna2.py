@@ -38,7 +38,7 @@ class Etna2Decoder(Decoder):
         if not isinstance(payloads, Trace):
             raise TypeError(f"Expected Trace object got {type(payloads)}")
 
-        payloads.remove_response(inv=inventory, output="ACC") 
+        payloads.remove_response(inventory=inventory, output="ACC") 
 
         return identified_payload
 
