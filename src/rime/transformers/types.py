@@ -39,3 +39,4 @@ class SupportedSensors(Enum):
     MILESIGHT_AM103L = "milesight.am103l"
     MILESIGHT_AM308L = "milesight.am308l"
     NETATMO_NWS03 = "netatmo.nws03"
+    KINEMETRICS_ETNA2 = "kinemetrics.etna2"
