@@ -28,8 +28,11 @@ from .normalizers.milesight import (
     MilesightAm103lNormalizer,
     MilesightAm308lNormalizer,
 )
+from .decoders.etna2 import Etna2Decoder
+from .normalizers.kinemetrics import KinemetricsEtna2
 from .normalizers.netatmo import NetatmoNWS03
 from .parsers import MilesightAm103lParser, MilesightAm308lParser, NetatmoNWS03Parser, Parser
+from .parsers.etna2 import Etna2Parser
 from .types import SensorUUID, SupportedSensors
 
 
@@ -53,6 +56,11 @@ INGEST_COMPONENT_MAP: dict[SupportedSensors, IngestModelComponents] = {
     SupportedSensors.NETATMO_NWS03: IngestModelComponents(
         parser=NetatmoNWS03Parser,
         normalizer=NetatmoNWS03,
+    ),
+    SupportedSensors.KINEMETRICS_ETNA2: IngestModelComponents(
+        parser=Etna2Parser,
+        normalizer=KinemetricsEtna2,
+        decoder=Etna2Decoder,
     ),
 }
 

@@ -13,5 +13,5 @@ NORMALIZER_MAP: dict[SupportedSensors, Type[Normalizer]] = {
     SupportedSensors.MILESIGHT_AM103L: milesight.MilesightAm103lNormalizer,
     SupportedSensors.MILESIGHT_AM308L: milesight.MilesightAm308lNormalizer,
     SupportedSensors.NETATMO_NWS03: netatmo.NetatmoNWS03,
-    SupportedSensors.Kinemetrics_ETNA2: kinemetrics.KinemetricsEtna2Normalizer,
+    SupportedSensors.KINEMETRICS_ETNA2: kinemetrics.KinemetricsEtna2,
 }
