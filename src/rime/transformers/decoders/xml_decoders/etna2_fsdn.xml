@@ -5,7 +5,7 @@
  <Created>2026-05-15T04:56:13.110716Z</Created>
  <Network code="RO" startDate="1980-01-01T00:00:00Z" restrictedStatus="open">
   <Description>Romanian Seismic Network</Description>
-  <Station code="BTN0" startDate="2024-04-01T00:00:00Z" restrictedStatus="open">
+  <Station code="TEBL0" startDate="2024-04-01T00:00:00Z" restrictedStatus="open">
    <Latitude>44.4142</Latitude>
    <Longitude>26.1133</Longitude>
    <Elevation>87</Elevation>
