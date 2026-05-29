@@ -1,4 +1,4 @@
-"""Model-level decoder for the ETNA2 triaxial accelerometer."""
+"""Model-level decoder for the Kinemetrics ETNA2 triaxial accelerometer."""
 # external
 from obspy import Trace, read_inventory
 # internal
@@ -6,11 +6,11 @@ from rime.transformers.messages import EnvelopeMetadata, IdentifiedPayload, Iden
 from rime.paths import DECODERS_DIR
 from .core import Decoder
 
-ETNA2_DECODER_XML = DECODERS_DIR / "xml_decoders" / "etna2_fsdn.xml"
-inventory = read_inventory(ETNA2_DECODER_XML)
+KINEMETRICS_ETNA2_DECODER_XML = DECODERS_DIR / "xml_decoders" / "kinemetrics_etna2_fsdn.xml"
+inventory = read_inventory(KINEMETRICS_ETNA2_DECODER_XML)
 
-class Etna2Decoder(Decoder):
-    """Etna2 accelerometer payload decoders.
+class KinemetricsEtna2Decoder(Decoder):
+    """Kinemetrics ETNA2 accelerometer payload decoder.
 
     Decoding is the process by which model-specific encoded data is decoded into
     some other representation, e.g., accelerometer data → physical units.
@@ -31,7 +31,7 @@ class Etna2Decoder(Decoder):
         """Return *identified* with its `payload` decoded."""
         if not isinstance(identified_payload, IdentifiedTimeSeriesPayload):
             raise TypeError(
-                    "ETNA2 decoder expects an IdentifiedTimeSeriesPayload, " 
+                    "KinemetricsEtna2Decoder expects an IdentifiedTimeSeriesPayload, " 
                     f"but got: {type(identified_payload)}"
                     )
         payloads = identified_payload.payload
@@ -41,5 +41,4 @@ class Etna2Decoder(Decoder):
         payloads.remove_response(inventory=inventory, output="ACC") 
 
         return identified_payload
-
 

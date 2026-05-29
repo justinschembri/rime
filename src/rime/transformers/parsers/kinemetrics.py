@@ -1,4 +1,4 @@
-"""ETNA2 parser: point-in-time sample -> ObservationRecord."""
+"""Kinemetrics ETNA2 parser: point-in-time sample -> ObservationRecord."""
 
 from __future__ import annotations
 
@@ -6,8 +6,8 @@ from ..messages import EnvelopeMetadata, IdentifiedPayload, IdentifiedTimeSeries
 from .core import Parser
 
 
-class Etna2Parser(Parser):
-    """Parse an ETNA2 sample into an :class:`~rime.transformers.messages.ObservationRecord`."""
+class KinemetricsEtna2Parser(Parser):
+    """Parse a Kinemetrics ETNA2 sample into an :class:`~rime.transformers.messages.ObservationRecord`."""
 
     @staticmethod
     def parse(
@@ -16,11 +16,11 @@ class Etna2Parser(Parser):
     ) -> ObservationRecord:
         if isinstance(identified, IdentifiedTimeSeriesPayload):
             raise TypeError(
-                "Etna2Parser expects point-in-time payloads. "
+                "KinemetricsEtna2Parser expects point-in-time payloads. "
                 "Expand IdentifiedTimeSeriesPayload before parsing."
             )
         if not envelope or not envelope.datastream_name:
-            raise ValueError("Expected envelope datastream name for ETNA2 payload.")
+            raise ValueError("Expected envelope datastream name for Kinemetrics ETNA2 payload.")
         return ObservationRecord(
             sensor_uuid=identified.sensor_uuid,
             observations={envelope.datastream_name: identified.payload},
