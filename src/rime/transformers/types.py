@@ -33,7 +33,9 @@ class CanonicalDatastreams(Enum):
     A_PRESSURE_IN = "absolute_pressure"
     NOISE_IN = "noise"
     TVOC = "total_volatile_organic_compounds"
-
+    HNE = "acceleration_highgain_east-west"
+    HNN = "acceleration_highgain_north-south"
+    HNZ = "acceleration_highgain_postive-up"
 
 class SupportedSensors(Enum):
     MILESIGHT_AM103L = "milesight.am103l"

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Kinemetrics ETNA2 template inventory: replace TEMPLATE* / XX site metadata before use. -->
+<!-- Kinemetrics ETNA2 template inventory. Will successfully compile as an inventory. -->
 <FDSNStationXML xmlns="http://www.fdsn.org/xml/station/1" schemaVersion="1.2">
  <Source>rime</Source>
  <Sender>TEMPLATE</Sender>

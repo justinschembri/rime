@@ -10,16 +10,14 @@ logger = logging.getLogger(__name__)
 
 
 class KinemetricsEtna2(Normalizer):
-    battery: int
-    co2: float
-    humidity: float
-    temperature: float
+    HNE: float | None = None
+    HNN: float | None = None
+    HNZ: float | None = None
 
     NAME_TRANSFORM: dict[str, CanonicalDatastreams] = {
-        "battery": CanonicalDatastreams.BATTERY_LEVEL,
-        "co2": CanonicalDatastreams.CO2_INDOOR,
-        "humidity": CanonicalDatastreams.HUMIDITY_INDOOR,
-        "temperature": CanonicalDatastreams.TEMP_IN,
+        "HNE": CanonicalDatastreams.HNE,
+        "HNN": CanonicalDatastreams.HNN,
+        "HNZ": CanonicalDatastreams.HNZ,
     }
 
     TRANSFORM: dict[str, Callable] = {}

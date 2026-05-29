@@ -30,14 +30,15 @@ class Normalizer(BaseModel):
                 f"{self.__class__} must implement a NAME_TRANSFORM dict."
             )
 
-        invalid_names = (
-                set(self.NAME_TRANSFORM) - set(member.value for member in CanonicalDatastreams)
-                )
-        if invalid_names:
+        canonical_values = {member.value for member in CanonicalDatastreams}
+        invalid_values = {
+            datastream.value for datastream in self.NAME_TRANSFORM.values()
+        } - canonical_values
+        if invalid_values:
             raise AttributeError(
-                    f"NameTransformer method has non-canonical datastream names:"
-                    f" {invalid_names}"
-                    )
+                "NAME_TRANSFORM maps to non-canonical datastream names:"
+                f" {invalid_values}"
+            )
         return self
 
     @classmethod
@@ -48,15 +49,16 @@ class Normalizer(BaseModel):
 
     def _transform(self) -> dict[CanonicalDatastreams, Any]:
         """Apply the transformations to names and values."""
-        for observed_property in self.TRANSFORM:
-            value = getattr(self, observed_property)
+        
+        for model_datastream_name in self.TRANSFORM:
+            value = getattr(self, model_datastream_name)
             self.__setattr__(
-                observed_property, self.TRANSFORM[observed_property](value)
+                model_datastream_name, self.TRANSFORM[model_datastream_name](value)
             )
 
         transformed_results: dict[CanonicalDatastreams, Any] = {}
-        for observed_property, datastream in self.NAME_TRANSFORM.items():
-            transformed_results[datastream] = getattr(self, observed_property)
+        for model_datastream_name, canonical_datastream_name in self.NAME_TRANSFORM.items():
+            transformed_results[canonical_datastream_name] = getattr(self, model_datastream_name)
         return transformed_results
 
     def to_stObservations(self) -> list[Tuple[Observation, str]]:
@@ -65,6 +67,8 @@ class Normalizer(BaseModel):
         observations = []
         for datastream, value in transformed_results.items():
             if datastream == CanonicalDatastreams.PHENOMENON_TIME:
+                continue
+            if value is None:
                 continue
             observation = Observation(
                 id=None,
