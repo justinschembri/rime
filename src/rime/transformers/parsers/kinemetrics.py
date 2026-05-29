@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from ..messages import EnvelopeMetadata, IdentifiedPayload, IdentifiedTimeSeriesPayload, ObservationRecord
+from ..messages import EnvelopeMetadata, IdentifiedPayload, ObservationRecord
 from .core import Parser
 
 
@@ -11,14 +11,9 @@ class KinemetricsEtna2Parser(Parser):
 
     @staticmethod
     def parse(
-        identified: IdentifiedPayload | IdentifiedTimeSeriesPayload,
+        identified: IdentifiedPayload,
         envelope: EnvelopeMetadata | None,
     ) -> ObservationRecord:
-        if isinstance(identified, IdentifiedTimeSeriesPayload):
-            raise TypeError(
-                "KinemetricsEtna2Parser expects point-in-time payloads. "
-                "Expand IdentifiedTimeSeriesPayload before parsing."
-            )
         if not envelope or not envelope.datastream_name:
             raise ValueError("Expected envelope datastream name for Kinemetrics ETNA2 payload.")
         return ObservationRecord(

@@ -46,7 +46,6 @@ import queue
 import threading
 import traceback
 from abc import ABC, abstractmethod
-from collections.abc import Iterator
 from typing import Any, Literal
 
 from rime.exceptions import FrostUploadFailure, UnexpectedProviderMessage, UnpackError, UnregisteredSensorError
@@ -61,7 +60,6 @@ from ..transformers.messages import (
     EnvelopeMetadata,
     IdentifiedPayload,
     IdentifiedTimeSeriesPayload,
-    ObservationRecord,
 )
 from ..transformers.types import SensorUUID, SupportedSensors
 
@@ -227,14 +225,6 @@ class SensorTransport(ABC):
         identified: IdentifiedPayload | IdentifiedTimeSeriesPayload,
         envelope: EnvelopeMetadata | None,
     ) -> None:
-        def _iter_records(
-            parsed: ObservationRecord | Iterator[ObservationRecord],
-        ) -> Iterator[ObservationRecord]:
-            if isinstance(parsed, ObservationRecord):
-                yield parsed
-                return
-            yield from parsed
-
         components = identified.components
         sensor_model = identified.sensor_model
         sensor_uuid = identified.sensor_uuid
@@ -252,21 +242,20 @@ class SensorTransport(ABC):
             point_in_time_inputs = iter([(identified, envelope)])
 
         for sample_identified, sample_envelope in point_in_time_inputs:
-            parsed = components.parser.parse(sample_identified, sample_envelope)
-            for record in _iter_records(parsed):
-                normalizer = components.normalizer.from_record(record)
-                st_observations = normalizer.to_stObservations()
-                for st_obs in st_observations:
-                    try:
-                        debug_logger.debug(f"{st_obs=} {sensor_uuid=}")
-                        frost_observation_upload(sensor_uuid, st_obs)
-                        event_logger.info(
-                            f"Received and processed a wire message from {self.app_name} "
-                            f"from a {sensor_model.value} sensor."
-                        )
-                        netmon.add_named_count("push_success", f"{sensor_uuid}", 1)
-                    except FrostUploadFailure as e:
-                        self._exception_handler(e, sensor_id=sensor_uuid)
+            record = components.parser.parse(sample_identified, sample_envelope)
+            normalizer = components.normalizer.from_record(record)
+            st_observations = normalizer.to_stObservations()
+            for st_obs in st_observations:
+                try:
+                    debug_logger.debug(f"{st_obs=} {sensor_uuid=}")
+                    frost_observation_upload(sensor_uuid, st_obs)
+                    event_logger.info(
+                        f"Received and processed a wire message from {self.app_name} "
+                        f"from a {sensor_model.value} sensor."
+                    )
+                    netmon.add_named_count("push_success", f"{sensor_uuid}", 1)
+                except FrostUploadFailure as e:
+                    self._exception_handler(e, sensor_id=sensor_uuid)
 
     #TODO: reconsider exception handler as part of the class, should be a global concern
     def _exception_handler(self, e: Exception | None, **kwargs) -> Literal[0, 1]:

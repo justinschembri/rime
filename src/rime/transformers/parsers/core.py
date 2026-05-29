@@ -3,9 +3,8 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from collections.abc import Iterator
 
-from ..messages import EnvelopeMetadata, IdentifiedPayload, IdentifiedTimeSeriesPayload, ObservationRecord
+from ..messages import EnvelopeMetadata, IdentifiedPayload, ObservationRecord
 
 
 class Parser(ABC):
@@ -18,6 +17,10 @@ class Parser(ABC):
     that information arrives via ``envelope`` if needed (e.g. timestamps the
     sensor payload does not carry itself).
 
+    Time-series carriers (:class:`~rime.transformers.messages.IdentifiedTimeSeriesPayload`)
+    must be expanded into point-in-time :class:`~rime.transformers.messages.IdentifiedPayload`
+    samples before parsing (see ``SensorTransport.run_payload_ingest``).
+
     Contract: ``ObservationRecord.observations`` must contain *only*
     observation-ready fields.  Timestamps and non-observation metadata must be
     extracted or dropped before returning.
@@ -26,9 +29,9 @@ class Parser(ABC):
     @staticmethod
     @abstractmethod
     def parse(
-        identified: IdentifiedPayload | IdentifiedTimeSeriesPayload,
+        identified: IdentifiedPayload,
         envelope: EnvelopeMetadata | None,
-    ) -> ObservationRecord | Iterator[ObservationRecord]:
+    ) -> ObservationRecord:
         """Return an :class:`~rime.transformers.messages.ObservationRecord` for *identified*.
 
         Raise :class:`~rime.exceptions.UnpackError` on malformed payloads.

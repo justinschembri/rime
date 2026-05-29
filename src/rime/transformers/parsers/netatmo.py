@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from ...exceptions import MissingPayloadKeysError, UnpackError
-from ..messages import EnvelopeMetadata, IdentifiedPayload, IdentifiedTimeSeriesPayload, ObservationRecord
+from ..messages import EnvelopeMetadata, IdentifiedPayload, ObservationRecord
 from .core import Parser
 
 _REQUIRED_FIELDS = {"temperature", "co2", "humidity", "noise", "pressure", "time_utc"}
@@ -29,7 +29,7 @@ class NetatmoNWS03Parser(Parser):
 
     @staticmethod
     def parse(
-        identified: IdentifiedPayload | IdentifiedTimeSeriesPayload,
+        identified: IdentifiedPayload,
         envelope: EnvelopeMetadata | None,
     ) -> ObservationRecord:
         raw = identified.payload
