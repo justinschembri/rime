@@ -1,13 +1,28 @@
-"""Model-level decoder for the Kinemetrics ETNA2 triaxial accelerometer."""
+"""Model-level decoder for the Kinemetrics seismic sensors."""
 # external
-from obspy import Trace, read_inventory
+from copy import deepcopy
+from obspy import Trace, read_inventory, Inventory
 # internal
 from rime.transformers.messages import EnvelopeMetadata, IdentifiedPayload, IdentifiedTimeSeriesPayload
 from rime.paths import DECODERS_DIR
+from rime.transformers.types import SensorUUID
 from .core import Decoder
 
 KINEMETRICS_ETNA2_DECODER_XML = DECODERS_DIR / "xml_decoders" / "kinemetrics_etna2_fsdn.xml"
-inventory = read_inventory(KINEMETRICS_ETNA2_DECODER_XML)
+etna_2_inventory: Inventory = read_inventory(KINEMETRICS_ETNA2_DECODER_XML)
+INVENTORY_CACHE: dict[SensorUUID, Inventory] = {}
+
+def make_inventory(
+        sensor_uuid:SensorUUID,
+        trace:Trace,
+        envelope_metadata:EnvelopeMetadata,
+        inventory_template: Inventory,
+        ) -> Inventory:
+    """Make a sensor-specific inventory from a template FDSN station XML."""
+    stats = trace.stats
+    network = stats.network
+    station = stats.station
+    deepcopy()
 
 class KinemetricsEtna2Decoder(Decoder):
     """Kinemetrics ETNA2 accelerometer payload decoder.
@@ -38,7 +53,7 @@ class KinemetricsEtna2Decoder(Decoder):
         if not isinstance(payloads, Trace):
             raise TypeError(f"Expected Trace object got {type(payloads)}")
 
-        payloads.remove_response(inventory=inventory, output="ACC") 
+        payloads.remove_response(inventory=etna_2_inventory, output="ACC") 
 
         return identified_payload
 

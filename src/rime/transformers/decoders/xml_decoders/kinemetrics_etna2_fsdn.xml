@@ -1,22 +1,23 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!-- Kinemetrics ETNA2 template inventory: replace TEMPLATE* / XX site metadata before use. -->
 <FDSNStationXML xmlns="http://www.fdsn.org/xml/station/1" schemaVersion="1.2">
- <Source>SeisComP</Source>
- <Sender>RO</Sender>
- <Created>2026-05-15T04:56:13.110716Z</Created>
- <Network code="RO" startDate="1980-01-01T00:00:00Z" restrictedStatus="open">
-  <Description>Romanian Seismic Network</Description>
-  <Station code="TEBL0" startDate="2024-04-01T00:00:00Z" restrictedStatus="open">
-   <Latitude>44.4142</Latitude>
-   <Longitude>26.1133</Longitude>
-   <Elevation>87</Elevation>
+ <Source>rime</Source>
+ <Sender>TEMPLATE</Sender>
+ <Created>1980-01-01T00:00:00Z</Created>
+ <Network code="XX" startDate="1980-01-01T00:00:00Z" restrictedStatus="open">
+  <Description>TEMPLATE network</Description>
+  <Station code="TEMPLATE" startDate="1980-01-01T00:00:00Z" restrictedStatus="open">
+   <Latitude>0.0</Latitude>
+   <Longitude>0.0</Longitude>
+   <Elevation>0</Elevation>
    <Site>
-    <Name>Bucuresti</Name>
+    <Name>TEMPLATE_SITE</Name>
    </Site>
-   <CreationDate>2024-04-01T00:00:00Z</CreationDate>
-   <Channel code="HNE" startDate="2024-04-01T00:00:00Z" restrictedStatus="open" locationCode="">
-    <Latitude>44.4142</Latitude>
-    <Longitude>26.1133</Longitude>
-    <Elevation>87</Elevation>
+   <CreationDate>1980-01-01T00:00:00Z</CreationDate>
+   <Channel code="HNE" startDate="1980-01-01T00:00:00Z" restrictedStatus="open" locationCode="">
+    <Latitude>0.0</Latitude>
+    <Longitude>0.0</Longitude>
+    <Elevation>0</Elevation>
     <Depth>0</Depth>
     <Azimuth>90</Azimuth>
     <Dip>0</Dip>
@@ -26,14 +27,14 @@
      <NumberSeconds>1</NumberSeconds>
     </SampleRateRatio>
     <ClockDrift>0.0001</ClockDrift>
-    <Sensor resourceId="Sensor#20240403070728.042319.9">
+    <Sensor resourceId="Sensor#kinemetrics_etna2">
      <Type>200Hz 2.5V</Type>
      <Description>2.5V</Description>
      <Manufacturer>200Hz</Manufacturer>
      <Model>2.5V</Model>
     </Sensor>
-    <DataLogger resourceId="Datalogger#20240403070728.03948.5">
-     <Description>BTN0.2024.092.HNE</Description>
+    <DataLogger resourceId="Datalogger#kinemetrics_etna2_HNE">
+     <Description>TEMPLATE.TEMPLATE_DEPLOY.HNE</Description>
     </DataLogger>
     <Response>
      <InstrumentSensitivity>
@@ -47,7 +48,7 @@
       </OutputUnits>
      </InstrumentSensitivity>
      <Stage number="1">
-      <PolesZeros resourceId="ResponsePAZ#20240403070728.042649.10" name="BTN0.2024.092.NE">
+      <PolesZeros resourceId="ResponsePAZ#kinemetrics_etna2_HNE" name="TEMPLATE.TEMPLATE_DEPLOY.NE">
        <InputUnits>
         <Name>M/S**2</Name>
        </InputUnits>
@@ -102,7 +103,7 @@
       </StageGain>
      </Stage>
      <Stage number="3">
-      <FIR resourceId="ResponseFIR#20240403070728.039911.6" name="BTN0..HNE.2024.092.stage_3">
+      <FIR resourceId="ResponseFIR#kinemetrics_etna2_HNE_stage_3" name="TEMPLATE..HNE.TEMPLATE_DEPLOY.stage_3">
        <InputUnits>
         <Name>COUNTS</Name>
        </InputUnits>
@@ -223,7 +224,7 @@
       </StageGain>
      </Stage>
      <Stage number="4">
-      <FIR resourceId="ResponseFIR#20240403070728.040961.7" name="BTN0..HNE.2024.092.stage_4">
+      <FIR resourceId="ResponseFIR#kinemetrics_etna2_HNE_stage_4" name="TEMPLATE..HNE.TEMPLATE_DEPLOY.stage_4">
        <InputUnits>
         <Name>COUNTS</Name>
        </InputUnits>
@@ -288,7 +289,7 @@
       </StageGain>
      </Stage>
      <Stage number="5">
-      <FIR resourceId="ResponseFIR#20240403070728.041389.8" name="BTN0..HNE.2024.092.stage_5">
+      <FIR resourceId="ResponseFIR#kinemetrics_etna2_HNE_stage_5" name="TEMPLATE..HNE.TEMPLATE_DEPLOY.stage_5">
        <InputUnits>
         <Name>COUNTS</Name>
        </InputUnits>
@@ -398,10 +399,10 @@
      </Stage>
     </Response>
    </Channel>
-   <Channel code="HNN" startDate="2024-04-01T00:00:00Z" restrictedStatus="open" locationCode="">
-    <Latitude>44.4142</Latitude>
-    <Longitude>26.1133</Longitude>
-    <Elevation>87</Elevation>
+   <Channel code="HNN" startDate="1980-01-01T00:00:00Z" restrictedStatus="open" locationCode="">
+    <Latitude>0.0</Latitude>
+    <Longitude>0.0</Longitude>
+    <Elevation>0</Elevation>
     <Depth>0</Depth>
     <Azimuth>0</Azimuth>
     <Dip>0</Dip>
@@ -411,14 +412,14 @@
      <NumberSeconds>1</NumberSeconds>
     </SampleRateRatio>
     <ClockDrift>0.0001</ClockDrift>
-    <Sensor resourceId="Sensor#20240403070728.047191.15">
+    <Sensor resourceId="Sensor#kinemetrics_etna2">
      <Type>200Hz 2.5V</Type>
      <Description>2.5V</Description>
      <Manufacturer>200Hz</Manufacturer>
      <Model>2.5V</Model>
     </Sensor>
-    <DataLogger resourceId="Datalogger#20240403070728.043214.11">
-     <Description>BTN0.2024.092.HNN</Description>
+    <DataLogger resourceId="Datalogger#kinemetrics_etna2_HNN">
+     <Description>TEMPLATE.TEMPLATE_DEPLOY.HNN</Description>
     </DataLogger>
     <Response>
      <InstrumentSensitivity>
@@ -432,7 +433,7 @@
       </OutputUnits>
      </InstrumentSensitivity>
      <Stage number="1">
-      <PolesZeros resourceId="ResponsePAZ#20240403070728.047326.16" name="BTN0.2024.092.NN">
+      <PolesZeros resourceId="ResponsePAZ#kinemetrics_etna2_HNN" name="TEMPLATE.TEMPLATE_DEPLOY.NN">
        <InputUnits>
         <Name>M/S**2</Name>
        </InputUnits>
@@ -487,7 +488,7 @@
       </StageGain>
      </Stage>
      <Stage number="3">
-      <FIR resourceId="ResponseFIR#20240403070728.043301.12" name="BTN0..HNN.2024.092.stage_3">
+      <FIR resourceId="ResponseFIR#kinemetrics_etna2_HNN_stage_3" name="TEMPLATE..HNN.TEMPLATE_DEPLOY.stage_3">
        <InputUnits>
         <Name>COUNTS</Name>
        </InputUnits>
@@ -608,7 +609,7 @@
       </StageGain>
      </Stage>
      <Stage number="4">
-      <FIR resourceId="ResponseFIR#20240403070728.044235.13" name="BTN0..HNN.2024.092.stage_4">
+      <FIR resourceId="ResponseFIR#kinemetrics_etna2_HNN_stage_4" name="TEMPLATE..HNN.TEMPLATE_DEPLOY.stage_4">
        <InputUnits>
         <Name>COUNTS</Name>
        </InputUnits>
@@ -673,7 +674,7 @@
       </StageGain>
      </Stage>
      <Stage number="5">
-      <FIR resourceId="ResponseFIR#20240403070728.044695.14" name="BTN0..HNN.2024.092.stage_5">
+      <FIR resourceId="ResponseFIR#kinemetrics_etna2_HNN_stage_5" name="TEMPLATE..HNN.TEMPLATE_DEPLOY.stage_5">
        <InputUnits>
         <Name>COUNTS</Name>
        </InputUnits>
@@ -783,10 +784,10 @@
      </Stage>
     </Response>
    </Channel>
-   <Channel code="HNZ" startDate="2024-04-01T00:00:00Z" restrictedStatus="open" locationCode="">
-    <Latitude>44.4142</Latitude>
-    <Longitude>26.1133</Longitude>
-    <Elevation>87</Elevation>
+   <Channel code="HNZ" startDate="1980-01-01T00:00:00Z" restrictedStatus="open" locationCode="">
+    <Latitude>0.0</Latitude>
+    <Longitude>0.0</Longitude>
+    <Elevation>0</Elevation>
     <Depth>0</Depth>
     <Azimuth>0</Azimuth>
     <Dip>-90</Dip>
@@ -796,14 +797,14 @@
      <NumberSeconds>1</NumberSeconds>
     </SampleRateRatio>
     <ClockDrift>0.0001</ClockDrift>
-    <Sensor resourceId="Sensor#20240403070728.050434.21">
+    <Sensor resourceId="Sensor#kinemetrics_etna2">
      <Type>200Hz 2.5V</Type>
      <Description>2.5V</Description>
      <Manufacturer>200Hz</Manufacturer>
      <Model>2.5V</Model>
     </Sensor>
-    <DataLogger resourceId="Datalogger#20240403070728.047899.17">
-     <Description>BTN0.2024.092.HNZ</Description>
+    <DataLogger resourceId="Datalogger#kinemetrics_etna2_HNZ">
+     <Description>TEMPLATE.TEMPLATE_DEPLOY.HNZ</Description>
     </DataLogger>
     <Response>
      <InstrumentSensitivity>
@@ -817,7 +818,7 @@
       </OutputUnits>
      </InstrumentSensitivity>
      <Stage number="1">
-      <PolesZeros resourceId="ResponsePAZ#20240403070728.050519.22" name="BTN0.2024.092.NZ">
+      <PolesZeros resourceId="ResponsePAZ#kinemetrics_etna2_HNZ" name="TEMPLATE.TEMPLATE_DEPLOY.NZ">
        <InputUnits>
         <Name>M/S**2</Name>
        </InputUnits>
@@ -872,7 +873,7 @@
       </StageGain>
      </Stage>
      <Stage number="3">
-      <FIR resourceId="ResponseFIR#20240403070728.048016.18" name="BTN0..HNZ.2024.092.stage_3">
+      <FIR resourceId="ResponseFIR#kinemetrics_etna2_HNZ_stage_3" name="TEMPLATE..HNZ.TEMPLATE_DEPLOY.stage_3">
        <InputUnits>
         <Name>COUNTS</Name>
        </InputUnits>
@@ -993,7 +994,7 @@
       </StageGain>
      </Stage>
      <Stage number="4">
-      <FIR resourceId="ResponseFIR#20240403070728.049322.19" name="BTN0..HNZ.2024.092.stage_4">
+      <FIR resourceId="ResponseFIR#kinemetrics_etna2_HNZ_stage_4" name="TEMPLATE..HNZ.TEMPLATE_DEPLOY.stage_4">
        <InputUnits>
         <Name>COUNTS</Name>
        </InputUnits>
@@ -1058,7 +1059,7 @@
       </StageGain>
      </Stage>
      <Stage number="5">
-      <FIR resourceId="ResponseFIR#20240403070728.049718.20" name="BTN0..HNZ.2024.092.stage_5">
+      <FIR resourceId="ResponseFIR#kinemetrics_etna2_HNZ_stage_5" name="TEMPLATE..HNZ.TEMPLATE_DEPLOY.stage_5">
        <InputUnits>
         <Name>COUNTS</Name>
        </InputUnits>
