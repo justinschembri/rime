@@ -54,7 +54,6 @@ from rime.frost.post import frost_observation_upload
 from ..monitor import netmon
 from ..transformers.ingest_registry import (
     resolve_identified_payload,
-    resolve_time_series_payload,
 )
 from ..transformers.messages import (
     DecapsulatedMessage,
@@ -213,31 +212,17 @@ class SensorTransport(ABC):
             sensor_uuid = identified.sensor_uuid
             try:
                 envelope = decapsulated.envelope_metadata
-                if isinstance(identified, IdentifiedTimeSeriesPayload):
-                    self._run_time_series_ingest(
-                        resolve_time_series_payload(identified, self.sensor_registry),
-                        envelope,
-                    )
-                else:
-                    self._run_model_ingest(
-                        resolve_identified_payload(identified, self.sensor_registry),
-                        envelope,
-                    )
+                self.run_payload_ingest(
+                    resolve_identified_payload(identified, self.sensor_registry),
+                    envelope,
+                )
             except (UnregisteredSensorError, UnpackError, KeyError) as e:
                 self._exception_handler(e, sensor_id=sensor_uuid, stage="model_ingest")
                 continue
 
-    def _run_time_series_ingest(
+    def run_payload_ingest(
         self,
-        identified: IdentifiedTimeSeriesPayload,
-        envelope: EnvelopeMetadata | None,
-    ) -> None:
-        for sample, sample_envelope in identified.expand_to_point_in_time(envelope):
-            self._run_model_ingest(sample, sample_envelope)
-
-    def _run_model_ingest(
-        self,
-        identified: IdentifiedPayload,
+        identified: IdentifiedPayload | IdentifiedTimeSeriesPayload,
         envelope: EnvelopeMetadata | None,
     ) -> None:
         components = identified.components
@@ -248,23 +233,29 @@ class SensorTransport(ABC):
                 RuntimeError("IdentifiedPayload must be resolved before model ingest.")
             )
         if components.deserializer:
-            identified = components.deserializer.deserialize(identified, envelope)
+            identified = components.deserializer.deserialize(identified, envelope) #type: ignore
         if components.decoder:
-            identified = components.decoder.decode(identified, envelope)
-        record = components.parser.parse(identified, envelope)
-        normalizer = components.normalizer.from_record(record)
-        st_observations = normalizer.to_stObservations()
-        for st_obs in st_observations:
-            try:
-                debug_logger.debug(f"{st_obs=} {sensor_uuid=}")
-                frost_observation_upload(sensor_uuid, st_obs)
-                event_logger.info(
-                    f"Received and processed a wire message from {self.app_name} "
-                    f"from a {sensor_model.value} sensor."
-                )
-                netmon.add_named_count("push_success", f"{sensor_uuid}", 1)
-            except FrostUploadFailure as e:
-                self._exception_handler(e, sensor_id=sensor_uuid)
+            identified = components.decoder.decode(identified, envelope) #type: ignore
+        if isinstance(identified, IdentifiedTimeSeriesPayload):
+            point_in_time_inputs = identified.expand_to_point_in_time(envelope)
+        else:
+            point_in_time_inputs = iter([(identified, envelope)])
+
+        for sample_identified, sample_envelope in point_in_time_inputs:
+            record = components.parser.parse(sample_identified, sample_envelope)
+            normalizer = components.normalizer.from_record(record)
+            st_observations = normalizer.to_stObservations()
+            for st_obs in st_observations:
+                try:
+                    debug_logger.debug(f"{st_obs=} {sensor_uuid=}")
+                    frost_observation_upload(sensor_uuid, st_obs)
+                    event_logger.info(
+                        f"Received and processed a wire message from {self.app_name} "
+                        f"from a {sensor_model.value} sensor."
+                    )
+                    netmon.add_named_count("push_success", f"{sensor_uuid}", 1)
+                except FrostUploadFailure as e:
+                    self._exception_handler(e, sensor_id=sensor_uuid)
 
     #TODO: reconsider exception handler as part of the class, should be a global concern
     def _exception_handler(self, e: Exception | None, **kwargs) -> Literal[0, 1]:

@@ -58,6 +58,7 @@ from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any, Optional
 
 from numpy import ndarray
+from obspy.core import Trace
 
 from rime.exceptions import UnpackError
 
@@ -71,7 +72,7 @@ if TYPE_CHECKING:
 # Decapsulation tier
 # ---------------------------------------------------------------------------
 
-@dataclass(frozen=True, slots=True)
+@dataclass(slots=True)
 class IdentifiedPayload:
     """A native sensor payload paired with its rime registry identity.
 
@@ -123,7 +124,7 @@ class IrregularTimeAxis:
 TimeAxis = RegularTimeAxis | IrregularTimeAxis
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(slots=True)
 class IdentifiedTimeSeriesPayload:
     """A native sensor time-series paired with its rime registry identity.
 
@@ -141,15 +142,19 @@ class IdentifiedTimeSeriesPayload:
     """
 
     sensor_uuid: SensorUUID
-    payloads: list[Any] | ndarray
+    payload: list[Any] | ndarray | Trace
     time_axis: TimeAxis
     sensor_model: SupportedSensors | None = None
     components: IngestModelComponents | None = None
+    _decoded: bool = False
+    _deserialized: bool = False
 
     def iter_samples(self) -> Iterator[tuple[Any, datetime]]:
         """Yield ``(payload_element, phenomenon_timestamp)`` pairs."""
         timestamps = list(self.time_axis.iter_timestamps())
-        payloads = self.payloads
+        payloads = self.payload
+        if not isinstance(payloads, (list, ndarray)):
+            raise TypeError(f"Expected list or ndarray, got: {type(payloads)}")
         n = len(payloads) if isinstance(payloads, list) else int(payloads.shape[0])
         if n != len(timestamps):
             raise UnpackError(
@@ -168,6 +173,11 @@ class IdentifiedTimeSeriesPayload:
         envelope: EnvelopeMetadata | None,
     ) -> Iterator[tuple[IdentifiedPayload, EnvelopeMetadata]]:
         """Fan out into per-sample :class:`IdentifiedPayload` + envelope pairs."""
+        # the Trace object is often retained as a Trace until the parsing step
+        # where we now only wanted the decoded data in Trace.data. This is due to
+        # the decoding step needing to call Trace.remove_response(...)
+        if isinstance(self.payload, Trace):
+            self.payload = self.payload.data
         for element, timestamp in self.iter_samples():
             yield (
                 IdentifiedPayload(
@@ -210,21 +220,30 @@ def envelope_at_phenomenon_time(
     return envelope.with_phenomenon_time(phenomenon_timestamp)
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(slots=True)
 class DecapsulatedMessage:
     """One wire message stripped of provider-specific framing.
 
-    ``identified_payloads`` is a list of :class:`IdentifiedPayload` — one
-    entry per logical sensor present in the original wire message (e.g.
-    multiple Netatmo stations, or a single TTN device).
+    Fields
+        ``identified_payloads`` is a list of :class:`IdentifiedPayload` — one
+        entry per logical sensor present in the original wire message (e.g.
+        multiple Netatmo stations, or a single TTN device).
 
-    ``envelope_metadata`` carries leftover provider-level context that may be
-    needed downstream (timestamps, datastream hints) but is *not* part of any
-    sensor-native payload.
+        ``envelope_metadata`` carries leftover provider-level context that may be
+        needed downstream (timestamps, datastream hints) but is *not* part of any
+        sensor-native payload.
+
+        `_decoded`: true if in a decoder has been applied to identified_payloads,
+            for debugging
+
+        `_deserialized`: true if a deserialized has been applied to identified_paylods,
+            for debugging
     """
 
     identified_payloads: list[IdentifiedPayload] | list[IdentifiedTimeSeriesPayload]
     envelope_metadata: Optional[EnvelopeMetadata] = None
+    _decoded: bool = False
+    _deserialized: bool = False
 
 
 # ---------------------------------------------------------------------------
@@ -235,13 +254,13 @@ class DecapsulatedMessage:
 class ObservationRecord:
     """Fully-resolved per-sensor record produced by a parser.
 
-    ``observations`` contains only observation-ready key/value pairs.
+    `observations` contains only observation-ready key/value pairs.
     Timestamps and non-observation metadata are extracted or dropped by the
-    parser before this point; ``VendorObservationNormalizer`` receives a clean
+    parser before this point; `VendorObservationNormalizer` receives a clean
     dict of physical quantities.
 
-    ``observations`` keys must match the field names declared on the concrete
-    :class:`~rime.transformers.normalizers.core.Normalizer` subclass that will
+    `observations` keys must match the field names declared on the concrete
+    `transformers.normalizers.core.Normalizer` subclass that will
     consume this record.  Parsers are responsible for producing the correct key
     names and stripping everything that is not an observation field.
     """
@@ -250,3 +269,4 @@ class ObservationRecord:
     observations: dict[str, Any]
     provider_timestamp: datetime | None = None
     phenomenon_timestamp: datetime | None = None
+    time_axis: TimeAxis | None = None

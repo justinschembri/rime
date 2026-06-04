@@ -33,9 +33,16 @@ class CanonicalDatastreams(Enum):
     A_PRESSURE_IN = "absolute_pressure"
     NOISE_IN = "noise"
     TVOC = "total_volatile_organic_compounds"
-
+    HNE = "highgain_acceleration_east-west"
+    HNN = "highgain_acceleration_north-south"
+    HNZ = "highgain_acceleration_postive-up"
 
 class SupportedSensors(Enum):
     MILESIGHT_AM103L = "milesight.am103l"
     MILESIGHT_AM308L = "milesight.am308l"
     NETATMO_NWS03 = "netatmo.nws03"
+    KINEMETRICS_ETNA2 = "kinemetrics.etna2"
+
+class SupportedProviders(Enum):
+    NETATMO = "netatmo"
+    THE_THINGS_NETWORK = "ttn"

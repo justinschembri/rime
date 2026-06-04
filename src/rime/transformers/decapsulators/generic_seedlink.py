@@ -23,12 +23,13 @@ from .core import Decapsulator
 
 
 class GenericSeedLinkDecapsulator(Decapsulator):
-    """Strip a SeedLink :class:`obspy.Trace` into an :class:`IdentifiedTimeSeriesPayload`.
+    """
+    Decapsulate an upstream SeedLink message and return a `DecapsulatedMessage`.
 
-    - ``sensor_uuid``: ``"NET.STA"`` derived from ``trace.stats``.
-    - ``payloads``: ``trace.data`` — one sample array for this channel.
-    - ``time_axis``: :class:`RegularTimeAxis` from ``trace.stats``.
-    - ``envelope_metadata.datastream_name``: SEED channel code (``BHZ``, etc.).
+    The `DecapsulatedMessage` includes a `IndeitifiedTimeSeriesPayload`: the SeedLink
+    protocol, as handled by the `ObsPy` library returns a `Trace` object which always
+    bundles up sensor observations into an array of observations while retaining
+    time axis metadata.
     """
 
     @staticmethod
@@ -43,7 +44,7 @@ class GenericSeedLinkDecapsulator(Decapsulator):
             )
             identified = IdentifiedTimeSeriesPayload(
                 sensor_uuid=sensor_uuid,
-                payloads=wire_message.data,
+                payload=wire_message,
                 time_axis=time_axis,
             )
             envelope = EnvelopeMetadata(datastream_name=stats.channel)

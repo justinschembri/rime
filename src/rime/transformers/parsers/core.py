@@ -17,6 +17,10 @@ class Parser(ABC):
     that information arrives via ``envelope`` if needed (e.g. timestamps the
     sensor payload does not carry itself).
 
+    Time-series carriers (:class:`~rime.transformers.messages.IdentifiedTimeSeriesPayload`)
+    must be expanded into point-in-time :class:`~rime.transformers.messages.IdentifiedPayload`
+    samples before parsing (see ``SensorTransport.run_payload_ingest``).
+
     Contract: ``ObservationRecord.observations`` must contain *only*
     observation-ready fields.  Timestamps and non-observation metadata must be
     extracted or dropped before returning.

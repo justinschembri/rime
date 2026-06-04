@@ -4,31 +4,29 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 
-from ..messages import EnvelopeMetadata, IdentifiedPayload
+from ..messages import EnvelopeMetadata, IdentifiedPayload, IdentifiedTimeSeriesPayload
 
 
 class Decoder(ABC):
-    """Optional model-specific payload decoder.
+    """ABC for model-specific payload decoders.
 
-    Use when a sensor payload is already structured (e.g. a dict of raw
-    register values) but requires vendor-specific interpretation before
-    parsing — e.g. ADC counts → physical units, bit-field expansion,
-    decryption, or decompression of a structured container.
+    Decoding is the process by which model-specific encoded data is decoded into
+    some other representation, e.g., accelerometer data → physical units, bit-field
+    expansion.
 
-    Returns a new :class:`~rime.transformers.messages.IdentifiedPayload`
-    with the same ``sensor_uuid`` but a semantically decoded ``payload`` value.
+    Model-specific decoding occurs after a message is decapsulated and should
+    modify the `payload` or `payloads` of an `IdentifiedPayload` or 
+    `IdentifiedTimeSeriesPayload` respectively.
 
-    If the payload arriving from the decapsulator (or a preceding
-    :class:`~rime.transformers.deserializers.core.Deserializer`) is already in
-    observation-ready form, leave the slot as ``None`` in
-    :class:`~rime.transformers.ingest_registry.IngestModelComponents`.
+    Returns a new, IdentifiedPayload | IdentifiedTimeSeriesPayload with decoded
+    payloads.
     """
 
     @staticmethod
     @abstractmethod
     def decode(
-        identified: IdentifiedPayload,
-        envelope: EnvelopeMetadata | None,
-    ) -> IdentifiedPayload:
-        """Return *identified* with its ``payload`` decoded."""
-        ...
+        identified_payload: IdentifiedPayload | IdentifiedTimeSeriesPayload,
+        envelope_metadata: EnvelopeMetadata | None,
+        ) -> IdentifiedPayload | IdentifiedTimeSeriesPayload:
+        """Return *identified* with its `payload` decoded."""
+        
