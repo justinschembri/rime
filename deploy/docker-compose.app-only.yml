@@ -1,0 +1,38 @@
+# docker-compose.app-only.yml
+# PRODUCTION ##########################################
+# Idependent application run.                         #
+# - Run the application to an external FROST service. #
+# #####################################################
+name: rime-ingest-only
+
+services:
+
+  python-app:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    env_file:
+      - path: .env
+        required: true
+    environment:
+      - CONTAINER_ENVIRONMENT=true
+      # Full endpoint including the version segment, e.g.
+      # https://host/FROST-Server/v1.1
+      - FROST_ENDPOINT=${FROST_ENDPOINT}
+    secrets:
+      - frost_credentials
+    volumes:
+      - ${CREDENTIALS_DIR:-./secrets/credentials}:/app/deploy/secrets/credentials:ro
+      - ${TOKENS_PATH:-./secrets/tokens}:/app/deploy/secrets/tokens
+      - ${SENSOR_CONFIG_PATH:-./sensor_configs}:/app/deploy/sensor_configs
+      - ${APPLICATION_CONFIG_FILE:-./application-configs.yml}:/app/deploy/application-configs.yml
+      - python-app_logs:/app/logs
+    command: ["uv", "run", "/app/src/rime/main.py"]
+    restart: unless-stopped
+
+volumes:
+  python-app_logs:
+
+secrets:
+  frost_credentials:
+    file: ${CREDENTIALS_DIR:-./secrets/credentials}/frost_credentials.json
