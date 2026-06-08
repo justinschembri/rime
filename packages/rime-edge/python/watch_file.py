@@ -63,7 +63,7 @@ def run_tail(config: EdgeConfig, client: RimeHttpClient) -> None:
             _push_chunk(client, config, chunk)
             pending = False
 
-        for changes in watch(path.parent, stop_event=None, step=config.poll_interval):
+        for changes in watch(path.parent, stop_event=None, step=config.poll_interval_ms):
             for change, changed_path in changes:
                 if Path(changed_path) != path:
                     continue
@@ -87,7 +87,7 @@ def run_snapshot(config: EdgeConfig, client: RimeHttpClient) -> None:
             _push_chunk(client, config, _read_snapshot(path))
             pending = False
 
-        for changes in watch(path.parent, stop_event=None, step=config.poll_interval):
+        for changes in watch(path.parent, stop_event=None, step=config.poll_interval_ms):
             for change, changed_path in changes:
                 if Path(changed_path) != path:
                     continue

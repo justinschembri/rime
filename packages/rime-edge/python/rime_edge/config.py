@@ -17,7 +17,12 @@ class EdgeConfig:
     watch_mode: str
     content_type: str
     debounce_seconds: float
-    poll_interval: float
+    poll_interval: float  # seconds; converted for watchfiles API
+
+    @property
+    def poll_interval_ms(self) -> int:
+        """Milliseconds for watchfiles ``watch(step=...)``."""
+        return max(1, int(self.poll_interval * 1000))
 
     @classmethod
     def from_env(cls) -> EdgeConfig:
