@@ -17,21 +17,24 @@ __all__ = [
     "EnvelopeMetadata",
     "IdentifiedPayload",
     "NetatmoDecapsulator",
+    "RimeHttpDecapsulator",
     "TTNDecapsulator",
 ]
 
 if TYPE_CHECKING:
     from .netatmo import NetatmoDecapsulator
+    from .rime_http import RimeHttpDecapsulator
     from .ttn import TTNDecapsulator
 
 
 def __getattr__(name: str):
     if name == "NetatmoDecapsulator":
         from .netatmo import NetatmoDecapsulator as _Cls
-
         return _Cls
     if name == "TTNDecapsulator":
         from .ttn import TTNDecapsulator as _Cls
-
+        return _Cls
+    if name == "RimeHttpDecapsulator":
+        from .rime_http import RimeHttpDecapsulator as _Cls
         return _Cls
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

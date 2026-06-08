@@ -46,3 +46,4 @@ class SupportedSensors(Enum):
 class SupportedProviders(Enum):
     NETATMO = "netatmo"
     THE_THINGS_NETWORK = "ttn"
+    RIME_HTTP = "rime-http"
