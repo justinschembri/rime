@@ -40,25 +40,22 @@ When `CONTAINER_ENVIRONMENT=true` (set in the Dockerfile), defaults are:
 | `RIME_TOKENS_DIR` | `/app/runtime/secrets/tokens` | OAuth token files |
 | `RIME_LOGS_DIR` | `/app/logs` | Log output |
 
-Locally (no container), defaults fall back to `packages/rime-ingest/runtime/`.
+When developing inside the monorepo, local defaults automatically use
+`deploy/` (sensor configs, credentials, application config). No extra env vars
+are needed for `rime setup` or `rime validate`.
 
-When developing inside the monorepo, point at the shared `deploy/` configs:
-
-```bash
-export SENSOR_CONFIG_PATH=../../deploy/sensor_configs
-export APPLICATION_CONFIG_FILE=../../deploy/application-configs.yml
-export RIME_CREDENTIALS_DIR=../../deploy/secrets/credentials
-export RIME_TOKENS_DIR=../../deploy/secrets/tokens
-```
+Standalone installs (without a sibling `deploy/` directory) fall back to
+`packages/rime-ingest/runtime/`.
 
 FROST connectivity uses `FROST_ENDPOINT` or `FROST_ROOT_URL` + `FROST_VERSION`.
 
 ## Stack lifecycle (`rime start` / `rime stop`)
 
-These commands invoke scripts in `deploy/` and require:
+These commands invoke scripts in `deploy/`. From a monorepo checkout,
+`deploy/` is discovered automatically. Otherwise set:
 
 ```bash
-export RIME_COMPOSE_DIR=/path/to/rime/deploy
+export RIME_COMPOSE_DIR=/path/to/deploy
 ```
 
 Prefer running `docker compose` from `deploy/` directly in production.

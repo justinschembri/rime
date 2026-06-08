@@ -77,10 +77,11 @@ The overall setup:
 ```bash
 git clone https://github.com/justinschembri/rime.git rime
 cd rime
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -e .
+uv sync --group dev
 ```
+
+The `rime` CLI is installed into the project virtual environment. Run commands
+with `uv run rime …` or activate `.venv` first.
 
 > [!TIP]
 > The application uses several configuration files. If you want to keep these
