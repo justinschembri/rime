@@ -76,6 +76,28 @@ docker compose \
 
 The start-full.sh script launches this full production stack automatically.
 
+### Edge ingress (`rime-server-http`)
+
+For Eltek (or other) edge producers, merge the server-http overlay:
+
+```bash
+docker compose \
+  -f docker-compose.base.yml \
+  -f docker-compose.auth.yml \
+  -f docker-compose.persistent.yml \
+  -f docker-compose.app.yml \
+  -f docker-compose.server-http.yml \
+  up -d
+```
+
+Copy `examples/server-credentials.example.yml` to
+`secrets/credentials/server-credentials.yml`, and wire ingest using
+`examples/application-configs.example.yml` and
+`examples/application_credentials.example.json`.
+
+See [`.cursor/eltek-edge-pipeline.md`](../.cursor/eltek-edge-pipeline.md) for the
+full edge → central deployment walkthrough.
+
 ## Compose File Functionalities
 
 ### `base`

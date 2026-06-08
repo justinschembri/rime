@@ -1,1 +1,2 @@
-# Runtime dependencies for Python edge producers (added per script).
+requests>=2.31
+watchfiles>=1.0

@@ -36,12 +36,21 @@ class CanonicalDatastreams(Enum):
     HNE = "highgain_acceleration_east-west"
     HNN = "highgain_acceleration_north-south"
     HNZ = "highgain_acceleration_postive-up"
+    ELTEK_CHAN_1_TEMPERATURE = "eltek_chan_1_temperature"
+    ELTEK_CHAN_2_TEMPERATURE = "eltek_chan_2_temperature"
+    ELTEK_CHAN_3_TEMPERATURE = "eltek_chan_3_temperature"
+    ELTEK_CHAN_4_TEMPERATURE = "eltek_chan_4_temperature"
+    ELTEK_CHAN_5_VOLTAGE = "eltek_chan_5_voltage"
+    ELTEK_CHAN_6_VOLTAGE = "eltek_chan_6_voltage"
+    ELTEK_CHAN_7_VOLTAGE = "eltek_chan_7_voltage"
+    ELTEK_CHAN_8_VOLTAGE = "eltek_chan_8_voltage"
 
 class SupportedSensors(Enum):
     MILESIGHT_AM103L = "milesight.am103l"
     MILESIGHT_AM308L = "milesight.am308l"
     NETATMO_NWS03 = "netatmo.nws03"
     KINEMETRICS_ETNA2 = "kinemetrics.etna2"
+    ELTEK_DATALOGGER = "eltek.datalogger"
 
 class SupportedProviders(Enum):
     NETATMO = "netatmo"

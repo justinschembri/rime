@@ -29,9 +29,12 @@ from .normalizers.milesight import (
     MilesightAm308lNormalizer,
 )
 from .decoders.kinemetrics import KinemetricsEtna2Decoder
+from .deserializers.eltek import EltekCsvDeserializer
+from .normalizers.eltek import EltekDatalogger
 from .normalizers.kinemetrics import KinemetricsEtna2
 from .normalizers.netatmo import NetatmoNWS03
 from .parsers import MilesightAm103lParser, MilesightAm308lParser, NetatmoNWS03Parser, Parser
+from .parsers.eltek import EltekDataloggerParser
 from .parsers.kinemetrics import KinemetricsEtna2Parser
 from .types import SensorUUID, SupportedSensors
 
@@ -61,6 +64,11 @@ INGEST_COMPONENT_MAP: dict[SupportedSensors, IngestModelComponents] = {
         parser=KinemetricsEtna2Parser,
         normalizer=KinemetricsEtna2,
         decoder=KinemetricsEtna2Decoder,
+    ),
+    SupportedSensors.ELTEK_DATALOGGER: IngestModelComponents(
+        parser=EltekDataloggerParser,
+        normalizer=EltekDatalogger,
+        deserializer=EltekCsvDeserializer,
     ),
 }
 

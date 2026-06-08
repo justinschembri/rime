@@ -13,6 +13,15 @@ already run Python 3.12+ and for monorepo integration tests.
 Implementations will be added here as concrete sensor integrations are defined.
 Until then, this directory defines the packaging and deployment contract only.
 
+## Scripts
+
+| Script | Purpose |
+|--------|---------|
+| [`watch_file.py`](watch_file.py) | Watch a CSV path and POST changes to `rime-server-http` |
+
+See [`.cursor/eltek-edge-pipeline.md`](../../.cursor/eltek-edge-pipeline.md) for the
+full Eltek deployment proposal.
+
 ## Install on an edge host
 
 **From a release tarball** (preferred — see parent

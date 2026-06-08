@@ -37,6 +37,7 @@ class StoredMessage:
     received_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     emitted_at: datetime | None = None  # X-Rime-Emitted-At supplied by edge (optional)
     content_type: str = "application/octet-stream"
+    #TODO: why is this a bytes object?
     body: bytes = b""
 
 

@@ -1,0 +1,26 @@
+# docker-compose.server-http.yml
+# HTTP ingress buffer for rime-edge producers.
+# Merge with base + app compose files.
+name: rime
+
+services:
+  rime-server-http:
+    build:
+      context: ../packages/rime-server-http
+      dockerfile: Dockerfile
+    ports:
+      - "${RIME_SERVER_HTTP_PORT:-8081}:8080"
+    environment:
+      - RIME_SERVER_CREDENTIALS_FILE=/app/runtime/server-credentials.yml
+      - RIME_SERVER_HOST=0.0.0.0
+      - RIME_SERVER_PORT=8080
+    volumes:
+      - ${RIME_SERVER_CREDENTIALS_FILE:-./secrets/credentials/server-credentials.yml}:/app/runtime/server-credentials.yml:ro
+    restart: unless-stopped
+
+  python-app:
+    depends_on:
+      - web
+      - database
+      - mosquitto
+      - rime-server-http

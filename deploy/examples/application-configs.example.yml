@@ -1,0 +1,10 @@
+# Example application config for Eltek edge ingest.
+# Copy to deploy/application-configs.yml and adjust.
+
+applications:
+  eltek-field-01:
+    provider: rime-http
+    server_url: http://rime-server-http:8080
+    batch_limit: 50
+    poll_interval: 2.0
+    max_retries: 10

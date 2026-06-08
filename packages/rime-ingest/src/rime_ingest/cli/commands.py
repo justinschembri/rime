@@ -135,7 +135,7 @@ def _stop_instance():
 
 def _generate_config(
     sensor_model: str = typer.Argument(
-        ..., help="Sensor model: milesight.am103l, milesight.am308l, or netatmo.nws03"
+        ..., help="Sensor model: milesight.am103l, milesight.am308l, netatmo.nws03, or eltek.datalogger"
     ),
     output: Optional[Path] = typer.Option(
         None, "--output", "-o", help="Output file path (defaults to sensor_configs/{sensor_id}.yaml)"
@@ -149,7 +149,7 @@ def _generate_config(
         sensor_model_enum = SupportedSensors(sensor_model)
     except ValueError:
         console.print(f"[bold red]Error:[/bold red] Unsupported sensor model: {sensor_model}")
-        console.print("Supported models: milesight.am103l, milesight.am308l, netatmo.nws03")
+        console.print("Supported models: milesight.am103l, milesight.am308l, netatmo.nws03, eltek.datalogger")
         raise typer.Exit(1)
     
     # Collect user inputs with rich prompts
