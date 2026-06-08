@@ -10,7 +10,7 @@ content-only equality operator behave correctly.
 import pytest
 
 # internal
-from rime.sta.core import (
+from rime_ingest.sta.core import (
     Datastream,
     Location,
     Observation,

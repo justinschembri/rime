@@ -22,16 +22,16 @@ import pytest
 
 from datetime import datetime, timezone
 
-from rime.frost.get import (
+from rime_ingest.frost.get import (
     frost_entity_lookup,
     frost_entity_lookup_pages,
     frost_object_lookup,
     general_frost_get,
     get_frost_datastream_observations,
 )
-from rime.frost.helpers import check_object_existence
-from rime.frost.types import FrostParams
-from rime.sta.core import (
+from rime_ingest.frost.helpers import check_object_existence
+from rime_ingest.frost.types import FrostParams
+from rime_ingest.sta.core import (
     Datastream,
     Location,
     Observation,
@@ -39,7 +39,7 @@ from rime.sta.core import (
     Sensor,
     Thing,
 )
-from rime.sta.schema import (
+from rime_ingest.sta.schema import (
     SensorThingsEntityGroups,
 )
 

@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import pytest
 
-from rime.frost.get import (
+from rime_ingest.frost.get import (
     frost_entity_lookup,
     frost_entity_lookup_pages,
     frost_object_lookup,
@@ -21,10 +21,10 @@ from rime.frost.get import (
     general_frost_get,
     get_frost_datastream_observations,
 )
-from rime.frost.helpers import check_object_existence
-from rime.frost.types import FrostParams
-from rime.sta.core import Thing
-from rime.sta.schema import SensorThingsEntityGroups
+from rime_ingest.frost.helpers import check_object_existence
+from rime_ingest.frost.types import FrostParams
+from rime_ingest.sta.core import Thing
+from rime_ingest.sta.schema import SensorThingsEntityGroups
 
 
 pytestmark = [pytest.mark.real, pytest.mark.online]

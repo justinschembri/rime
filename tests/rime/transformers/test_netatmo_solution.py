@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import pytest
 
-from rime.exceptions import MissingPayloadKeysError
-from rime.transformers.messages import DecapsulatedMessage, IdentifiedPayload
-from rime.providers.netatmo import NetatmoProvider
-from rime.transformers.decapsulators import NetatmoDecapsulator
+from rime_ingest.exceptions import MissingPayloadKeysError
+from rime_ingest.transformers.messages import DecapsulatedMessage, IdentifiedPayload
+from rime_ingest.providers.netatmo import NetatmoProvider
+from rime_ingest.transformers.decapsulators import NetatmoDecapsulator
 
 
 _TS = 1765374089

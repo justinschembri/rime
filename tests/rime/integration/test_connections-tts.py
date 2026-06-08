@@ -9,7 +9,7 @@ import threading
 # external
 import pytest
 # internal
-from rime.providers import TTSProvider
+from rime_ingest.providers import TTSProvider
 
 debug_logger = logging.getLogger(__name__)
 debug_logger.setLevel(logging.DEBUG)

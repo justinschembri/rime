@@ -7,7 +7,7 @@ from pathlib import Path
 import lnetatmo
 import pytest
 # internal
-from rime.providers import NetatmoProvider
+from rime_ingest.providers import NetatmoProvider
 
 
 @pytest.fixture

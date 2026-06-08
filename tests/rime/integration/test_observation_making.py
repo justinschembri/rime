@@ -4,9 +4,9 @@ from datetime import datetime
 # external
 import pytest
 
-from rime.frost.post import general_post, make_frost_entity
+from rime_ingest.frost.post import general_post, make_frost_entity
 
-from rime.sta.core import Observation
+from rime_ingest.sta.core import Observation
 
 
 @pytest.fixture

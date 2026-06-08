@@ -6,7 +6,7 @@ Internal working document. This is a living record of where we are going and why
 
 ## Where we are today
 
-The current codebase is a single Python application (`src/rime/`) that:
+The current codebase is a single Python application (`packages/rime-ingest/`) that:
 
 - Polls or subscribes to external IoT providers (Netatmo via HTTP, TTS via MQTT).
 - Runs a decode → deserialize → decapsulate → normalise pipeline on each payload.
@@ -118,10 +118,19 @@ rime/
     rime-ingest/      # current application, refactored; depends on rime-core
     rime-ctrl/        # new: control plane API + web UI; depends on rime-core
     rime-servers/     # new: server implementations; depends on rime-core
+    rime-edge/        # reference edge producers, by language (python/, c/, …)
   deploy/             # Compose files, init scripts, secrets layout
   docs/               # this file lives here
+  docs/protocols/     # normative wire contracts (e.g. rime-http-ingest-v1.md)
   tests/              # integration tests spanning packages
 ```
+
+`rime-edge` is intentionally **not** a dependency of ingest. Edge hosts deploy
+from per-language release tarballs or sparse git checkout — not by cloning the
+full platform repo. See [`packages/rime-edge/README.md`](../packages/rime-edge/README.md).
+
+Each package builds from its own directory (`packages/rime-ingest/Dockerfile`, etc.).
+`deploy/` compose files wire services together at runtime.
 
 Within `rime-ingest`, the transport taxonomy becomes:
 
@@ -136,7 +145,7 @@ transport/
     seedlink.py       # would-have
 ```
 
-We are not restructuring the repository today. The current `src/rime/` layout continues to evolve. The monorepo split happens when `rime-ctrl` is being built out in earnest and the shared type boundary becomes clear.
+The monorepo split is in progress. `packages/rime-ingest/` holds the current application; the remaining packages (`rime-ctrl`, `rime-servers`, `rime-core`) are added as their scope becomes clear. The full workspace split happens when `rime-ctrl` is being built out in earnest and the shared type boundary is stable.
 
 ---
 

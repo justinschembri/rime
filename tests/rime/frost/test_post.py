@@ -13,9 +13,9 @@ from typing import TYPE_CHECKING
 import pytest
 import requests
 
-from rime.frost.post import general_post, make_frost_entity
-from rime.frost.types import FrostEntityRef
-from rime.sta.core import Thing
+from rime_ingest.frost.post import general_post, make_frost_entity
+from rime_ingest.frost.types import FrostEntityRef
+from rime_ingest.sta.core import Thing
 
 if TYPE_CHECKING:
     from conftest import DockerFrost

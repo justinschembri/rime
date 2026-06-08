@@ -1,30 +1,16 @@
+# Dev-only root manifest for running monorepo integration tests.
+# Deployable packages are built from their own directories (e.g. packages/rime-ingest/).
+
 [project]
-name = "rime"
-version = "0.6.1"
-description = "RIME — management and ingestion layer for Fraunhofer FROST Server (SensorThings)."
-readme = "README.md"
+name = "rime-dev"
+version = "0.0.0"
 requires-python = ">=3.12"
 dependencies = [
-    "lnetatmo>=4.2.0",
-    "paho-mqtt>=2.1.0",
-    "pydantic>=2.10.6",
-    "python-dotenv>=1.0.1",
-    "pyyaml>=6.0.2",
-    "requests>=2.32.5",
-    "typer>=0.12.0",
-    "rich>=13.7.0",
-    "obspy>=1.5.0",
+    "rime-ingest",
 ]
 
-[project.scripts]
-rime = "rime.cli:main"
-
-[tool.setuptools.packages.find]
-where = ["src"]
-
-[build-system]
-requires = ["setuptools"]
-build-backend = "setuptools.build_meta"
+[tool.uv.sources]
+rime-ingest = { path = "packages/rime-ingest", editable = true }
 
 [dependency-groups]
 dev = [
@@ -32,13 +18,11 @@ dev = [
 ]
 
 [tool.pytest.ini_options]
-testpaths = [
-    "tests"
-]
+testpaths = ["tests"]
 filterwarnings = [
     "ignore:The 'User' class is no longer maintained by Netatmo:DeprecationWarning",
     "ignore:The 'DeviceList' class was renamed 'WeatherStationData':DeprecationWarning",
-    "ignore:The 'WelcomeData' class was renamed 'HomeData':DeprecationWarning"
+    "ignore:The 'WelcomeData' class was renamed 'HomeData':DeprecationWarning",
 ]
 markers = [
     "slow: tests which take long",
