@@ -4,8 +4,8 @@ from typing import Any
 
 import pytest
 
-from rime.providers.tts import TTSProvider
-from rime.transformers.messages import DecapsulatedMessage, IdentifiedPayload
+from rime_ingest.providers.tts import TTSProvider
+from rime_ingest.transformers.messages import DecapsulatedMessage, IdentifiedPayload
 
 
 class TestTTSProviderPayload:

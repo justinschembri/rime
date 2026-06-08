@@ -2,8 +2,8 @@
 import unittest
 
 # internal
-from rime.sta.extensions import SensorConfig
-from rime.paths import ROOT_DIR
+from rime_ingest.sta.extensions import SensorConfig
+from rime_ingest.paths import ROOT_DIR
 
 
 class TestSensorConfig(unittest.TestCase):

@@ -6,9 +6,9 @@ from datetime import datetime, timezone
 
 import pytest
 
-from rime.exceptions import MissingPayloadKeysError
-from rime.transformers.decapsulators import TTNDecapsulator
-from rime.transformers.messages import DecapsulatedMessage, IdentifiedPayload
+from rime_ingest.exceptions import MissingPayloadKeysError
+from rime_ingest.transformers.decapsulators import TTNDecapsulator
+from rime_ingest.transformers.messages import DecapsulatedMessage, IdentifiedPayload
 
 
 @pytest.fixture

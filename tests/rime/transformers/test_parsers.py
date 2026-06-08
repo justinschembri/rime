@@ -6,10 +6,10 @@ from datetime import datetime, timezone
 
 import pytest
 
-from rime.exceptions import MissingPayloadKeysError, UnpackError
-from rime.transformers.messages import EnvelopeMetadata, IdentifiedPayload, ObservationRecord
-from rime.transformers.parsers.netatmo import NetatmoNWS03Parser
-from rime.transformers.parsers.milesight import MilesightAm103lParser, MilesightAm308lParser
+from rime_ingest.exceptions import MissingPayloadKeysError, UnpackError
+from rime_ingest.transformers.messages import EnvelopeMetadata, IdentifiedPayload, ObservationRecord
+from rime_ingest.transformers.parsers.netatmo import NetatmoNWS03Parser
+from rime_ingest.transformers.parsers.milesight import MilesightAm103lParser, MilesightAm308lParser
 
 
 _TS = 1765374089

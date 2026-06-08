@@ -1,0 +1,27 @@
+[project]
+name = "rime-ingest"
+version = "0.6.1"
+description = "RIME — ingest layer for Fraunhofer FROST Server (SensorThings)."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "lnetatmo>=4.2.0",
+    "paho-mqtt>=2.1.0",
+    "pydantic>=2.10.6",
+    "python-dotenv>=1.0.1",
+    "pyyaml>=6.0.2",
+    "requests>=2.32.5",
+    "typer>=0.12.0",
+    "rich>=13.7.0",
+    "obspy>=1.5.0",
+]
+
+[project.scripts]
+rime = "rime_ingest.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
