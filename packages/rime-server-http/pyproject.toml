@@ -1,0 +1,28 @@
+[project]
+name = "rime-server-http"
+version = "0.1.0"
+description = "Dumb HTTP ingress buffer for rime-ingest edge payloads."
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.34.0",
+    "pyyaml>=6.0.2",
+    "python-multipart>=0.0.20",
+]
+
+[project.scripts]
+rime-server-http = "rime_server_http.main:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3.4",
+    "pytest-asyncio>=0.25.0",
+    "httpx>=0.28.0",
+]
