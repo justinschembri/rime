@@ -7,9 +7,10 @@ on:
     branches:
       - main
     paths:
-      - "src/**"
+      - "packages/rime-ingest/**"
       - "tests/rime/frost/**"
       - "pyproject.toml"
+      - "uv.lock"
       - ".github/workflows/tests-docker.yml"
   workflow_dispatch:
 

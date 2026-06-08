@@ -10,15 +10,19 @@ dependencies = [
 ]
 
 [tool.uv.sources]
-rime-ingest = { path = "packages/rime-ingest", editable = true }
+rime-ingest = { workspace = true }
 
 [dependency-groups]
 dev = [
     "pytest>=8.3.4",
 ]
 
+[tool.uv.workspace]
+members = ["packages/rime-ingest", "packages/rime-server-http"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["packages/rime-ingest/src"]
 filterwarnings = [
     "ignore:The 'User' class is no longer maintained by Netatmo:DeprecationWarning",
     "ignore:The 'DeviceList' class was renamed 'WeatherStationData':DeprecationWarning",

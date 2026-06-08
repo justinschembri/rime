@@ -18,29 +18,25 @@ from .menu import _setup_credentials
 
 def _compose_dir() -> Path:
     """Return the deploy compose directory (monorepo ``deploy/`` when developing)."""
+    from rime_ingest.paths import DEPLOY_DIR
+
     compose_dir = os.getenv("RIME_COMPOSE_DIR")
-    if not compose_dir:
+    if compose_dir:
+        path = Path(compose_dir)
+    elif DEPLOY_DIR is not None:
+        path = DEPLOY_DIR
+    else:
         console.print(
-            "[red]RIME_COMPOSE_DIR is not set.[/red] "
-            "Point it at the deploy/ directory, or use docker compose directly."
+            "[red]Could not locate deploy/ directory.[/red] "
+            "Set RIME_COMPOSE_DIR to your compose directory, or use docker compose directly."
         )
         raise typer.Exit(1)
-    path = Path(compose_dir)
     if not path.is_dir():
-        console.print(f"[red]RIME_COMPOSE_DIR does not exist:[/red] {path}")
+        console.print(f"[red]Compose directory does not exist:[/red] {path}")
         raise typer.Exit(1)
     return path
 
 
-# Create typer app and console
-app = typer.Typer(
-    help="RIME CLI — SensorThings utilities for FROST",
-    rich_markup_mode="rich",
-    no_args_is_help=True,
-)
-console = Console()
-
-# Create typer app and console
 app = typer.Typer(
     help="RIME CLI — SensorThings utilities for FROST",
     rich_markup_mode="rich",
@@ -207,7 +203,7 @@ def _generate_config(
             location_description=location_description,
             longitude=longitude,
             latitude=latitude,
-            output_path=output_path,
+            output_path=output,
         )
         console.print(f"\n[bold green]✓ Configuration generated successfully:[/bold green] {output_path}")
         console.print("\n[bold]Next steps:[/bold]")

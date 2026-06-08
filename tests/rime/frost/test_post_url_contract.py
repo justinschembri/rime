@@ -39,7 +39,7 @@ def test_find_datastream_observations_url_returns_datastream_parent(monkeypatch)
             }
         ]
 
-    monkeypatch.setattr("rime.frost.get.frost_entity_lookup", fake_lookup)
+    monkeypatch.setattr("rime_ingest.frost.get.frost_entity_lookup", fake_lookup)
 
     out = find_datastream_observations_url(
         sensor_name="sensor-1",
@@ -63,8 +63,8 @@ def test_make_frost_entity_observation_endpoint_appends_once(monkeypatch):
             "http://web:8080/FROST-Server/v1.1/Observations(123)"
         )
 
-    monkeypatch.setattr("rime.frost.post.check_object_existence", fake_exists)
-    monkeypatch.setattr("rime.frost.post.general_post", fake_post)
+    monkeypatch.setattr("rime_ingest.frost.post.check_object_existence", fake_exists)
+    monkeypatch.setattr("rime_ingest.frost.post.general_post", fake_post)
 
     obs = Observation(result=21.3, phenomenonTime=datetime.now(UTC))
     ref = make_frost_entity(
