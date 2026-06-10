@@ -33,10 +33,11 @@ class TestResolvePaths:
             "SENSOR_CONFIG_PATH": str(sensor_dir),
         }
         with patch.dict("os.environ", env, clear=False):
-            resolved_app, resolved_sensors = _resolve_paths()
+            resolved_app, resolved_sensors, resolved_dir = _resolve_paths()
 
         assert resolved_app == app_config
-        assert resolved_sensors == []  # empty dir
+        assert resolved_sensors == []
+        assert resolved_dir == sensor_dir
 
     def test_discovers_sensor_yaml_files(self, tmp_path):
         app_config = tmp_path / "application-configs.yml"
@@ -52,7 +53,7 @@ class TestResolvePaths:
             "SENSOR_CONFIG_PATH": str(sensor_dir),
         }
         with patch.dict("os.environ", env, clear=False):
-            _, sensor_paths = _resolve_paths()
+            _, sensor_paths, _ = _resolve_paths()
 
         names = {p.name for p in sensor_paths}
         assert "sensor-a.yml" in names

@@ -107,14 +107,21 @@ class GitWatcher:
         """Run a git command in the repo directory and return stdout.
 
         Raises:
-            RuntimeError: If the command exits with a non-zero return code.
+            RuntimeError: If git is not installed, the path is not a repo,
+                or the command exits with a non-zero return code.
         """
-        result = subprocess.run(
-            ["git", *args],
-            cwd=self.repo_path,
-            capture_output=True,
-            text=True,
-        )
+        try:
+            result = subprocess.run(
+                ["git", *args],
+                cwd=self.repo_path,
+                capture_output=True,
+                text=True,
+            )
+        except FileNotFoundError:
+            raise RuntimeError(
+                "git is not installed in this environment. "
+                "Install git or set CTRL_GIT_WATCH=false to disable git watching."
+            )
         if result.returncode != 0:
             raise RuntimeError(
                 f"git {' '.join(args)} failed: {result.stderr.strip()}"

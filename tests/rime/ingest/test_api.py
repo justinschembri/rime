@@ -61,6 +61,64 @@ class TestHealth:
 
 
 # ---------------------------------------------------------------------------
+# POST /sensors/reload
+# ---------------------------------------------------------------------------
+
+class TestSensorReload:
+    def test_reloads_sensor_registry(self, client, mock_runtime, tmp_path):
+        # create a real dir so the endpoint doesn't 404
+        sensor_dir = tmp_path / "sensor_configs"
+        sensor_dir.mkdir()
+        (sensor_dir / "sensor-a.yml").write_text("name: a\n")
+
+        response = client.post(
+            "/sensors/reload",
+            json={"sensor_config_dir": str(sensor_dir)},
+        )
+
+        assert response.status_code == 200
+        assert "updated" in response.json()["message"].lower()
+        mock_runtime.update_sensor_registry.assert_called_once()
+
+    def test_returns_404_when_dir_missing(self, client, mock_runtime):
+        response = client.post(
+            "/sensors/reload",
+            json={"sensor_config_dir": "/does/not/exist"},
+        )
+        assert response.status_code == 404
+
+    def test_returns_422_when_body_missing(self, client):
+        response = client.post("/sensors/reload")
+        assert response.status_code == 422
+
+
+# ---------------------------------------------------------------------------
+# GET /transports/running-config
+# ---------------------------------------------------------------------------
+
+class TestRunningConfig:
+    def test_returns_stored_configs(self, client, mock_runtime):
+        mock_runtime.get_running_app_config.return_value = {
+            "app-a": {"provider": "netatmo", "request_interval": 300},
+        }
+
+        response = client.get("/transports/running-config")
+
+        assert response.status_code == 200
+        assert response.json() == {
+            "app-a": {"provider": "netatmo", "request_interval": 300}
+        }
+
+    def test_returns_empty_dict_when_no_transports(self, client, mock_runtime):
+        mock_runtime.get_running_app_config.return_value = {}
+
+        response = client.get("/transports/running-config")
+
+        assert response.status_code == 200
+        assert response.json() == {}
+
+
+# ---------------------------------------------------------------------------
 # GET /transports
 # ---------------------------------------------------------------------------
 

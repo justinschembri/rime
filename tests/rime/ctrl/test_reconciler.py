@@ -212,6 +212,23 @@ class TestReconcile:
         mock_ingest_client.stop_transport.assert_not_called()
         mock_ingest_client.restart_transport.assert_not_called()
 
+    def test_reload_sensors_is_called_after_frost_provision(self, app_config_file, mock_ingest_client, tmp_path):
+        sensor_dir = tmp_path / "sensor_configs"
+        sensor_dir.mkdir()
+        sensor_paths = [sensor_dir / "sensor-a.yml"]
+
+        with patch("rime.ctrl.reconciler.provision_frost"), \
+             patch("rime.ctrl.reconciler.load_sensor_configs", return_value=[]):
+            reconcile(
+                app_config_path=app_config_file,
+                sensor_config_paths=sensor_paths,
+                ingest_client=mock_ingest_client,
+                sensor_config_dir=sensor_dir,
+                running_app_config={},
+            )
+
+        mock_ingest_client.reload_sensors.assert_called_once_with(sensor_dir)
+
     def test_provision_frost_is_called(self, app_config_file, mock_ingest_client):
         mock_sensor = MagicMock()
 
@@ -258,6 +275,31 @@ class TestIngestClient:
             "http://ingest:8001/transports/app-a/stop",
             timeout=10,
         )
+
+    def test_reload_sensors_posts_to_correct_url(self, ingest_client):
+        with patch("rime.ctrl.reconciler.requests.post") as mock_post:
+            mock_post.return_value.raise_for_status = MagicMock()
+            ingest_client.reload_sensors(Path("/ops/sensor_configs"))
+
+        mock_post.assert_called_once_with(
+            "http://ingest:8001/sensors/reload",
+            json={"sensor_config_dir": "/ops/sensor_configs"},
+            timeout=10,
+        )
+
+    def test_get_running_config_calls_correct_url(self, ingest_client):
+        with patch("rime.ctrl.reconciler.requests.get") as mock_get:
+            mock_get.return_value.raise_for_status = MagicMock()
+            mock_get.return_value.json.return_value = {
+                "app-a": {"provider": "netatmo"}
+            }
+            result = ingest_client.get_running_config()
+
+        mock_get.assert_called_once_with(
+            "http://ingest:8001/transports/running-config",
+            timeout=10,
+        )
+        assert result == {"app-a": {"provider": "netatmo"}}
 
     def test_restart_transport_posts_to_correct_url(self, ingest_client):
         with patch("rime.ctrl.reconciler.requests.post") as mock_post:

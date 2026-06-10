@@ -131,6 +131,8 @@ class IngestRuntime:
     def __init__(self) -> None:
         # app_name → transport instance
         self._connections: dict[str, SensorTransport] = {}
+        # app_name → original config dict (used by ctrl to diff desired vs running)
+        self._configs: dict[str, Any] = {}
         self._sensor_registry: dict[SensorUUID, SupportedSensors] = {}
         self._lock = threading.Lock()
 
@@ -157,6 +159,7 @@ class IngestRuntime:
             for transport in transports:
                 transport.start(self._sensor_registry)
                 self._connections[transport.app_name] = transport
+                self._configs[transport.app_name] = app_config[transport.app_name]
                 netmon.connections.add(transport)
 
         netmon.set_starting_threads(list(self._connections.keys()))
@@ -207,6 +210,7 @@ class IngestRuntime:
         with self._lock:
             transport.start(self._sensor_registry)
             self._connections[app_name] = transport
+            self._configs[app_name] = app_config_entry
             netmon.connections.add(transport)
 
         logger.info("Started transport: %s", app_name)
@@ -229,6 +233,7 @@ class IngestRuntime:
                 if transport._thread is not None:
                     transport._thread.join(timeout=5)
             del self._connections[app_name]
+            self._configs.pop(app_name, None)
             netmon.connections.discard(transport)
 
         logger.info("Stopped transport: %s", app_name)
@@ -280,6 +285,20 @@ class IngestRuntime:
         logger.info(
             "Sensor registry updated: %d sensor(s).", len(self._sensor_registry)
         )
+
+    # ------------------------------------------------------------------
+    # Running config
+    # ------------------------------------------------------------------
+
+    def get_running_app_config(self) -> dict[str, Any]:
+        """Return the original config dict for every active transport.
+
+        This is what ctrl uses to diff desired state (YAML) against actual
+        state (what ingest is currently running), so it must match the shape
+        of the application-configs.yml ``applications`` entries exactly.
+        """
+        with self._lock:
+            return dict(self._configs)
 
     # ------------------------------------------------------------------
     # Status

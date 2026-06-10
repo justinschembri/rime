@@ -3,6 +3,8 @@
 Endpoints
 ---------
 GET  /health
+POST /sensors/reload
+GET  /transports/running-config
 GET  /transports
 GET  /transports/{app_name}
 POST /transports/{app_name}/start
@@ -12,6 +14,7 @@ POST /transports/{app_name}/restart
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, Depends, HTTPException, status
@@ -22,6 +25,15 @@ from rime.ingest.runtime import IngestRuntime, RuntimeStatus, TransportStatus
 # ---------------------------------------------------------------------------
 # Pydantic request / response models
 # ---------------------------------------------------------------------------
+
+class SensorReloadRequest(BaseModel):
+    """Path to the sensor config directory for ingest to scan.
+
+    Ingest resolves the files itself so paths are always valid inside
+    the ingest container regardless of where ctrl is running.
+    """
+    sensor_config_dir: str
+
 
 class TransportStartRequest(BaseModel):
     """Config entry for a single application (value under applications.<name>)."""
@@ -81,8 +93,53 @@ def create_app(runtime: IngestRuntime) -> FastAPI:
         return MessageResponse(message="ok")
 
     # ------------------------------------------------------------------
+    # Sensors
+    # ------------------------------------------------------------------
+
+    @app.post("/sensors/reload", response_model=MessageResponse, tags=["sensors"])
+    def reload_sensors(
+        body: SensorReloadRequest,
+        rt: IngestRuntime = Depends(get_runtime),
+    ) -> MessageResponse:
+        """Rebuild the sensor registry by scanning a sensor config directory.
+
+        Ingest resolves paths itself so they are always valid inside this
+        container. Call this after FROST provisioning whenever sensor configs
+        change. Running transports pick up the new registry immediately.
+        """
+        sensor_dir = Path(body.sensor_config_dir)
+        if not sensor_dir.exists():
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Sensor config directory not found: {sensor_dir}",
+            )
+        paths = [
+            p for ext in ("*.yml", "*.yaml", "*.YML", "*.YAML")
+            for p in sensor_dir.rglob(ext)
+            if "template" not in p.stem
+        ]
+        # deduplicate (multiple glob patterns can match on case-insensitive FS)
+        paths = list({p for p in paths})
+        rt.update_sensor_registry(paths)
+        return MessageResponse(
+            message=f"Sensor registry updated with {len(paths)} config(s)."
+        )
+
+    # ------------------------------------------------------------------
     # Status
     # ------------------------------------------------------------------
+
+    @app.get(
+        "/transports/running-config",
+        response_model=dict,
+        tags=["transports"],
+    )
+    def running_config(rt: IngestRuntime = Depends(get_runtime)) -> dict:
+        """Return the stored config dict for every active transport.
+
+        Used by ctrl to diff desired state against actual running state.
+        """
+        return rt.get_running_app_config()
 
     @app.get(
         "/transports",

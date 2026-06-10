@@ -1,0 +1,100 @@
+# docker-compose.services.yml
+# TWO-SERVICE ARCHITECTURE ####################################
+# Replaces docker-compose.app.yml with two separate services:
+#   - rime-ingest: transport threads + HTTP API
+#   - rime-ctrl:   FROST provisioning + git-driven reconciler
+#
+# Usage (merge with base):
+#   docker compose \
+#     -f deploy/docker-compose.base.yml \
+#     -f deploy/docker-compose.services.yml \
+#     up -d
+##############################################################
+name: rime
+
+services:
+
+  # ----------------------------------------------------------
+  # rime-ingest
+  # Runs transport threads (Netatmo, TTS) and exposes the
+  # transport lifecycle API on port 8001.
+  # Never reads config files — ctrl pushes config to it.
+  # ----------------------------------------------------------
+  rime-ingest:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    secrets:
+      - application_credentials
+      - frost_credentials
+    depends_on:
+      - web
+      - database
+      - mosquitto
+    environment:
+      - CONTAINER_ENVIRONMENT=true
+      - FROST_ENDPOINT=http://web:8080/FROST-Server/v1.1
+      - INGEST_HOST=0.0.0.0
+      - INGEST_PORT=8001
+    ports:
+      - "8001:8001"
+    volumes:
+      - rime_tokens:/app/deploy/secrets/tokens
+      - rime_logs:/app/logs
+      - ${SENSOR_CONFIG_PATH:-./sensor_configs}:/ops/sensor_configs:ro
+    command: ["python", "-m", "rime.ingest"]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  # ----------------------------------------------------------
+  # rime-ctrl
+  # Reads config files, provisions FROST, and tells ingest
+  # which transports to run.  Polls the ops git repo for
+  # config changes and reconciles automatically.
+  # ----------------------------------------------------------
+  rime-ctrl:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    secrets:
+      - frost_credentials
+    depends_on:
+      rime-ingest:
+        condition: service_healthy
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      - CONTAINER_ENVIRONMENT=true
+      - FROST_ENDPOINT=http://web:8080/FROST-Server/v1.1
+      - INGEST_API_URL=http://rime-ingest:8001
+      - RIME_OPS_PATH=/ops
+      - APP_CONFIG_FILE=/ops/application-configs.yml
+      - SENSOR_CONFIG_PATH=/ops/sensor_configs
+      # Git watch is disabled by default — configs come from the volume mount.
+      # Set CTRL_GIT_WATCH=true only when the container clones the ops repo
+      # itself (pure GitOps mode, no volume mount).
+      - CTRL_GIT_WATCH=false
+    volumes:
+      - rime_tokens:/app/deploy/secrets/tokens
+      - rime_logs:/app/logs
+      - ${SENSOR_CONFIG_PATH:-./sensor_configs}:/ops/sensor_configs:ro
+      - ${APPLICATION_CONFIG_FILE:-./application-configs.yml}:/ops/application-configs.yml:ro
+      - ${RIME_OPS_PATH:-./}:/ops:ro
+    command: ["python", "-m", "rime.ctrl"]
+    restart: on-failure
+
+volumes:
+  rime_tokens:
+  rime_logs:
+
+secrets:
+  application_credentials:
+    file: ./secrets/credentials/application_credentials.json
+  frost_credentials:
+    file: ./secrets/credentials/frost_credentials.json

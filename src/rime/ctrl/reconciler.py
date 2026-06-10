@@ -173,13 +173,28 @@ class IngestClient:
         )
         resp.raise_for_status()
 
-    def get_running_config(self) -> dict[str, Any]:
-        """Fetch the currently running application config from ingest status."""
-        resp = requests.get(self._url("/transports"), timeout=self.timeout)
+    def reload_sensors(self, sensor_config_dir: Path) -> None:
+        """Tell ingest to rebuild its sensor registry from a directory path.
+
+        Ingest resolves the files itself — the path must be valid inside
+        the ingest container (i.e. the ops volume mount point).
+        """
+        resp = requests.post(
+            self._url("/sensors/reload"),
+            json={"sensor_config_dir": str(sensor_config_dir)},
+            timeout=self.timeout,
+        )
         resp.raise_for_status()
-        data = resp.json()
-        # Convert transport status list back to a name-keyed dict
-        return {t["app_name"]: t for t in data.get("transports", [])}
+
+    def get_running_config(self) -> dict[str, Any]:
+        """Fetch the original config dict for every active transport from ingest.
+
+        Returns the same shape as the ``applications`` dict in
+        application-configs.yml so diff_app_configs can compare correctly.
+        """
+        resp = requests.get(self._url("/transports/running-config"), timeout=self.timeout)
+        resp.raise_for_status()
+        return resp.json()
 
 
 # ---------------------------------------------------------------------------
@@ -190,14 +205,19 @@ def reconcile(
     app_config_path: Path,
     sensor_config_paths: list[Path],
     ingest_client: IngestClient,
+    sensor_config_dir: Path | None = None,
     running_app_config: dict[str, Any] | None = None,
 ) -> TransportDiff:
     """Full reconciliation pass: provision FROST and sync ingest transports.
 
     Args:
         app_config_path: Path to ``application-configs.yml``.
-        sensor_config_paths: List of sensor YAML file paths.
+        sensor_config_paths: List of sensor YAML file paths (ctrl-side paths,
+            used for FROST provisioning).
         ingest_client: Client for the ingest transport API.
+        sensor_config_dir: Directory ingest should scan to rebuild its sensor
+            registry. Must be a path valid inside the ingest container.
+            Defaults to the parent of the first sensor config path.
         running_app_config: Currently active application config in ingest.
             If None, fetched live from the ingest API (use None in production;
             pass a dict in tests to avoid network calls).
@@ -212,13 +232,20 @@ def reconcile(
     # 2. Provision FROST (idempotent)
     provision_frost(sensor_configs)
 
-    # 3. Diff desired vs running transports
+    # 3. Push sensor registry to ingest so transports can process messages
+    #    Use the provided dir, or derive it from the first sensor config path.
+    if sensor_config_dir is None and sensor_config_paths:
+        sensor_config_dir = sensor_config_paths[0].parent
+    if sensor_config_dir is not None:
+        ingest_client.reload_sensors(sensor_config_dir)
+
+    # 4. Diff desired vs running transports
     if running_app_config is None:
         running_app_config = ingest_client.get_running_config()
 
     diff = diff_app_configs(desired_app_config, running_app_config)
 
-    # 4. Apply diff to ingest
+    # 5. Apply diff to ingest
     for name, cfg in diff.to_start.items():
         logger.info("Starting transport: %s", name)
         ingest_client.start_transport(name, cfg)

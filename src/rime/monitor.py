@@ -38,6 +38,7 @@ class _NetworkMonitor:
         self.rejected_payloads: dict[SensorUUID, int] = defaultdict(int)
         self.sensor_config_fail: int = 0
         self.payloads_received: dict[str, int] = defaultdict(int)
+        self.wire_messages_received: dict[str, int] = defaultdict(int)
         self.connections: set["SensorTransport"] = set()
         self.first_report_issued: bool = False
         self._lock = threading.Lock()

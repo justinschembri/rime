@@ -135,15 +135,17 @@ class TestStartTransport:
         mock_class = MagicMock()
         mock_class.__name__ = "MockProvider"
         mock_class.from_config.return_value = mock_transport
+        cfg = {"provider": "mockprovider"}
 
         with patch("rime.ingest.runtime.PROVIDER_REGISTRY", {"mockprovider": mock_class}), \
              patch("rime.ingest.runtime.issubclass", return_value=True), \
              patch("rime.ingest.runtime.netmon") as mock_netmon:
             mock_netmon.connections = set()
 
-            runtime.start_transport("new-app", {"provider": "mockprovider"})
+            runtime.start_transport("new-app", cfg)
 
         assert "new-app" in runtime.transport_names
+        assert runtime._configs["new-app"] == cfg
         mock_transport.start.assert_called_once()
 
     def test_raises_if_transport_already_running(self, runtime):
@@ -164,6 +166,7 @@ class TestStopTransport:
     def test_stops_running_transport(self, runtime):
         mock_transport = _make_mock_transport("app-b", alive=True)
         runtime._connections["app-b"] = mock_transport
+        runtime._configs["app-b"] = {"provider": "netatmo"}
 
         with patch("rime.ingest.runtime.netmon") as mock_netmon:
             mock_netmon.connections = {mock_transport}
@@ -171,6 +174,7 @@ class TestStopTransport:
 
         mock_transport.stop.assert_called_once()
         assert "app-b" not in runtime.transport_names
+        assert "app-b" not in runtime._configs
 
     def test_raises_on_unknown_transport(self, runtime):
         with pytest.raises(KeyError, match="Unknown transport"):
@@ -216,6 +220,36 @@ class TestRestartTransport:
     def test_raises_on_unknown_transport(self, runtime):
         with pytest.raises(KeyError, match="Unknown transport"):
             runtime.restart_transport("ghost", {"provider": "mockprovider"})
+
+
+# ---------------------------------------------------------------------------
+# IngestRuntime.get_running_app_config
+# ---------------------------------------------------------------------------
+
+class TestGetRunningAppConfig:
+    def test_returns_stored_configs(self, runtime):
+        cfg_a = {"provider": "netatmo", "request_interval": 300}
+        cfg_b = {"provider": "tts", "max_retries": 5}
+        runtime._configs["app-a"] = cfg_a
+        runtime._configs["app-b"] = cfg_b
+
+        result = runtime.get_running_app_config()
+
+        assert result == {"app-a": cfg_a, "app-b": cfg_b}
+
+    def test_returns_empty_when_no_transports(self, runtime):
+        assert runtime.get_running_app_config() == {}
+
+    def test_config_removed_after_stop(self, runtime):
+        mock_transport = _make_mock_transport("app-x", alive=True)
+        runtime._connections["app-x"] = mock_transport
+        runtime._configs["app-x"] = {"provider": "netatmo"}
+
+        with patch("rime.ingest.runtime.netmon") as mock_netmon:
+            mock_netmon.connections = set()
+            runtime.stop_transport("app-x")
+
+        assert "app-x" not in runtime.get_running_app_config()
 
 
 # ---------------------------------------------------------------------------

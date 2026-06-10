@@ -7,6 +7,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`rime-ingest` HTTP API** — FastAPI application exposing per-transport lifecycle
+  endpoints (`/transports/{name}/start|stop|restart`), a sensor registry reload
+  endpoint (`/sensors/reload`), and a running-config endpoint
+  (`/transports/running-config`). Enables ctrl-plane control without container
+  restarts.
+- **`rime-ctrl` reconciler** — Diffs desired application config (YAML) against
+  running transport config fetched from ingest API, then starts, stops, or restarts
+  transports as needed. Provisions FROST and pushes sensor registry to ingest on
+  every reconcile cycle.
+- **`rime-ctrl` git poll loop** — Watches the ops git repo for new commits; triggers
+  a reconcile automatically when config changes are pushed. Gracefully skips polling
+  when git is unavailable or the directory is not a git repo.
+- **Two-service Docker Compose** (`deploy/docker-compose.services.yml`) — Replaces
+  the single `python-app` container with `rime-ingest` (transport threads + HTTP API)
+  and `rime-ctrl` (provisioning + reconciler). `rime-ctrl` waits for `rime-ingest`
+  healthcheck before starting.
+- **`IngestRuntime.get_running_app_config()`** — Stores original config dicts per
+  transport so the reconciler can diff desired vs. actual without relying on status
+  fields.
+- **Unit tests** — 77 tests covering `IngestRuntime`, `IngestClient`, the FastAPI
+  endpoints, the reconciler, the `GitWatcher`, and the ctrl `__main__` entry point.
+
+### Known Limitation (to be addressed in rime-ctrl web UI)
+
+In the current volume-mount deployment, `rime-ctrl` exits after its cold-start
+reconcile. Config changes (editing YAML files in the ops repo) are not picked up
+automatically — an operator must manually restart the container:
+
+```bash
+docker restart rime-rime-ctrl-1
+```
+
+The planned fix is to evolve `rime-ctrl` into a long-running FastAPI daemon with
+a `POST /reconcile` endpoint. The web UI will call this endpoint whenever a
+researcher saves a config change, triggering an immediate reconcile without any
+manual Docker intervention.
+
 ### Changed
 
 - **Set canonical names** - Define canonical `CanonicalDatastreams` which

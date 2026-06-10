@@ -51,11 +51,11 @@ logger = logging.getLogger("ctrl.main")
 # Config resolution
 # ---------------------------------------------------------------------------
 
-def _resolve_paths() -> tuple[Path, list[Path]]:
+def _resolve_paths() -> tuple[Path, list[Path], Path]:
     """Resolve app config file and sensor config paths from environment.
 
     Returns:
-        Tuple of (app_config_path, sensor_config_paths).
+        Tuple of (app_config_path, sensor_config_paths, sensor_config_dir).
 
     Raises:
         FileNotFoundError: If resolved paths do not exist.
@@ -103,7 +103,7 @@ def _resolve_paths() -> tuple[Path, list[Path]]:
     logger.info("App config: %s", app_config_path)
     logger.info("Sensor configs: %d file(s) in %s", len(sensor_config_paths), sensor_config_dir)
 
-    return app_config_path, sensor_config_paths
+    return app_config_path, sensor_config_paths, sensor_config_dir
 
 
 # ---------------------------------------------------------------------------
@@ -124,7 +124,7 @@ def main() -> None:
     # ------------------------------------------------------------------
     logger.info("rime-ctrl starting. Ingest API: %s", ingest_url)
 
-    app_config_path, sensor_config_paths = _resolve_paths()
+    app_config_path, sensor_config_paths, sensor_config_dir = _resolve_paths()
 
     logger.info("Running cold-start reconcile...")
     try:
@@ -132,6 +132,7 @@ def main() -> None:
             app_config_path=app_config_path,
             sensor_config_paths=sensor_config_paths,
             ingest_client=ingest_client,
+            sensor_config_dir=sensor_config_dir,
         )
         logger.info(
             "Cold-start reconcile complete. "
@@ -180,11 +181,12 @@ def main() -> None:
         try:
             if watcher.has_changes():
                 logger.info("Config change detected. Reconciling...")
-                app_config_path, sensor_config_paths = _resolve_paths()
+                app_config_path, sensor_config_paths, sensor_config_dir = _resolve_paths()
                 diff = reconcile(
                     app_config_path=app_config_path,
                     sensor_config_paths=sensor_config_paths,
                     ingest_client=ingest_client,
+                    sensor_config_dir=sensor_config_dir,
                 )
                 logger.info(
                     "Reconcile complete. "
