@@ -1,0 +1,55 @@
+{% if provider == "netatmo" %}
+<label>
+  Request Interval (seconds)
+  <input
+    type="number"
+    name="request_interval"
+    value="{{ form.request_interval or 300 }}"
+    required
+    min="60"
+    placeholder="300">
+  <small>How often to poll the Netatmo API.</small>
+</label>
+<p><small>
+  Netatmo OAuth token: add it on the <a href="/ui/tokens">Tokens</a> page after saving this application.
+</small></p>
+{% elif provider == "tts" %}
+<label>
+  Host
+  <input
+    type="text"
+    name="host"
+    value="{{ form.host or 'eu1.cloud.thethings.network' }}"
+    required
+    placeholder="eu1.cloud.thethings.network">
+</label>
+<div class="grid">
+  <label>
+    Port
+    <input
+      type="number"
+      name="port"
+      value="{{ form.port or 8883 }}"
+      required>
+  </label>
+  <label>
+    Topic
+    <input
+      type="text"
+      name="topic"
+      value="{{ form.topic or '' }}"
+      required
+      placeholder="v3/&lt;app-id&gt;@ttn/devices/+/up">
+  </label>
+</div>
+<label>
+  API Key
+  <input
+    type="text"
+    name="api_key"
+    value="{{ form.api_key or '' }}"
+    required
+    placeholder="NNSXS.xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx">
+  <small>From The Things Stack console → API Keys.</small>
+</label>
+{% endif %}

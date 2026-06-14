@@ -9,21 +9,32 @@ DELETE /sensors/{name}           — remove a sensor YAML file
 GET|POST|DELETE|PATCH
      /frost/{path}               — reverse-proxy to the internal FROST endpoint
 GET  /status                     — FROST reachability + ingest transport summary
+GET  /applications               — list provider applications from YAML
+POST /applications               — add a new provider application
+DELETE /applications/{name}      — remove a provider application
+PATCH /applications/{name}       — update a provider application config
+PUT  /credentials/{app_name}     — upsert application API key
+DELETE /credentials/{app_name}   — remove application API key
+GET  /tokens                     — list OAuth token files
+PUT  /tokens/{app_name}          — write/replace a token file
+DELETE /tokens/{app_name}        — delete a token file
 """
 
 from __future__ import annotations
 
+import json
 import logging
+import tempfile
 import threading
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import httpx
 import requests as _requests
 from fastapi import FastAPI, Form, HTTPException, status
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from starlette.requests import Request
 
 from rime.config import get_frost_auth_header
@@ -77,6 +88,48 @@ class StatusResponse(BaseModel):
     transports: list[dict[str, Any]]
 
 
+class NetatmoAppConfig(BaseModel):
+    provider: Literal["netatmo"] = "netatmo"
+    request_interval: int = 300
+    max_retries: int = 10
+    expected_sensors: int | None = None
+
+
+class TTSAppConfig(BaseModel):
+    provider: Literal["tts"] = "tts"
+    host: str
+    port: int = 8883
+    topic: str
+    max_retries: int = 5
+    expected_sensors: int | None = None
+
+
+class ApplicationInfo(BaseModel):
+    name: str
+    provider: str
+    config: dict[str, Any]
+    has_credentials: bool
+    has_token: bool
+
+
+class ApplicationsResponse(BaseModel):
+    applications: list[ApplicationInfo]
+
+
+class CreateApplicationRequest(BaseModel):
+    name: str
+    config: NetatmoAppConfig | TTSAppConfig = Field(discriminator="provider")
+
+
+class TokenInfo(BaseModel):
+    name: str
+    keys: list[str]
+
+
+class TokensResponse(BaseModel):
+    tokens: list[TokenInfo]
+
+
 # ---------------------------------------------------------------------------
 # App factory
 # ---------------------------------------------------------------------------
@@ -86,6 +139,8 @@ def create_app(
     sensor_config_dir: Path,
     app_config_path: Path,
     frost_endpoint: str = "http://web:8080/FROST-Server/v1.1",
+    credentials_path: Path | None = None,
+    tokens_dir: Path | None = None,
 ) -> FastAPI:
     """Create and return the rime-ctrl FastAPI application.
 
@@ -94,7 +149,18 @@ def create_app(
         sensor_config_dir:  Path to the sensor_configs directory (ops volume).
         app_config_path:    Path to application-configs.yml (ops volume).
         frost_endpoint:     Internal FROST base URL (default: Docker service name).
+        credentials_path:   Path to application_credentials.json.
+                            Defaults to CREDENTIALS_DIR/application_credentials.json
+                            from rime.paths.
+        tokens_dir:         Directory containing OAuth token JSON files.
+                            Defaults to TOKENS_DIR from rime.paths.
     """
+    if credentials_path is None:
+        from rime.paths import CREDENTIALS_DIR
+        credentials_path = CREDENTIALS_DIR / "application_credentials.json"
+    if tokens_dir is None:
+        from rime.paths import TOKENS_DIR as _TOKENS_DIR
+        tokens_dir = _TOKENS_DIR
     app = FastAPI(
         title="rime-ctrl",
         description="Control plane for the rime ingestion pipeline.",
@@ -152,6 +218,47 @@ def create_app(
             pass
 
         return frost_reachable, ingest_reachable, transports
+
+    def _load_app_config_raw() -> dict[str, Any]:
+        import yaml
+        with open(app_config_path) as f:
+            return yaml.safe_load(f) or {}
+
+    def _write_app_config(raw: dict[str, Any]) -> None:
+        import shutil
+        import yaml
+        # Write to /tmp (not the bind-mounted /ops dir which may be :ro for directory ops),
+        # then move to target. shutil.move falls back to copy+delete on cross-device moves.
+        tmp = Path(tempfile.mktemp(prefix=".app-config-", suffix=".tmp"))
+        try:
+            with open(tmp, "w") as f:
+                yaml.safe_dump(raw, f, default_flow_style=False, sort_keys=False, indent=2)
+            shutil.move(str(tmp), app_config_path)
+        except Exception:
+            tmp.unlink(missing_ok=True)
+            raise
+
+    def _load_credentials() -> dict[str, Any]:
+        if credentials_path.exists():
+            with open(credentials_path) as f:
+                return json.load(f)
+        return {}
+
+    def _write_credentials(creds: dict[str, Any]) -> None:
+        credentials_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(credentials_path, "w") as f:
+            json.dump(creds, f, indent=4)
+
+    def _load_tokens() -> list[dict[str, Any]]:
+        result = []
+        if tokens_dir.exists():
+            for p in sorted(tokens_dir.glob("*.json")):
+                try:
+                    data = json.loads(p.read_text())
+                    result.append({"name": p.stem, "keys": list(data.keys())})
+                except Exception:
+                    result.append({"name": p.stem, "keys": []})
+        return result
 
     # ------------------------------------------------------------------
     # GET /health
@@ -305,6 +412,163 @@ def create_app(
         target.unlink()
         logger.info("Deleted sensor config: %s", target)
         return MessageResponse(message=f"Sensor config '{name}' deleted.")
+
+    # ------------------------------------------------------------------
+    # GET /applications
+    # ------------------------------------------------------------------
+
+    @app.get("/applications", response_model=ApplicationsResponse, tags=["applications"])
+    def list_applications() -> ApplicationsResponse:
+        """List all provider applications from application-configs.yml."""
+        raw = _load_app_config_raw()
+        apps_dict = raw.get("applications", {})
+        creds = _load_credentials()
+        result = []
+        for name, cfg in apps_dict.items():
+            has_token = tokens_dir.exists() and (tokens_dir / f"{name}.json").exists()
+            result.append(ApplicationInfo(
+                name=name,
+                provider=cfg.get("provider", ""),
+                config=cfg,
+                has_credentials=name in creds,
+                has_token=has_token,
+            ))
+        return ApplicationsResponse(applications=result)
+
+    # ------------------------------------------------------------------
+    # POST /applications
+    # ------------------------------------------------------------------
+
+    @app.post(
+        "/applications",
+        response_model=MessageResponse,
+        status_code=status.HTTP_201_CREATED,
+        tags=["applications"],
+    )
+    def create_application(body: CreateApplicationRequest) -> MessageResponse:
+        """Add a new provider application to application-configs.yml."""
+        raw = _load_app_config_raw()
+        apps = raw.setdefault("applications", {})
+        if body.name in apps:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Application '{body.name}' already exists.",
+            )
+        apps[body.name] = body.config.model_dump(exclude_none=True)
+        _write_app_config(raw)
+        logger.info("Created application: %s", body.name)
+        return MessageResponse(message=f"Application '{body.name}' created.")
+
+    # ------------------------------------------------------------------
+    # DELETE /applications/{name}
+    # ------------------------------------------------------------------
+
+    @app.delete("/applications/{name}", response_model=MessageResponse, tags=["applications"])
+    def delete_application(name: str) -> MessageResponse:
+        """Remove a provider application from application-configs.yml."""
+        raw = _load_app_config_raw()
+        apps = raw.get("applications", {})
+        if name not in apps:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Application '{name}' not found.",
+            )
+        del apps[name]
+        _write_app_config(raw)
+        logger.info("Deleted application: %s", name)
+        return MessageResponse(message=f"Application '{name}' deleted.")
+
+    # ------------------------------------------------------------------
+    # PATCH /applications/{name}
+    # ------------------------------------------------------------------
+
+    @app.patch("/applications/{name}", response_model=MessageResponse, tags=["applications"])
+    def update_application(name: str, body: NetatmoAppConfig | TTSAppConfig) -> MessageResponse:
+        """Replace the config for an existing provider application."""
+        raw = _load_app_config_raw()
+        apps = raw.get("applications", {})
+        if name not in apps:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Application '{name}' not found.",
+            )
+        apps[name] = body.model_dump(exclude_none=True)
+        _write_app_config(raw)
+        logger.info("Updated application: %s", name)
+        return MessageResponse(message=f"Application '{name}' updated.")
+
+    # ------------------------------------------------------------------
+    # PUT /credentials/{app_name}
+    # ------------------------------------------------------------------
+
+    @app.put("/credentials/{app_name}", response_model=MessageResponse, tags=["credentials"])
+    def upsert_credential(app_name: str, api_key: str) -> MessageResponse:
+        """Upsert an application API key in application_credentials.json."""
+        creds = _load_credentials()
+        creds[app_name] = {"api_key": api_key}
+        _write_credentials(creds)
+        logger.info("Upserted credential for: %s", app_name)
+        return MessageResponse(message=f"Credential for '{app_name}' saved.")
+
+    # ------------------------------------------------------------------
+    # DELETE /credentials/{app_name}
+    # ------------------------------------------------------------------
+
+    @app.delete("/credentials/{app_name}", response_model=MessageResponse, tags=["credentials"])
+    def delete_credential(app_name: str) -> MessageResponse:
+        """Remove an application API key from application_credentials.json."""
+        creds = _load_credentials()
+        if app_name not in creds:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"No credential for '{app_name}'.",
+            )
+        del creds[app_name]
+        _write_credentials(creds)
+        logger.info("Deleted credential for: %s", app_name)
+        return MessageResponse(message=f"Credential for '{app_name}' deleted.")
+
+    # ------------------------------------------------------------------
+    # GET /tokens
+    # ------------------------------------------------------------------
+
+    @app.get("/tokens", response_model=TokensResponse, tags=["tokens"])
+    def list_tokens() -> TokensResponse:
+        """List OAuth token files and their top-level keys."""
+        return TokensResponse(
+            tokens=[TokenInfo(name=t["name"], keys=t["keys"]) for t in _load_tokens()]
+        )
+
+    # ------------------------------------------------------------------
+    # PUT /tokens/{app_name}
+    # ------------------------------------------------------------------
+
+    @app.put("/tokens/{app_name}", response_model=MessageResponse, tags=["tokens"])
+    def upsert_token(app_name: str, token_data: dict[str, str]) -> MessageResponse:
+        """Write or replace an OAuth token file."""
+        tokens_dir.mkdir(parents=True, exist_ok=True)
+        token_file = tokens_dir / f"{app_name}.json"
+        with open(token_file, "w") as f:
+            json.dump(token_data, f, indent=4)
+        logger.info("Upserted token for: %s", app_name)
+        return MessageResponse(message=f"Token for '{app_name}' saved.")
+
+    # ------------------------------------------------------------------
+    # DELETE /tokens/{app_name}
+    # ------------------------------------------------------------------
+
+    @app.delete("/tokens/{app_name}", response_model=MessageResponse, tags=["tokens"])
+    def delete_token(app_name: str) -> MessageResponse:
+        """Delete an OAuth token file."""
+        token_file = tokens_dir / f"{app_name}.json"
+        if not token_file.exists():
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Token '{app_name}' not found.",
+            )
+        token_file.unlink()
+        logger.info("Deleted token for: %s", app_name)
+        return MessageResponse(message=f"Token for '{app_name}' deleted.")
 
     # ------------------------------------------------------------------
     # /frost/{path} — reverse proxy
@@ -508,6 +772,170 @@ def create_app(
             raise HTTPException(status_code=404, detail=f"Sensor '{name}' not found.")
         candidates[0].unlink()
         logger.info("Deleted sensor config via web UI: %s", candidates[0])
+        return Response(content="", status_code=200)
+
+    # ------------------------------------------------------------------
+    # Web UI — Applications
+    # ------------------------------------------------------------------
+
+    @app.get("/ui/applications", response_class=HTMLResponse, include_in_schema=False)
+    def applications_page(request: Request, created: str = "") -> HTMLResponse:
+        raw = _load_app_config_raw()
+        apps_dict = raw.get("applications", {})
+        creds = _load_credentials()
+        rows = []
+        for name, cfg in apps_dict.items():
+            has_token = tokens_dir.exists() and (tokens_dir / f"{name}.json").exists()
+            rows.append({
+                "name": name,
+                "provider": cfg.get("provider", ""),
+                "config": cfg,
+                "has_credentials": name in creds,
+                "has_token": has_token,
+            })
+        return _templates.TemplateResponse(request, "applications.html", {
+            "applications": rows,
+            "created": bool(created),
+        })
+
+    @app.get("/ui/applications/new", response_class=HTMLResponse, include_in_schema=False)
+    def application_new_page(request: Request) -> HTMLResponse:
+        from rime.providers.registry import PROVIDER_REGISTRY
+        return _templates.TemplateResponse(request, "application_new.html", {
+            "providers": list(PROVIDER_REGISTRY.keys()),
+            "error": None,
+            "form": {},
+        })
+
+    @app.get("/ui/applications/provider-fields", response_class=HTMLResponse, include_in_schema=False)
+    def provider_fields_partial(request: Request, provider: str = "") -> HTMLResponse:
+        return _templates.TemplateResponse(
+            request, "partials/provider_fields.html", {"provider": provider, "form": {}}
+        )
+
+    @app.post("/ui/applications", response_class=HTMLResponse, include_in_schema=False)
+    def create_application_form(
+        request: Request,
+        name: str = Form(...),
+        provider: str = Form(...),
+        max_retries: int = Form(10),
+        expected_sensors: int | None = Form(None),
+        request_interval: int | None = Form(None),
+        host: str | None = Form(None),
+        port: int | None = Form(None),
+        topic: str | None = Form(None),
+        api_key: str | None = Form(None),
+    ) -> HTMLResponse:
+        from rime.providers.registry import PROVIDER_REGISTRY
+
+        form_data = {
+            "name": name, "provider": provider, "max_retries": max_retries,
+            "expected_sensors": expected_sensors, "request_interval": request_interval,
+            "host": host, "port": port, "topic": topic, "api_key": api_key,
+        }
+
+        def _render_error(msg: str, code: int = 400) -> HTMLResponse:
+            return _templates.TemplateResponse(
+                request, "application_new.html",
+                {"providers": list(PROVIDER_REGISTRY.keys()), "error": msg, "form": form_data},
+                status_code=code,
+            )
+
+        if provider not in PROVIDER_REGISTRY:
+            return _render_error(f"Unknown provider '{provider}'.", 400)
+
+        raw = _load_app_config_raw()
+        apps = raw.setdefault("applications", {})
+        if name in apps:
+            return _render_error(f"Application '{name}' already exists.", 409)
+
+        cfg: dict[str, Any] = {"provider": provider, "max_retries": max_retries}
+        if expected_sensors is not None:
+            cfg["expected_sensors"] = expected_sensors
+
+        if provider == "netatmo":
+            if not request_interval:
+                return _render_error("Request interval is required for Netatmo.", 400)
+            cfg["request_interval"] = request_interval
+        elif provider == "tts":
+            if not host or not topic:
+                return _render_error("Host and topic are required for TTS.", 400)
+            if not api_key:
+                return _render_error("API key is required for TTS.", 400)
+            cfg["host"] = host
+            cfg["port"] = port or 8883
+            cfg["topic"] = topic
+
+        apps[name] = cfg
+        _write_app_config(raw)
+
+        if provider == "tts" and api_key:
+            creds = _load_credentials()
+            creds[name] = {"api_key": api_key}
+            _write_credentials(creds)
+
+        logger.info("Created application via web UI: %s", name)
+        return RedirectResponse(url="/ui/applications?created=1", status_code=303)
+
+    @app.delete("/ui/applications/{name}", response_class=HTMLResponse, include_in_schema=False)
+    def delete_application_htmx(name: str) -> Response:
+        raw = _load_app_config_raw()
+        apps = raw.get("applications", {})
+        if name not in apps:
+            raise HTTPException(status_code=404, detail=f"Application '{name}' not found.")
+        del apps[name]
+        _write_app_config(raw)
+        logger.info("Deleted application via web UI: %s", name)
+        return Response(content="", status_code=200)
+
+    # ------------------------------------------------------------------
+    # Web UI — Tokens
+    # ------------------------------------------------------------------
+
+    @app.get("/ui/tokens", response_class=HTMLResponse, include_in_schema=False)
+    def tokens_page(request: Request, saved: str = "") -> HTMLResponse:
+        return _templates.TemplateResponse(request, "tokens.html", {
+            "tokens": _load_tokens(),
+            "saved": bool(saved),
+            "error": None,
+            "form": {},
+        })
+
+    @app.post("/ui/tokens", response_class=HTMLResponse, include_in_schema=False)
+    def create_token_form(
+        request: Request,
+        app_name: str = Form(...),
+        token_json: str = Form(...),
+    ) -> HTMLResponse:
+        def _render_error(msg: str) -> HTMLResponse:
+            return _templates.TemplateResponse(
+                request, "tokens.html",
+                {"tokens": _load_tokens(), "saved": False, "error": msg,
+                 "form": {"app_name": app_name}},
+                status_code=400,
+            )
+
+        try:
+            token_data = json.loads(token_json)
+        except json.JSONDecodeError as exc:
+            return _render_error(f"Invalid JSON: {exc}")
+        if not isinstance(token_data, dict):
+            return _render_error("Token JSON must be an object ({...}).")
+
+        tokens_dir.mkdir(parents=True, exist_ok=True)
+        token_file = tokens_dir / f"{app_name}.json"
+        with open(token_file, "w") as f:
+            json.dump(token_data, f, indent=4)
+        logger.info("Saved token via web UI: %s", app_name)
+        return RedirectResponse(url="/ui/tokens?saved=1", status_code=303)
+
+    @app.delete("/ui/tokens/{name}", response_class=HTMLResponse, include_in_schema=False)
+    def delete_token_htmx(name: str) -> Response:
+        token_file = tokens_dir / f"{name}.json"
+        if not token_file.exists():
+            raise HTTPException(status_code=404, detail=f"Token '{name}' not found.")
+        token_file.unlink()
+        logger.info("Deleted token via web UI: %s", name)
         return Response(content="", status_code=200)
 
     return app

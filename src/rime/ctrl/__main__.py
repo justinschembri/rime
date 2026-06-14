@@ -32,6 +32,11 @@ Environment variables:
     FROST_ENDPOINT          Internal FROST base URL used by the /frost proxy.
                             (default: http://web:8080/FROST-Server/v1.1)
 
+    CREDENTIALS_FILE        Path to application_credentials.json.
+                            (default: rime.paths.CREDENTIALS_DIR/application_credentials.json)
+    TOKENS_DIR              Directory containing OAuth token JSON files.
+                            (default: rime.paths.TOKENS_DIR)
+
     CTRL_POLL_INTERVAL      Seconds between git polls (default: 60)
     CTRL_GIT_REMOTE         Git remote to pull from (default: origin)
     CTRL_GIT_BRANCH         Git branch to track (default: main)
@@ -135,6 +140,12 @@ def main() -> None:
 
     app_config_path, sensor_config_paths, sensor_config_dir = _resolve_paths()
 
+    credentials_file_env = os.getenv("CREDENTIALS_FILE")
+    _credentials_path = Path(credentials_file_env) if credentials_file_env else None
+
+    tokens_dir_env = os.getenv("TOKENS_DIR")
+    _tokens_dir = Path(tokens_dir_env) if tokens_dir_env else None
+
     logger.info("Running cold-start reconcile...")
     try:
         diff = reconcile(
@@ -200,6 +211,8 @@ def main() -> None:
         sensor_config_dir=sensor_config_dir,
         app_config_path=app_config_path,
         frost_endpoint=frost_endpoint,
+        credentials_path=_credentials_path,
+        tokens_dir=_tokens_dir,
     )
 
     logger.info("rime-ctrl API listening on %s:%d", ctrl_host, ctrl_port)

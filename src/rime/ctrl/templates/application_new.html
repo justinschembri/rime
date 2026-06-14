@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}Add Application — rime-ctrl{% endblock %}
+{% block content %}
+
+<h1>Add Application</h1>
+
+{% if error %}
+<div class="flash-error">{{ error }}</div>
+{% endif %}
+
+<form method="post" action="/ui/applications">
+  <div class="grid">
+    <label>
+      Application Name
+      <input
+        type="text"
+        name="name"
+        value="{{ form.name or '' }}"
+        required
+        placeholder="e.g. tudelft-dt or multicare-acerra@ttn">
+      <small>Unique key for this connection. Used in config files.</small>
+    </label>
+    <label>
+      Provider
+      <select
+        name="provider"
+        required
+        hx-get="/ui/applications/provider-fields"
+        hx-target="#provider-fields"
+        hx-trigger="change"
+        hx-include="[name='provider']">
+        <option value="" disabled {% if not form.provider %}selected{% endif %}>Select a provider…</option>
+        {% for p in providers %}
+        <option value="{{ p }}" {% if form.provider == p %}selected{% endif %}>{{ p }}</option>
+        {% endfor %}
+      </select>
+    </label>
+  </div>
+
+  <div id="provider-fields">
+    {% if form.provider %}
+    {% include "partials/provider_fields.html" %}
+    {% endif %}
+  </div>
+
+  <div class="grid">
+    <label>
+      Max Retries
+      <input
+        type="number"
+        name="max_retries"
+        value="{{ form.max_retries or 10 }}"
+        required
+        min="1">
+    </label>
+    <label>
+      Expected Sensors <small>(optional)</small>
+      <input
+        type="number"
+        name="expected_sensors"
+        value="{{ form.expected_sensors or '' }}"
+        min="1"
+        placeholder="Leave blank if unknown">
+    </label>
+  </div>
+
+  <div style="display: flex; gap: 1em; margin-top: 1.5rem;">
+    <button type="submit">Add Application</button>
+    <a href="/ui/applications" role="button" class="secondary outline">Cancel</a>
+  </div>
+</form>
+
+{% endblock %}

@@ -35,7 +35,16 @@ def ops_dir(tmp_path) -> dict:
     sensor_dir = tmp_path / "sensor_configs"
     sensor_dir.mkdir()
     (sensor_dir / "sensor-a.yml").write_text("name: sensor-a\n")
-    return {"app_config": app_config, "sensor_dir": sensor_dir}
+    secrets_dir = tmp_path / "secrets" / "credentials"
+    secrets_dir.mkdir(parents=True)
+    tokens_dir = tmp_path / "secrets" / "tokens"
+    tokens_dir.mkdir(parents=True)
+    return {
+        "app_config": app_config,
+        "sensor_dir": sensor_dir,
+        "creds_path": secrets_dir / "application_credentials.json",
+        "tokens_dir": tokens_dir,
+    }
 
 
 @pytest.fixture()
@@ -50,6 +59,8 @@ def client(ops_dir, mock_ingest_client) -> TestClient:
         sensor_config_dir=ops_dir["sensor_dir"],
         app_config_path=ops_dir["app_config"],
         frost_endpoint="http://frost-mock:8080/FROST-Server/v1.1",
+        credentials_path=ops_dir["creds_path"],
+        tokens_dir=ops_dir["tokens_dir"],
     )
     return TestClient(app)
 
@@ -360,3 +371,226 @@ class TestStatus:
         assert response.status_code == 200
         assert response.json()["frost_reachable"] is False
         assert response.json()["ingest_reachable"] is False
+
+
+# ---------------------------------------------------------------------------
+# GET /applications
+# ---------------------------------------------------------------------------
+
+class TestListApplications:
+    def test_returns_applications_from_yaml(self, client):
+        response = client.get("/applications")
+        assert response.status_code == 200
+        apps = response.json()["applications"]
+        assert len(apps) == 1
+        assert apps[0]["name"] == "app-a"
+        assert apps[0]["provider"] == "netatmo"
+
+    def test_returns_empty_when_no_applications(self, ops_dir, mock_ingest_client):
+        ops_dir["app_config"].write_text("applications: {}\n")
+        app = create_app(
+            ingest_client=mock_ingest_client,
+            sensor_config_dir=ops_dir["sensor_dir"],
+            app_config_path=ops_dir["app_config"],
+            credentials_path=ops_dir["creds_path"],
+            tokens_dir=ops_dir["tokens_dir"],
+        )
+        response = TestClient(app).get("/applications")
+        assert response.status_code == 200
+        assert response.json()["applications"] == []
+
+    def test_includes_has_credentials_flag(self, client, ops_dir):
+        import json
+        ops_dir["creds_path"].write_text(json.dumps({"app-a": {"api_key": "secret"}}))
+        response = client.get("/applications")
+        assert response.json()["applications"][0]["has_credentials"] is True
+
+    def test_has_credentials_false_when_absent(self, client):
+        response = client.get("/applications")
+        assert response.json()["applications"][0]["has_credentials"] is False
+
+    def test_has_token_true_when_file_exists(self, client, ops_dir):
+        import json
+        (ops_dir["tokens_dir"] / "app-a.json").write_text(
+            json.dumps({"access_token": "tok"})
+        )
+        response = client.get("/applications")
+        assert response.json()["applications"][0]["has_token"] is True
+
+
+# ---------------------------------------------------------------------------
+# POST /applications
+# ---------------------------------------------------------------------------
+
+class TestCreateApplication:
+    def test_creates_netatmo_application(self, client, ops_dir):
+        body = {"name": "new-app", "config": {"provider": "netatmo", "request_interval": 600}}
+        response = client.post("/applications", json=body)
+        assert response.status_code == 201
+        assert "created" in response.json()["message"].lower()
+
+        import yaml
+        with open(ops_dir["app_config"]) as f:
+            raw = yaml.safe_load(f)
+        assert "new-app" in raw["applications"]
+        assert raw["applications"]["new-app"]["provider"] == "netatmo"
+
+    def test_creates_tts_application(self, client, ops_dir):
+        body = {
+            "name": "my-tts",
+            "config": {
+                "provider": "tts",
+                "host": "eu1.cloud.thethings.network",
+                "port": 8883,
+                "topic": "v3/my-app@ttn/devices/+/up",
+            },
+        }
+        response = client.post("/applications", json=body)
+        assert response.status_code == 201
+
+        import yaml
+        with open(ops_dir["app_config"]) as f:
+            raw = yaml.safe_load(f)
+        assert raw["applications"]["my-tts"]["host"] == "eu1.cloud.thethings.network"
+
+    def test_returns_409_when_name_exists(self, client):
+        body = {"name": "app-a", "config": {"provider": "netatmo", "request_interval": 300}}
+        response = client.post("/applications", json=body)
+        assert response.status_code == 409
+        assert "already exists" in response.json()["detail"].lower()
+
+    def test_returns_422_for_unknown_provider(self, client):
+        body = {"name": "bad-app", "config": {"provider": "unknown"}}
+        response = client.post("/applications", json=body)
+        assert response.status_code == 422
+
+
+# ---------------------------------------------------------------------------
+# DELETE /applications/{name}
+# ---------------------------------------------------------------------------
+
+class TestDeleteApplication:
+    def test_deletes_existing_application(self, client, ops_dir):
+        response = client.delete("/applications/app-a")
+        assert response.status_code == 200
+        assert "deleted" in response.json()["message"].lower()
+
+        import yaml
+        with open(ops_dir["app_config"]) as f:
+            raw = yaml.safe_load(f)
+        assert "app-a" not in (raw.get("applications") or {})
+
+    def test_returns_404_when_not_found(self, client):
+        response = client.delete("/applications/does-not-exist")
+        assert response.status_code == 404
+        assert "not found" in response.json()["detail"].lower()
+
+
+# ---------------------------------------------------------------------------
+# PATCH /applications/{name}
+# ---------------------------------------------------------------------------
+
+class TestUpdateApplication:
+    def test_updates_netatmo_config(self, client, ops_dir):
+        body = {"provider": "netatmo", "request_interval": 120, "max_retries": 3}
+        response = client.patch("/applications/app-a", json=body)
+        assert response.status_code == 200
+
+        import yaml
+        with open(ops_dir["app_config"]) as f:
+            raw = yaml.safe_load(f)
+        assert raw["applications"]["app-a"]["request_interval"] == 120
+
+    def test_returns_404_when_not_found(self, client):
+        body = {"provider": "netatmo", "request_interval": 300, "max_retries": 10}
+        response = client.patch("/applications/no-such-app", json=body)
+        assert response.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# PUT /credentials/{app_name}
+# ---------------------------------------------------------------------------
+
+class TestUpsertCredential:
+    def test_creates_credentials_file_when_missing(self, client, ops_dir):
+        import json
+        assert not ops_dir["creds_path"].exists()
+        response = client.put("/credentials/app-a?api_key=my-secret")
+        assert response.status_code == 200
+        assert ops_dir["creds_path"].exists()
+        creds = json.loads(ops_dir["creds_path"].read_text())
+        assert creds["app-a"]["api_key"] == "my-secret"
+
+    def test_updates_existing_credential(self, client, ops_dir):
+        import json
+        ops_dir["creds_path"].write_text(json.dumps({"app-a": {"api_key": "old"}}))
+        client.put("/credentials/app-a?api_key=new-secret")
+        creds = json.loads(ops_dir["creds_path"].read_text())
+        assert creds["app-a"]["api_key"] == "new-secret"
+
+    def test_deletes_credential(self, client, ops_dir):
+        import json
+        ops_dir["creds_path"].write_text(json.dumps({"app-a": {"api_key": "tok"}}))
+        response = client.delete("/credentials/app-a")
+        assert response.status_code == 200
+        creds = json.loads(ops_dir["creds_path"].read_text())
+        assert "app-a" not in creds
+
+    def test_delete_returns_404_when_absent(self, client):
+        response = client.delete("/credentials/no-such-app")
+        assert response.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# GET /tokens
+# ---------------------------------------------------------------------------
+
+class TestListTokens:
+    def test_returns_empty_when_no_token_files(self, client):
+        response = client.get("/tokens")
+        assert response.status_code == 200
+        assert response.json()["tokens"] == []
+
+    def test_returns_token_names_and_keys(self, client, ops_dir):
+        import json
+        (ops_dir["tokens_dir"] / "app-a.json").write_text(
+            json.dumps({"access_token": "tok", "refresh_token": "ref"})
+        )
+        response = client.get("/tokens")
+        tokens = response.json()["tokens"]
+        assert len(tokens) == 1
+        assert tokens[0]["name"] == "app-a"
+        assert "access_token" in tokens[0]["keys"]
+        assert "refresh_token" in tokens[0]["keys"]
+
+
+# ---------------------------------------------------------------------------
+# PUT /tokens/{app_name}  +  DELETE /tokens/{app_name}
+# ---------------------------------------------------------------------------
+
+class TestUpsertToken:
+    def test_creates_token_file(self, client, ops_dir):
+        import json
+        token_data = {"access_token": "abc", "refresh_token": "xyz"}
+        response = client.put("/tokens/app-a", json=token_data)
+        assert response.status_code == 200
+        written = json.loads((ops_dir["tokens_dir"] / "app-a.json").read_text())
+        assert written["access_token"] == "abc"
+
+    def test_overwrites_existing(self, client, ops_dir):
+        import json
+        (ops_dir["tokens_dir"] / "app-a.json").write_text(json.dumps({"access_token": "old"}))
+        client.put("/tokens/app-a", json={"access_token": "new"})
+        written = json.loads((ops_dir["tokens_dir"] / "app-a.json").read_text())
+        assert written["access_token"] == "new"
+
+    def test_deletes_token_file(self, client, ops_dir):
+        import json
+        (ops_dir["tokens_dir"] / "app-a.json").write_text(json.dumps({"access_token": "tok"}))
+        response = client.delete("/tokens/app-a")
+        assert response.status_code == 200
+        assert not (ops_dir["tokens_dir"] / "app-a.json").exists()
+
+    def test_delete_returns_404_when_absent(self, client):
+        response = client.delete("/tokens/no-such-app")
+        assert response.status_code == 404

@@ -9,6 +9,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`rime-ctrl` Application Management UI** — researchers can add, list, and
+  delete provider connections (Netatmo, The Things Stack) from the browser
+  without editing YAML files or using the CLI.
+  - `GET /ui/applications` — list all configured providers with auth-status
+    badges (API key present? OAuth token present?).
+  - `GET /ui/applications/new` — add-application form with HTMX-powered dynamic
+    fields: selecting a provider loads its specific inputs without a page reload.
+    TTS API key is entered inline; Netatmo links to the Tokens page.
+  - `DELETE /ui/applications/{name}` — per-row delete button (HTMX confirm,
+    row removed inline on success).
+  - `GET /ui/tokens` — list OAuth token files with their top-level keys; paste
+    raw token JSON (e.g. from a Netatmo OAuth flow) to save or replace a token.
+  - `DELETE /ui/tokens/{name}` — delete a token file.
+- **Application management JSON API** — programmatic equivalents for all
+  browser operations: `GET/POST/DELETE/PATCH /applications`,
+  `PUT/DELETE /credentials/{app_name}`, `GET/PUT/DELETE /tokens/{app_name}`.
+- **Atomic YAML writes** — application-configs.yml is written via temp-file +
+  move to avoid partial-write corruption under concurrent reconcile triggers.
+- **`CREDENTIALS_FILE` and `TOKENS_DIR` env vars** — ctrl resolves writable
+  credential and token paths from these env vars (with sensible defaults from
+  `rime.paths`). Documented in `__main__.py` and wired into `create_app()`.
+- **`rime-ctrl` compose volume update** — `application-configs.yml` is now
+  mounted read-write so the web UI can write config changes directly to the ops
+  volume. A `./secrets/credentials` bind mount is added for credential writes.
+
 - **`rime-ingest` HTTP API** — FastAPI application exposing per-transport lifecycle
   endpoints (`/transports/{name}/start|stop|restart`), a sensor registry reload
   endpoint (`/sensors/reload`), and a running-config endpoint

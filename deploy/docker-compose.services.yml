@@ -82,14 +82,17 @@ services:
       - CTRL_GIT_WATCH=false
       - CTRL_HOST=0.0.0.0
       - CTRL_PORT=8002
+      # Writable paths for web UI — credentials and application config
+      - CREDENTIALS_FILE=/credentials/application_credentials.json
     ports:
       - "8002:8002"
     volumes:
       - rime_tokens:/app/deploy/secrets/tokens
       - rime_logs:/app/logs
       - ${SENSOR_CONFIG_PATH:-./sensor_configs}:/ops/sensor_configs
-      - ${APPLICATION_CONFIG_FILE:-./application-configs.yml}:/ops/application-configs.yml:ro
+      - ${APPLICATION_CONFIG_FILE:-./application-configs.yml}:/ops/application-configs.yml
       - ${RIME_OPS_PATH:-./}:/ops:ro
+      - ${CREDENTIALS_DIR:-./secrets/credentials}:/credentials
     command: ["python", "-m", "rime.ctrl"]
     restart: unless-stopped
 

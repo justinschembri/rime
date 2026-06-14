@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}Tokens — rime-ctrl{% endblock %}
+{% block content %}
+
+{% if saved %}
+<div class="flash-ok">
+  <strong>Token saved.</strong>
+</div>
+{% endif %}
+
+{% if error %}
+<div class="flash-error">{{ error }}</div>
+{% endif %}
+
+<div class="page-header">
+  <h1>OAuth Tokens</h1>
+</div>
+
+{% if tokens %}
+<table>
+  <thead>
+    <tr>
+      <th>Application</th>
+      <th>Keys</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for token in tokens %}
+    <tr>
+      <td><code>{{ token.name }}</code></td>
+      <td><small>{{ token['keys'] | join(", ") }}</small></td>
+      <td style="text-align: right; width: 1%;">
+        <button
+          class="secondary"
+          hx-delete="/ui/tokens/{{ token.name }}"
+          hx-confirm="Delete token for '{{ token.name }}'?"
+          hx-target="closest tr"
+          hx-swap="outerHTML swap:300ms">
+          Delete
+        </button>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<div class="empty-state">
+  <p>No token files found.</p>
+</div>
+{% endif %}
+
+<hr>
+
+<h2>Add / Replace Token</h2>
+<p><small>Paste the raw token JSON from your OAuth provider (e.g. Netatmo).</small></p>
+
+<form method="post" action="/ui/tokens">
+  <label>
+    Application Name
+    <input
+      type="text"
+      name="app_name"
+      value="{{ form.app_name or '' }}"
+      required
+      placeholder="e.g. tudelft-dt">
+    <small>Must match the application name in your application config.</small>
+  </label>
+  <label>
+    Token JSON
+    <textarea
+      name="token_json"
+      required
+      rows="8"
+      placeholder='{"access_token": "...", "refresh_token": "...", "scope": "...", "expires_in": 10800}'></textarea>
+  </label>
+  <button type="submit">Save Token</button>
+</form>
+
+{% endblock %}

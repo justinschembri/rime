@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}Applications — rime-ctrl{% endblock %}
+{% block content %}
+
+{% if created %}
+<div class="flash-ok">
+  <strong>Application added.</strong> Return to the <a href="/">Dashboard</a> and click <strong>Apply Changes</strong> to start the transport.
+</div>
+{% endif %}
+
+<div class="page-header">
+  <h1>Provider Applications</h1>
+  <a href="/ui/applications/new" role="button">+ Add Application</a>
+</div>
+
+{% if applications %}
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Provider</th>
+      <th>Key Config</th>
+      <th>Auth</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for app in applications %}
+    <tr>
+      <td><code>{{ app.name }}</code></td>
+      <td>{{ app.provider }}</td>
+      <td>
+        <small>
+        {% if app.provider == "netatmo" %}
+          interval: {{ app.config.request_interval or "—" }}s
+        {% elif app.provider == "tts" %}
+          {{ app.config.host }}:{{ app.config.port }}
+        {% endif %}
+        </small>
+      </td>
+      <td>
+        {% if app.provider == "tts" %}
+          {% if app.has_credentials %}
+            <span class="badge badge-ok">key ✓</span>
+          {% else %}
+            <span class="badge badge-error">key ✗</span>
+          {% endif %}
+        {% elif app.provider == "netatmo" %}
+          {% if app.has_token %}
+            <span class="badge badge-ok">token ✓</span>
+          {% else %}
+            <span class="badge badge-error">token ✗</span>
+          {% endif %}
+        {% endif %}
+      </td>
+      <td style="text-align: right; width: 1%;">
+        <button
+          class="secondary"
+          hx-delete="/ui/applications/{{ app.name }}"
+          hx-confirm="Delete application '{{ app.name }}'? This will stop its transport on next Apply Changes."
+          hx-target="closest tr"
+          hx-swap="outerHTML swap:300ms">
+          Delete
+        </button>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+<p><small>{{ applications | length }} application(s). After making changes, go to the <a href="/">Dashboard</a> and click <strong>Apply Changes</strong>.</small></p>
+{% else %}
+<div class="empty-state">
+  <p>No provider applications configured.</p>
+  <a href="/ui/applications/new" role="button">Add your first application</a>
+</div>
+{% endif %}
+
+{% endblock %}
