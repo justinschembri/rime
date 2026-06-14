@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}rime-ctrl{% endblock %}</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.classless.min.css">
+  <script src="https://unpkg.com/htmx.org@2.0.4/dist/htmx.min.js"></script>
+  <style>
+    nav { border-bottom: 1px solid var(--pico-muted-border-color); padding-bottom: 0.5rem; margin-bottom: 2rem; }
+    nav ul:first-child a { text-decoration: none; font-weight: 700; font-size: 1.1em; color: var(--pico-color); }
+    .badge { display: inline-flex; align-items: center; gap: 0.3em; padding: 0.25em 0.7em; border-radius: 999px; font-size: 0.8em; font-weight: 600; }
+    .badge-ok    { background: #dcfce7; color: #166534; }
+    .badge-error { background: #fee2e2; color: #991b1b; }
+    .flash-ok    { background: #dcfce7; color: #166534; padding: 0.9em 1.2em; border-radius: 8px; border: 1px solid #bbf7d0; margin-bottom: 1.5rem; }
+    .flash-error { background: #fee2e2; color: #991b1b; padding: 0.9em 1.2em; border-radius: 8px; border: 1px solid #fecaca; margin-bottom: 1.5rem; }
+    .htmx-indicator { opacity: 0; transition: opacity 150ms ease; }
+    .htmx-request .htmx-indicator,
+    .htmx-request.htmx-indicator { opacity: 1; }
+    .htmx-swapping { opacity: 0; transition: opacity 300ms ease; }
+    table button { margin: 0; padding: 0.3em 0.7em; font-size: 0.82em; }
+    .page-header { display: flex; align-items: baseline; justify-content: space-between; gap: 1em; flex-wrap: wrap; }
+    .page-header h1 { margin: 0; }
+    .empty-state { text-align: center; padding: 3em 1em; color: var(--pico-muted-color); }
+    .empty-state p { margin-bottom: 1.5rem; }
+  </style>
+</head>
+<body>
+<nav class="container">
+  <ul>
+    <li><a href="/">rime-ctrl</a></li>
+  </ul>
+  <ul>
+    <li><a href="/">Dashboard</a></li>
+    <li><a href="/ui/sensors">Sensors</a></li>
+    <li><a href="/docs" target="_blank" rel="noopener">API Docs ↗</a></li>
+  </ul>
+</nav>
+<main class="container">
+  {% block content %}{% endblock %}
+</main>
+</body>
+</html>

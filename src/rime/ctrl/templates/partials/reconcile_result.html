@@ -1,0 +1,18 @@
+{% if error %}
+<div class="flash-error">
+  <strong>Reconcile failed:</strong> {{ error }}
+</div>
+{% else %}
+<div class="flash-ok">
+  <strong>Changes applied.</strong>
+  <ul style="margin: 0.5em 0 0 0; padding-left: 1.2em;">
+    {% if started %}<li>Started: {{ started | join(', ') }}</li>{% endif %}
+    {% if stopped %}<li>Stopped: {{ stopped | join(', ') }}</li>{% endif %}
+    {% if restarted %}<li>Restarted: {{ restarted | join(', ') }}</li>{% endif %}
+    {% if not started and not stopped and not restarted %}
+    <li>Everything is already in sync — no changes needed.</li>
+    {% endif %}
+    {% if unchanged %}<li>Unchanged: {{ unchanged | join(', ') }}</li>{% endif %}
+  </ul>
+</div>
+{% endif %}

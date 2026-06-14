@@ -1,0 +1,47 @@
+<h2>System Status</h2>
+<div class="grid">
+  <article>
+    <strong>FROST Server</strong><br><br>
+    {% if frost_reachable %}
+    <span class="badge badge-ok">● Connected</span>
+    {% else %}
+    <span class="badge badge-error">○ Unreachable</span>
+    {% endif %}
+  </article>
+  <article>
+    <strong>Ingest Service</strong><br><br>
+    {% if ingest_reachable %}
+    <span class="badge badge-ok">● Running</span>
+    {% else %}
+    <span class="badge badge-error">○ Down</span>
+    {% endif %}
+  </article>
+</div>
+
+{% if transports %}
+<h2>Active Transports</h2>
+<table>
+  <thead>
+    <tr>
+      <th>Application</th>
+      <th>Status</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for t in transports %}
+    <tr>
+      <td>{{ t.app_name }}</td>
+      <td>
+        {% if t.is_alive %}
+        <span class="badge badge-ok">● Alive</span>
+        {% else %}
+        <span class="badge badge-error">○ Dead</span>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% elif ingest_reachable %}
+<p><small>No transports running. Add sensor configurations on the <a href="/ui/sensors">Sensors</a> page and click Apply Changes.</small></p>
+{% endif %}

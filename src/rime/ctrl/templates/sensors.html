@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}Sensors — rime-ctrl{% endblock %}
+{% block content %}
+
+{% if created %}
+<div class="flash-ok">
+  <strong>Sensor added.</strong> Return to the <a href="/">Dashboard</a> and click <strong>Apply Changes</strong> to activate it.
+</div>
+{% endif %}
+
+<div class="page-header">
+  <h1>Sensor Configurations</h1>
+  <a href="/ui/sensors/new" role="button">+ Add Sensor</a>
+</div>
+
+{% if sensors %}
+<table>
+  <thead>
+    <tr>
+      <th>Sensor ID</th>
+      <th>File</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for sensor in sensors %}
+    <tr>
+      <td><code>{{ sensor.name }}</code></td>
+      <td><small>{{ sensor.filename }}</small></td>
+      <td style="text-align: right; width: 1%;">
+        <button
+          class="secondary"
+          hx-delete="/ui/sensors/{{ sensor.name }}"
+          hx-confirm="Delete sensor '{{ sensor.name }}'? This cannot be undone."
+          hx-target="closest tr"
+          hx-swap="outerHTML swap:300ms">
+          Delete
+        </button>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+<p><small>{{ sensors | length }} sensor configuration(s) found. After making changes, go to the <a href="/">Dashboard</a> and click <strong>Apply Changes</strong>.</small></p>
+{% else %}
+<div class="empty-state">
+  <p>No sensor configurations found.</p>
+  <a href="/ui/sensors/new" role="button">Add your first sensor</a>
+</div>
+{% endif %}
+
+{% endblock %}

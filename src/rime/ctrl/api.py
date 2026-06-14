@@ -20,8 +20,9 @@ from typing import Any
 
 import httpx
 import requests as _requests
-from fastapi import FastAPI, HTTPException, status
-from fastapi.responses import Response
+from fastapi import FastAPI, Form, HTTPException, status
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
+from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 from starlette.requests import Request
 
@@ -104,6 +105,8 @@ def create_app(
     # git-watch background thread sharing the same IngestClient).
     _reconcile_lock = threading.Lock()
 
+    _templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
+
     # ------------------------------------------------------------------
     # Helpers
     # ------------------------------------------------------------------
@@ -117,6 +120,38 @@ def create_app(
             if "template" not in p.stem
         ]
         return list({p for p in paths})
+
+    def _list_sensor_models() -> list[str]:
+        templates = (
+            list(sensor_config_dir.rglob("template_*.yml")) +
+            list(sensor_config_dir.rglob("template_*.yaml"))
+        )
+        return sorted({p.stem.removeprefix("template_") for p in templates})
+
+    def _get_status_data() -> tuple[bool, bool, list[dict[str, Any]]]:
+        """Fetch FROST and ingest status — shared by JSON and HTML routes."""
+        frost_reachable = False
+        try:
+            r = _requests.get(
+                frost_endpoint,
+                timeout=5,
+                headers={"Authorization": f"Basic {_frost_auth}"} if _frost_auth else {},
+            )
+            frost_reachable = r.status_code < 500
+        except Exception:
+            pass
+
+        ingest_reachable = False
+        transports: list[dict[str, Any]] = []
+        try:
+            r = _requests.get(f"{ingest_client.base_url}/transports", timeout=5)
+            r.raise_for_status()
+            ingest_reachable = True
+            transports = r.json().get("transports", [])
+        except Exception:
+            pass
+
+        return frost_reachable, ingest_reachable, transports
 
     # ------------------------------------------------------------------
     # GET /health
@@ -186,13 +221,7 @@ def create_app(
     @app.get("/sensors/models", response_model=SensorModelsResponse, tags=["sensors"])
     def list_sensor_models() -> SensorModelsResponse:
         """List sensor models for which a template exists in the ops volume."""
-        templates = list(sensor_config_dir.rglob("template_*.yml")) + \
-                    list(sensor_config_dir.rglob("template_*.yaml"))
-        models = sorted({
-            p.stem.removeprefix("template_")
-            for p in templates
-        })
-        return SensorModelsResponse(models=models)
+        return SensorModelsResponse(models=_list_sensor_models())
 
     # ------------------------------------------------------------------
     # POST /sensors
@@ -334,37 +363,151 @@ def create_app(
     @app.get("/status", response_model=StatusResponse, tags=["system"])
     def get_status() -> StatusResponse:
         """Return FROST reachability and ingest transport health summary."""
-        # FROST connectivity
-        frost_reachable = False
-        try:
-            r = _requests.get(
-                frost_endpoint,
-                timeout=5,
-                headers={"Authorization": f"Basic {_frost_auth}"} if _frost_auth else {},
-            )
-            frost_reachable = r.status_code < 500
-        except Exception:
-            pass
-
-        # Ingest transport status
-        ingest_reachable = False
-        transports: list[dict[str, Any]] = []
-        try:
-            r = _requests.get(
-                f"{ingest_client.base_url}/transports",
-                timeout=5,
-            )
-            r.raise_for_status()
-            ingest_reachable = True
-            data = r.json()
-            transports = data.get("transports", [])
-        except Exception:
-            pass
-
+        frost_reachable, ingest_reachable, transports = _get_status_data()
         return StatusResponse(
             frost_reachable=frost_reachable,
             ingest_reachable=ingest_reachable,
             transports=transports,
         )
+
+    # ------------------------------------------------------------------
+    # Web UI routes
+    # All routes under / and /ui/* serve Jinja2 HTML pages for browsers.
+    # The JSON API routes above are kept unchanged for programmatic use.
+    # ------------------------------------------------------------------
+
+    @app.get("/", response_class=HTMLResponse, include_in_schema=False)
+    def dashboard(request: Request) -> HTMLResponse:
+        return _templates.TemplateResponse(request, "dashboard.html")
+
+    @app.get("/ui/status", response_class=HTMLResponse, include_in_schema=False)
+    def status_partial(request: Request) -> HTMLResponse:
+        frost_reachable, ingest_reachable, transports = _get_status_data()
+        return _templates.TemplateResponse(request, "partials/status.html", {
+            "frost_reachable": frost_reachable,
+            "ingest_reachable": ingest_reachable,
+            "transports": transports,
+        })
+
+    @app.post("/ui/reconcile", response_class=HTMLResponse, include_in_schema=False)
+    def reconcile_htmx(request: Request) -> HTMLResponse:
+        if not _reconcile_lock.acquire(blocking=False):
+            return _templates.TemplateResponse(
+                request, "partials/reconcile_result.html",
+                {"error": "A reconcile is already in progress. Try again in a moment."},
+            )
+        try:
+            diff = reconcile(
+                app_config_path=app_config_path,
+                sensor_config_paths=_scan_sensor_files(),
+                ingest_client=ingest_client,
+                sensor_config_dir=sensor_config_dir,
+            )
+            logger.info(
+                "Reconcile via web UI complete: started=%s stopped=%s restarted=%s unchanged=%s",
+                list(diff.to_start), diff.to_stop, list(diff.to_restart), diff.unchanged,
+            )
+            return _templates.TemplateResponse(request, "partials/reconcile_result.html", {
+                "started": list(diff.to_start),
+                "stopped": diff.to_stop,
+                "restarted": list(diff.to_restart),
+                "unchanged": diff.unchanged,
+                "error": None,
+            })
+        except Exception as exc:
+            logger.error("Reconcile failed: %s", exc)
+            return _templates.TemplateResponse(
+                request, "partials/reconcile_result.html", {"error": str(exc)},
+            )
+        finally:
+            _reconcile_lock.release()
+
+    @app.get("/ui/sensors", response_class=HTMLResponse, include_in_schema=False)
+    def sensors_page(request: Request, created: str = "") -> HTMLResponse:
+        paths = sorted(_scan_sensor_files(), key=lambda p: p.name)
+        return _templates.TemplateResponse(request, "sensors.html", {
+            "sensors": [{"name": p.stem, "filename": p.name} for p in paths],
+            "created": bool(created),
+        })
+
+    @app.get("/ui/sensors/new", response_class=HTMLResponse, include_in_schema=False)
+    def sensor_new_page(request: Request) -> HTMLResponse:
+        return _templates.TemplateResponse(request, "sensor_new.html", {
+            "models": _list_sensor_models(),
+            "error": None,
+            "form": {},
+        })
+
+    @app.post("/ui/sensors", response_class=HTMLResponse, include_in_schema=False)
+    def create_sensor_form(
+        request: Request,
+        sensor_model: str = Form(...),
+        sensor_id: str = Form(...),
+        thing_name: str = Form(...),
+        thing_description: str = Form(...),
+        location_name: str = Form(...),
+        location_description: str = Form(...),
+        latitude: float = Form(...),
+        longitude: float = Form(...),
+    ) -> HTMLResponse:
+        import yaml
+        from rime.cli.config_generator import _replace_placeholders
+
+        form_data = {
+            "sensor_model": sensor_model,
+            "sensor_id": sensor_id,
+            "thing_name": thing_name,
+            "thing_description": thing_description,
+            "location_name": location_name,
+            "location_description": location_description,
+            "latitude": latitude,
+            "longitude": longitude,
+        }
+
+        def _render_error(msg: str, code: int = 400) -> HTMLResponse:
+            return _templates.TemplateResponse(
+                request, "sensor_new.html",
+                {"models": _list_sensor_models(), "error": msg, "form": form_data},
+                status_code=code,
+            )
+
+        candidates = (
+            list(sensor_config_dir.rglob(f"template_{sensor_model}.yaml")) +
+            list(sensor_config_dir.rglob(f"template_{sensor_model}.yml"))
+        )
+        if not candidates:
+            return _render_error(f"No template found for model '{sensor_model}'.", 404)
+
+        output_path = sensor_config_dir / f"{sensor_id}.yml"
+        if output_path.exists():
+            return _render_error(f"Sensor '{sensor_id}' already exists.", 409)
+
+        with open(candidates[0]) as f:
+            template = yaml.safe_load(f)
+
+        config = _replace_placeholders(
+            template,
+            sensor_id, thing_name, thing_description,
+            location_name, location_description,
+            longitude, latitude,
+        )
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(output_path, "w") as f:
+            yaml.dump(config, f, default_flow_style=False, sort_keys=False, allow_unicode=True)
+
+        logger.info("Created sensor config via web UI: %s", output_path)
+        return RedirectResponse(url="/ui/sensors?created=1", status_code=303)
+
+    @app.delete("/ui/sensors/{name}", response_class=HTMLResponse, include_in_schema=False)
+    def delete_sensor_htmx(name: str) -> Response:
+        candidates = (
+            list(sensor_config_dir.rglob(f"{name}.yml")) +
+            list(sensor_config_dir.rglob(f"{name}.yaml"))
+        )
+        if not candidates:
+            raise HTTPException(status_code=404, detail=f"Sensor '{name}' not found.")
+        candidates[0].unlink()
+        logger.info("Deleted sensor config via web UI: %s", candidates[0])
+        return Response(content="", status_code=200)
 
     return app

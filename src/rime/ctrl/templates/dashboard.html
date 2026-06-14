@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — rime-ctrl{% endblock %}
+{% block content %}
+
+<h1>Dashboard</h1>
+
+<section
+  id="status-section"
+  hx-get="/ui/status"
+  hx-trigger="load, every 15s"
+  hx-swap="innerHTML">
+  <p aria-busy="true">Loading system status…</p>
+</section>
+
+<hr>
+
+<h2>Apply Configuration</h2>
+<p>After adding or removing sensors, click <strong>Apply Changes</strong> to sync the running services with the current configuration.</p>
+
+<div>
+  <button
+    hx-post="/ui/reconcile"
+    hx-target="#reconcile-result"
+    hx-swap="innerHTML"
+    hx-disabled-elt="this"
+    hx-indicator="#reconcile-spinner">
+    Apply Changes
+    <span id="reconcile-spinner" class="htmx-indicator" aria-hidden="true"> ···</span>
+  </button>
+</div>
+<div id="reconcile-result" style="margin-top: 1rem;"></div>
+
+{% endblock %}

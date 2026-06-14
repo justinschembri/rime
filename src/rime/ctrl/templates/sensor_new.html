@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% block title %}Add Sensor — rime-ctrl{% endblock %}
+{% block content %}
+
+<h1>Add Sensor</h1>
+
+{% if error %}
+<div class="flash-error">{{ error }}</div>
+{% endif %}
+
+{% if models %}
+<form method="post" action="/ui/sensors">
+  <label>
+    Sensor Model
+    <select name="sensor_model" required>
+      <option value="" disabled selected>Select a model…</option>
+      {% for model in models %}
+      <option value="{{ model }}" {% if form.sensor_model == model %}selected{% endif %}>{{ model }}</option>
+      {% endfor %}
+    </select>
+  </label>
+
+  <label>
+    Sensor ID
+    <input
+      type="text"
+      name="sensor_id"
+      value="{{ form.sensor_id or '' }}"
+      required
+      placeholder="e.g. aa:bb:cc:dd:ee:ff">
+    <small>Unique identifier for this sensor (MAC address or EUI-64).</small>
+  </label>
+
+  <div class="grid">
+    <label>
+      Station Name
+      <input
+        type="text"
+        name="thing_name"
+        value="{{ form.thing_name or '' }}"
+        required
+        placeholder="e.g. Roof Weather Station">
+    </label>
+    <label>
+      Station Description
+      <input
+        type="text"
+        name="thing_description"
+        value="{{ form.thing_description or '' }}"
+        required
+        placeholder="e.g. Netatmo NWS03 on the south roof">
+    </label>
+  </div>
+
+  <div class="grid">
+    <label>
+      Location Name
+      <input
+        type="text"
+        name="location_name"
+        value="{{ form.location_name or '' }}"
+        required
+        placeholder="e.g. South Roof">
+    </label>
+    <label>
+      Location Description
+      <input
+        type="text"
+        name="location_description"
+        value="{{ form.location_description or '' }}"
+        required
+        placeholder="e.g. Rooftop of Building A, level 4">
+    </label>
+  </div>
+
+  <div class="grid">
+    <label>
+      Latitude
+      <input
+        type="number"
+        name="latitude"
+        value="{{ form.latitude or '' }}"
+        required
+        step="any"
+        min="-90"
+        max="90"
+        placeholder="e.g. 52.0116">
+      <small>Decimal degrees, −90 to 90.</small>
+    </label>
+    <label>
+      Longitude
+      <input
+        type="number"
+        name="longitude"
+        value="{{ form.longitude or '' }}"
+        required
+        step="any"
+        min="-180"
+        max="180"
+        placeholder="e.g. 4.3571">
+      <small>Decimal degrees, −180 to 180.</small>
+    </label>
+  </div>
+
+  <div style="display: flex; gap: 1em; margin-top: 1.5rem;">
+    <button type="submit">Add Sensor</button>
+    <a href="/ui/sensors" role="button" class="secondary outline">Cancel</a>
+  </div>
+</form>
+{% else %}
+<article>
+  <p>No sensor templates were found in the configuration directory.</p>
+  <p>Templates must be placed under <code>sensor_configs/</code> with the naming pattern <code>template_&lt;model&gt;.yaml</code>.</p>
+  <p>Example: <code>sensor_configs/netatmo/template_netatmo.nws03.yaml</code></p>
+  <a href="/ui/sensors" role="button" class="secondary">Back to Sensors</a>
+</article>
+{% endif %}
+
+{% endblock %}

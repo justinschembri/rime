@@ -28,38 +28,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`IngestRuntime.get_running_app_config()`** — Stores original config dicts per
   transport so the reconciler can diff desired vs. actual without relying on status
   fields.
-- **Unit tests** — 77 tests covering `IngestRuntime`, `IngestClient`, the FastAPI
+- **Unit tests** — 187 tests covering `IngestRuntime`, `IngestClient`, the FastAPI
   endpoints, the reconciler, the `GitWatcher`, and the ctrl `__main__` entry point.
+- **`rime-ctrl` web UI** — Jinja2 + HTMX frontend served by the ctrl daemon on port
+  8002. Replaces the need to use `rime setup` for day-to-day sensor management.
+  - `GET /` — Dashboard: live system status (FROST + ingest + active transports),
+    auto-refreshes every 15 s via HTMX. **Apply Changes** button calls
+    `POST /reconcile` and shows the diff inline without a page reload.
+  - `GET /ui/sensors` — Sensor list with per-row **Delete** buttons (HTMX confirm
+    dialog; row removed inline on success).
+  - `GET /ui/sensors/new` — Add Sensor form: model dropdown populated from
+    discovered templates, sensor ID, station name/description, location
+    name/description, latitude/longitude. Re-renders with inline error on duplicate
+    ID or missing template.
+  - `GET /docs` — FastAPI auto-generated API docs (for operators/developers).
+- **`GET /frost/{path}` reverse proxy** — ctrl proxies browser requests to the
+  internal FROST Server (not exposed outside Docker), enabling the web UI to query
+  SensorThings data without routing changes.
+- **`GET /status` and `GET /ui/status`** — JSON and HTML-partial endpoints
+  returning FROST reachability + ingest transport health summary.
 
 ### Changed
 
-- **`POST /sensors` and `GET /sensors/models`** — ctrl can now generate a sensor
-  YAML config from a template and write it directly to the ops volume. Templates
-  are discovered by scanning for ``template_<model>.yaml`` files in the sensor
-  config directory. Returns 404 for unknown models and 409 if the sensor ID
-  already exists.
 - **`rime-ctrl` is now a long-running daemon** — after the cold-start reconcile,
   ctrl serves a FastAPI web API on port 8002 (previously it exited after
   reconciling). The `restart: on-failure` policy is updated to
-  `restart: unless-stopped`.
-- **`/ops/sensor_configs` mounted read-write for ctrl** — ctrl can now create and
+  `restart: unless-stopped`. Config changes are applied via `POST /reconcile`
+  from the web UI — no manual Docker restart required.
+- **`POST /sensors` and `GET /sensors/models`** — ctrl generates a sensor YAML
+  config from a template and writes it directly to the ops volume. Templates are
+  discovered by scanning for `template_<model>.yaml` files in the sensor config
+  directory. Returns 404 for unknown models and 409 if the sensor ID already exists.
+- **`/ops/sensor_configs` mounted read-write for ctrl** — ctrl can create and
   delete sensor YAML files directly, enabling the web UI to manage sensors without
-  requiring manual file editing or git access.
-
-### Known Limitation (to be addressed in rime-ctrl web UI)
-
-In the current volume-mount deployment, `rime-ctrl` exits after its cold-start
-reconcile. Config changes (editing YAML files in the ops repo) are not picked up
-automatically — an operator must manually restart the container:
-
-```bash
-docker restart rime-rime-ctrl-1
-```
-
-The planned fix is to evolve `rime-ctrl` into a long-running FastAPI daemon with
-a `POST /reconcile` endpoint. The web UI will call this endpoint whenever a
-researcher saves a config change, triggering an immediate reconcile without any
-manual Docker intervention.
+  manual file editing.
+- **`jinja2` and `python-multipart` added as runtime dependencies** — required for
+  the Jinja2 template engine and HTML form parsing respectively.
 
 ### Changed
 
