@@ -31,6 +31,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Unit tests** — 77 tests covering `IngestRuntime`, `IngestClient`, the FastAPI
   endpoints, the reconciler, the `GitWatcher`, and the ctrl `__main__` entry point.
 
+### Changed
+
+- **`rime-ctrl` is now a long-running daemon** — after the cold-start reconcile,
+  ctrl serves a FastAPI web API on port 8002 (previously it exited after
+  reconciling). The `restart: on-failure` policy is updated to
+  `restart: unless-stopped`.
+- **`/ops/sensor_configs` mounted read-write for ctrl** — ctrl can now create and
+  delete sensor YAML files directly, enabling the web UI to manage sensors without
+  requiring manual file editing or git access.
+
 ### Known Limitation (to be addressed in rime-ctrl web UI)
 
 In the current volume-mount deployment, `rime-ctrl` exits after its cold-start

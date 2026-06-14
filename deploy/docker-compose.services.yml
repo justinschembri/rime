@@ -80,14 +80,18 @@ services:
       # Set CTRL_GIT_WATCH=true only when the container clones the ops repo
       # itself (pure GitOps mode, no volume mount).
       - CTRL_GIT_WATCH=false
+      - CTRL_HOST=0.0.0.0
+      - CTRL_PORT=8002
+    ports:
+      - "8002:8002"
     volumes:
       - rime_tokens:/app/deploy/secrets/tokens
       - rime_logs:/app/logs
-      - ${SENSOR_CONFIG_PATH:-./sensor_configs}:/ops/sensor_configs:ro
+      - ${SENSOR_CONFIG_PATH:-./sensor_configs}:/ops/sensor_configs
       - ${APPLICATION_CONFIG_FILE:-./application-configs.yml}:/ops/application-configs.yml:ro
       - ${RIME_OPS_PATH:-./}:/ops:ro
     command: ["python", "-m", "rime.ctrl"]
-    restart: on-failure
+    restart: unless-stopped
 
 volumes:
   rime_tokens:

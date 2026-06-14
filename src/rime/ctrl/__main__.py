@@ -2,8 +2,9 @@
 
 Responsibilities:
   1. Cold start: provision FROST and sync ingest transports from config files.
-  2. Poll loop: pull the ops git repo every CTRL_POLL_INTERVAL seconds;
-     re-reconcile whenever new commits arrive.
+  2. Serve the ctrl web API on CTRL_PORT (default 8002).
+  3. Optionally: poll the ops git repo in a background thread and re-reconcile
+     whenever new commits arrive (CTRL_GIT_WATCH=true, for pure GitOps mode).
 
 Usage:
     python -m rime.ctrl
@@ -12,11 +13,15 @@ Environment variables:
     INGEST_API_URL          URL of the rime-ingest API
                             (default: http://localhost:8001)
 
-    RIME_OPS_PATH           Path to the cloned rime-ops repository.
+    CTRL_HOST               Host to bind the ctrl API server
+                            (default: 0.0.0.0)
+    CTRL_PORT               Port for the ctrl API server
+                            (default: 8002)
+
+    RIME_OPS_PATH           Path to the ops directory (volume-mount or git clone).
                             Must contain application-configs.yml and
-                            a sensor_configs/ directory.
-                            (default: value of APPLICATION_CONFIG_FILE's
-                            parent, falling back to deploy/)
+                            a sensor_configs/ subdirectory.
+                            (default: APPLICATION_CONFIG_FILE's parent)
 
     APP_CONFIG_FILE         Path to application-configs.yml.
                             (default: <RIME_OPS_PATH>/application-configs.yml)
@@ -24,20 +29,26 @@ Environment variables:
     SENSOR_CONFIG_PATH      Path to the sensor_configs directory.
                             (default: <RIME_OPS_PATH>/sensor_configs)
 
-    CTRL_POLL_INTERVAL      Seconds between git polls (default: 60)
+    FROST_ENDPOINT          Internal FROST base URL used by the /frost proxy.
+                            (default: http://web:8080/FROST-Server/v1.1)
 
+    CTRL_POLL_INTERVAL      Seconds between git polls (default: 60)
     CTRL_GIT_REMOTE         Git remote to pull from (default: origin)
     CTRL_GIT_BRANCH         Git branch to track (default: main)
-    CTRL_GIT_WATCH          Set to "false" to disable git polling and
-                            reconcile only on startup (default: true)
+    CTRL_GIT_WATCH          Set to "true" to enable git polling (for pure GitOps
+                            deployments where the container owns the git clone).
+                            (default: false — volume-mount mode)
 """
 
 from __future__ import annotations
 
 import logging
 import os
+import threading
 import time
 from pathlib import Path
+
+import uvicorn
 
 from rime.loggers import setup_loggers
 from rime.ctrl.reconciler import IngestClient, reconcile
@@ -60,23 +71,19 @@ def _resolve_paths() -> tuple[Path, list[Path], Path]:
     Raises:
         FileNotFoundError: If resolved paths do not exist.
     """
-    # Determine the ops root directory
     ops_path_env = os.getenv("RIME_OPS_PATH")
     if ops_path_env:
         ops_path = Path(ops_path_env)
     else:
-        # Fall back to the path already used by the existing deploy setup
         from rime.paths import VARIABLE_APPLICATION_CONFIG_FILE
         ops_path = VARIABLE_APPLICATION_CONFIG_FILE.parent
 
-    # Application config file
     app_config_env = os.getenv("APP_CONFIG_FILE")
     app_config_path = (
         Path(app_config_env) if app_config_env
         else ops_path / "application-configs.yml"
     )
 
-    # Sensor config directory
     sensor_path_env = os.getenv("SENSOR_CONFIG_PATH")
     sensor_config_dir = (
         Path(sensor_path_env) if sensor_path_env
@@ -92,12 +99,11 @@ def _resolve_paths() -> tuple[Path, list[Path], Path]:
             f"Sensor config directory not found: {sensor_config_dir}"
         )
 
-    sensor_config_paths = [
-        p for ext in ("*.yml", "*.yaml", "*.YML", "*.YAML")
-        for p in sensor_config_dir.rglob(ext)
-    ]
     sensor_config_paths = list({
-        p for p in sensor_config_paths if "template" not in p.stem
+        p
+        for ext in ("*.yml", "*.yaml", "*.YML", "*.YAML")
+        for p in sensor_config_dir.rglob(ext)
+        if "template" not in p.stem
     })
 
     logger.info("App config: %s", app_config_path)
@@ -112,15 +118,18 @@ def _resolve_paths() -> tuple[Path, list[Path], Path]:
 
 def main() -> None:
     ingest_url = os.getenv("INGEST_API_URL", "http://localhost:8001")
+    ctrl_host = os.getenv("CTRL_HOST", "0.0.0.0")
+    ctrl_port = int(os.getenv("CTRL_PORT", "8002"))
+    frost_endpoint = os.getenv("FROST_ENDPOINT", "http://web:8080/FROST-Server/v1.1")
     poll_interval = int(os.getenv("CTRL_POLL_INTERVAL", "60"))
     git_remote = os.getenv("CTRL_GIT_REMOTE", "origin")
     git_branch = os.getenv("CTRL_GIT_BRANCH", "main")
-    git_watch = os.getenv("CTRL_GIT_WATCH", "true").lower() != "false"
+    git_watch = os.getenv("CTRL_GIT_WATCH", "false").lower() == "true"
 
     ingest_client = IngestClient(ingest_url)
 
     # ------------------------------------------------------------------
-    # Cold start reconcile
+    # Cold-start reconcile
     # ------------------------------------------------------------------
     logger.info("rime-ctrl starting. Ingest API: %s", ingest_url)
 
@@ -137,68 +146,64 @@ def main() -> None:
         logger.info(
             "Cold-start reconcile complete. "
             "started=%s stopped=%s restarted=%s unchanged=%s",
-            list(diff.to_start),
-            diff.to_stop,
-            list(diff.to_restart),
-            diff.unchanged,
+            list(diff.to_start), diff.to_stop,
+            list(diff.to_restart), diff.unchanged,
         )
     except Exception as exc:
         logger.error("Cold-start reconcile failed: %s", exc)
         raise
 
     # ------------------------------------------------------------------
-    # Git poll loop
+    # Optional git-watch background thread (pure GitOps mode)
     # ------------------------------------------------------------------
-    if not git_watch:
-        logger.info("Git watching disabled (CTRL_GIT_WATCH=false). Exiting.")
-        return
+    if git_watch:
+        ops_path_env = os.getenv("RIME_OPS_PATH")
+        ops_path = Path(ops_path_env) if ops_path_env else app_config_path.parent
+        watcher = GitWatcher(ops_path, remote=git_remote, branch=git_branch)
 
-    ops_path_env = os.getenv("RIME_OPS_PATH")
-    ops_path = (
-        Path(ops_path_env) if ops_path_env
-        else app_config_path.parent
-    )
-
-    watcher = GitWatcher(ops_path, remote=git_remote, branch=git_branch)
-
-    # Check if this directory is actually a git repo before entering the loop
-    try:
-        watcher.initialise()
-    except RuntimeError:
-        logger.warning(
-            "%s is not a git repository. "
-            "Running without git watching — reconcile ran once on startup.",
-            ops_path,
-        )
-        return
-
-    logger.info(
-        "Watching %s for changes (polling every %ds).", ops_path, poll_interval
-    )
-
-    while True:
-        time.sleep(poll_interval)
         try:
-            if watcher.has_changes():
-                logger.info("Config change detected. Reconciling...")
-                app_config_path, sensor_config_paths, sensor_config_dir = _resolve_paths()
-                diff = reconcile(
-                    app_config_path=app_config_path,
-                    sensor_config_paths=sensor_config_paths,
-                    ingest_client=ingest_client,
-                    sensor_config_dir=sensor_config_dir,
-                )
+            watcher.initialise()
+        except RuntimeError:
+            logger.warning(
+                "%s is not a git repository. Git watching disabled.", ops_path
+            )
+        else:
+            def _git_watch_loop() -> None:
                 logger.info(
-                    "Reconcile complete. "
-                    "started=%s stopped=%s restarted=%s unchanged=%s",
-                    list(diff.to_start),
-                    diff.to_stop,
-                    list(diff.to_restart),
-                    diff.unchanged,
+                    "Git watch active: polling %s every %ds.", ops_path, poll_interval
                 )
-        except Exception as exc:
-            logger.error("Reconcile failed: %s", exc)
-            # Don't crash the loop — log and retry next interval
+                while True:
+                    time.sleep(poll_interval)
+                    try:
+                        if watcher.has_changes():
+                            logger.info("Config change detected. Reconciling...")
+                            a, s, d = _resolve_paths()
+                            reconcile(
+                                app_config_path=a,
+                                sensor_config_paths=s,
+                                ingest_client=ingest_client,
+                                sensor_config_dir=d,
+                            )
+                    except Exception as exc:
+                        logger.error("Git-watch reconcile failed: %s", exc)
+
+            t = threading.Thread(target=_git_watch_loop, daemon=True, name="git-watch")
+            t.start()
+
+    # ------------------------------------------------------------------
+    # Serve the ctrl web API (blocks until the process is stopped)
+    # ------------------------------------------------------------------
+    from rime.ctrl.api import create_app
+
+    ctrl_app = create_app(
+        ingest_client=ingest_client,
+        sensor_config_dir=sensor_config_dir,
+        app_config_path=app_config_path,
+        frost_endpoint=frost_endpoint,
+    )
+
+    logger.info("rime-ctrl API listening on %s:%d", ctrl_host, ctrl_port)
+    uvicorn.run(ctrl_app, host=ctrl_host, port=ctrl_port)
 
 
 if __name__ == "__main__":

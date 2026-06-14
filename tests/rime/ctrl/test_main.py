@@ -109,7 +109,7 @@ class TestMain:
             "APP_CONFIG_FILE": str(ops_dir / "application-configs.yml"),
             "SENSOR_CONFIG_PATH": str(ops_dir / "sensor_configs"),
             "INGEST_API_URL": "http://ingest:8001",
-            "CTRL_GIT_WATCH": "false",  # don't enter the poll loop
+            "CTRL_GIT_WATCH": "false",
         }
         mock_diff = MagicMock()
         mock_diff.to_start = {}
@@ -118,7 +118,8 @@ class TestMain:
         mock_diff.unchanged = ["app-a"]
 
         with patch.dict("os.environ", env, clear=False), \
-             patch("rime.ctrl.__main__.reconcile", return_value=mock_diff) as mock_reconcile:
+             patch("rime.ctrl.__main__.reconcile", return_value=mock_diff) as mock_reconcile, \
+             patch("rime.ctrl.__main__.uvicorn.run"):
             main()
 
         mock_reconcile.assert_called_once()
@@ -136,16 +137,18 @@ class TestMain:
              patch(
                  "rime.ctrl.__main__.reconcile",
                  side_effect=ConnectionError("ingest unreachable"),
-             ):
+             ), \
+             patch("rime.ctrl.__main__.uvicorn.run"):
             with pytest.raises(ConnectionError, match="ingest unreachable"):
                 main()
 
-    def test_git_watch_disabled_exits_after_cold_start(self, ops_dir):
-        """When CTRL_GIT_WATCH=false, main() returns after one reconcile."""
+    def test_starts_uvicorn_after_cold_start(self, ops_dir):
+        """main() starts the uvicorn server after a successful cold-start reconcile."""
         env = {
             "APP_CONFIG_FILE": str(ops_dir / "application-configs.yml"),
             "SENSOR_CONFIG_PATH": str(ops_dir / "sensor_configs"),
             "CTRL_GIT_WATCH": "false",
+            "CTRL_PORT": "8002",
         }
         mock_diff = MagicMock()
         mock_diff.to_start = {}
@@ -154,13 +157,14 @@ class TestMain:
         mock_diff.unchanged = []
 
         with patch.dict("os.environ", env, clear=False), \
-             patch("rime.ctrl.__main__.reconcile", return_value=mock_diff):
-            # Should return without hanging — if it enters the poll loop it
-            # would block forever and the test would time out.
+             patch("rime.ctrl.__main__.reconcile", return_value=mock_diff), \
+             patch("rime.ctrl.__main__.uvicorn.run") as mock_uvicorn:
             main()
 
+        mock_uvicorn.assert_called_once()
+
     def test_git_watch_skipped_when_not_a_git_repo(self, ops_dir):
-        """Non-git ops directory: reconcile runs once, no crash."""
+        """Non-git ops directory: reconcile runs, uvicorn starts, no crash."""
         env = {
             "APP_CONFIG_FILE": str(ops_dir / "application-configs.yml"),
             "SENSOR_CONFIG_PATH": str(ops_dir / "sensor_configs"),
@@ -178,5 +182,6 @@ class TestMain:
              patch(
                  "rime.ctrl.__main__.GitWatcher.initialise",
                  side_effect=RuntimeError("not a git repo"),
-             ):
-            main()  # should return gracefully, not raise
+             ), \
+             patch("rime.ctrl.__main__.uvicorn.run"):
+            main()  # should not raise
