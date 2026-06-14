@@ -33,6 +33,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **`POST /sensors` and `GET /sensors/models`** — ctrl can now generate a sensor
+  YAML config from a template and write it directly to the ops volume. Templates
+  are discovered by scanning for ``template_<model>.yaml`` files in the sensor
+  config directory. Returns 404 for unknown models and 409 if the sensor ID
+  already exists.
 - **`rime-ctrl` is now a long-running daemon** — after the cold-start reconcile,
   ctrl serves a FastAPI web API on port 8002 (previously it exited after
   reconciling). The `restart: on-failure` policy is updated to

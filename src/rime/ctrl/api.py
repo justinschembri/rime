@@ -55,6 +55,21 @@ class SensorsResponse(BaseModel):
     sensors: list[SensorInfo]
 
 
+class SensorModelsResponse(BaseModel):
+    models: list[str]
+
+
+class CreateSensorRequest(BaseModel):
+    sensor_model: str
+    sensor_id: str
+    thing_name: str
+    thing_description: str
+    location_name: str
+    location_description: str
+    longitude: float
+    latitude: float
+
+
 class StatusResponse(BaseModel):
     frost_reachable: bool
     ingest_reachable: bool
@@ -163,6 +178,75 @@ def create_app(
         return SensorsResponse(
             sensors=[SensorInfo(name=p.stem, filename=p.name) for p in paths]
         )
+
+    # ------------------------------------------------------------------
+    # GET /sensors/models
+    # ------------------------------------------------------------------
+
+    @app.get("/sensors/models", response_model=SensorModelsResponse, tags=["sensors"])
+    def list_sensor_models() -> SensorModelsResponse:
+        """List sensor models for which a template exists in the ops volume."""
+        templates = list(sensor_config_dir.rglob("template_*.yml")) + \
+                    list(sensor_config_dir.rglob("template_*.yaml"))
+        models = sorted({
+            p.stem.removeprefix("template_")
+            for p in templates
+        })
+        return SensorModelsResponse(models=models)
+
+    # ------------------------------------------------------------------
+    # POST /sensors
+    # ------------------------------------------------------------------
+
+    @app.post("/sensors", response_model=MessageResponse, status_code=status.HTTP_201_CREATED, tags=["sensors"])
+    def create_sensor(body: CreateSensorRequest) -> MessageResponse:
+        """Generate a sensor YAML config from a template and write it to the ops volume.
+
+        The sensor_id becomes the filename (``<sensor_id>.yml``).  Returns 404
+        if no template exists for the requested model and 409 if a config with
+        that sensor_id already exists.
+        """
+        import yaml
+        from rime.cli.config_generator import _replace_placeholders
+
+        # Locate the template inside the sensor_config_dir
+        candidates = (
+            list(sensor_config_dir.rglob(f"template_{body.sensor_model}.yaml")) +
+            list(sensor_config_dir.rglob(f"template_{body.sensor_model}.yml"))
+        )
+        if not candidates:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"No template found for sensor model '{body.sensor_model}'.",
+            )
+
+        output_path = sensor_config_dir / f"{body.sensor_id}.yml"
+        if output_path.exists():
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Sensor config '{body.sensor_id}' already exists.",
+            )
+
+        with open(candidates[0]) as f:
+            template = yaml.safe_load(f)
+
+        config = _replace_placeholders(
+            template,
+            body.sensor_id,
+            body.thing_name,
+            body.thing_description,
+            body.location_name,
+            body.location_description,
+            body.longitude,
+            body.latitude,
+        )
+
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(output_path, "w") as f:
+            yaml.dump(config, f, default_flow_style=False, sort_keys=False, allow_unicode=True)
+
+        logger.info("Created sensor config: %s", output_path)
+        return MessageResponse(message=f"Sensor config '{body.sensor_id}' created.")
 
     # ------------------------------------------------------------------
     # DELETE /sensors/{name}

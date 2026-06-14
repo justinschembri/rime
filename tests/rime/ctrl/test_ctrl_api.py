@@ -166,6 +166,110 @@ class TestListSensors:
 
 
 # ---------------------------------------------------------------------------
+# GET /sensors/models
+# ---------------------------------------------------------------------------
+
+class TestListSensorModels:
+    def test_returns_models_from_templates(self, ops_dir, mock_ingest_client):
+        templates_dir = ops_dir["sensor_dir"] / "netatmo"
+        templates_dir.mkdir()
+        (templates_dir / "template_netatmo.nws03.yaml").write_text("Sensors: {}\n")
+
+        app = create_app(
+            ingest_client=mock_ingest_client,
+            sensor_config_dir=ops_dir["sensor_dir"],
+            app_config_path=ops_dir["app_config"],
+        )
+        response = TestClient(app).get("/sensors/models")
+
+        assert response.status_code == 200
+        assert "netatmo.nws03" in response.json()["models"]
+
+    def test_returns_empty_when_no_templates(self, client):
+        response = client.get("/sensors/models")
+        assert response.status_code == 200
+        assert response.json()["models"] == []
+
+
+# ---------------------------------------------------------------------------
+# POST /sensors
+# ---------------------------------------------------------------------------
+
+class TestCreateSensor:
+    @pytest.fixture()
+    def client_with_template(self, ops_dir, mock_ingest_client):
+        """Client whose sensor_dir contains a minimal netatmo template."""
+        template_dir = ops_dir["sensor_dir"] / "netatmo"
+        template_dir.mkdir(exist_ok=True)
+        # Minimal template with one placeholder of each type
+        (template_dir / "template_netatmo.nws03.yaml").write_text(
+            "Sensors:\n"
+            "  netatmo.nws03:\n"
+            "    name: <SENSOR_ID>\n"
+            "Things:\n"
+            "  <THING_NAME>:\n"
+            "    description: <THING_DESCRIPTION>\n"
+            "Locations:\n"
+            "  <LOCATION_NAME>:\n"
+            "    description: <LOCATION_DESCRIPTION>\n"
+            "    location:\n"
+            "      type: Point\n"
+            "      coordinates: [<LONGITUDE>, <LATITUDE>]\n"
+        )
+        app = create_app(
+            ingest_client=mock_ingest_client,
+            sensor_config_dir=ops_dir["sensor_dir"],
+            app_config_path=ops_dir["app_config"],
+        )
+        return TestClient(app), ops_dir["sensor_dir"]
+
+    def _payload(self, **overrides):
+        base = {
+            "sensor_model": "netatmo.nws03",
+            "sensor_id": "aa:bb:cc:dd:ee:ff",
+            "thing_name": "Test Station",
+            "thing_description": "A test weather station",
+            "location_name": "Roof",
+            "location_description": "Rooftop location",
+            "longitude": 4.35,
+            "latitude": 52.01,
+        }
+        base.update(overrides)
+        return base
+
+    def test_creates_yaml_file(self, client_with_template):
+        client, sensor_dir = client_with_template
+        response = client.post("/sensors", json=self._payload())
+
+        assert response.status_code == 201
+        assert "created" in response.json()["message"].lower()
+        assert (sensor_dir / "aa:bb:cc:dd:ee:ff.yml").exists()
+
+    def test_replaces_sensor_id_placeholder(self, client_with_template):
+        import yaml
+        client, sensor_dir = client_with_template
+        client.post("/sensors", json=self._payload())
+
+        with open(sensor_dir / "aa:bb:cc:dd:ee:ff.yml") as f:
+            config = yaml.safe_load(f)
+
+        assert config["Sensors"]["netatmo.nws03"]["name"] == "aa:bb:cc:dd:ee:ff"
+
+    def test_returns_404_for_unknown_model(self, client_with_template):
+        client, _ = client_with_template
+        response = client.post("/sensors", json=self._payload(sensor_model="unknown.model"))
+        assert response.status_code == 404
+        assert "template" in response.json()["detail"].lower()
+
+    def test_returns_409_when_sensor_already_exists(self, client_with_template):
+        client, _ = client_with_template
+        client.post("/sensors", json=self._payload())
+        response = client.post("/sensors", json=self._payload())
+        assert response.status_code == 409
+        assert "already exists" in response.json()["detail"].lower()
+
+
+# ---------------------------------------------------------------------------
 # DELETE /sensors/{name}
 # ---------------------------------------------------------------------------
 
