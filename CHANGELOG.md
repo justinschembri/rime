@@ -9,6 +9,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`rime-ctrl` Datastream Staleness Monitoring** — new Datastreams page
+  (`/ui/datastreams`) queries FROST for every datastream's latest observation
+  and shows per-datastream staleness badges grouped by Thing. Threshold: 1 hour.
+  Auto-refreshes every 60 s via HTMX. Handles FROST pagination (`@iot.nextLink`).
+  - `GET /datastreams/status` — JSON endpoint returning Things + datastreams with
+    `staleness_class` (`badge-ok` / `badge-error` / `badge-muted`) and human label
+    (e.g. "5m ago", "3h ago", "no data").
+- **`rime-ctrl` Log Viewer** — new Logs page (`/ui/logs`) tails the last 100 lines
+  of `general.log` (shared `rime_logs` volume) and colour-codes ERROR/WARNING lines.
+  Auto-refreshes every 10 s via HTMX. No Docker socket or SDK required.
+  - `GET /logs` — JSON endpoint returning last *n* lines (default 100).
+  - `GET /ui/logs/tail` — HTMX partial that renders log lines with CSS classes
+    (`log-error`, `log-warn`, `log-info`).
+- **`ctrl.*` and `ingest.*` loggers write to `general.log`** — extended
+  `loggers.py` to route the `ctrl` and `ingest` logger namespaces into the
+  shared `TimedRotatingFileHandler`, so all service activity is visible in the
+  web log viewer without any Docker terminal access.
+
 - **`rime-ctrl` Application Management UI** — researchers can add, list, and
   delete provider connections (Netatmo, The Things Stack) from the browser
   without editing YAML files or using the CLI.

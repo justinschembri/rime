@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Datastreams — rime-ctrl{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <h1>Datastream Status</h1>
+  <button
+    hx-get="/ui/datastreams/data"
+    hx-target="#ds-table"
+    hx-swap="innerHTML">
+    Refresh
+  </button>
+</div>
+<p><small>Stale = no observation in the last hour. Auto-refreshes every 60 s.</small></p>
+
+<div
+  id="ds-table"
+  hx-get="/ui/datastreams/data"
+  hx-trigger="load, every 60s"
+  hx-swap="innerHTML">
+  <p aria-busy="true">Loading…</p>
+</div>
+
+{% endblock %}

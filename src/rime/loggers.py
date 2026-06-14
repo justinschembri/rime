@@ -51,6 +51,14 @@ def setup_loggers() -> None:
     )
     debug_logfile_handler.setLevel(logging.DEBUG)
     debug_logfile_handler.setFormatter(general_formatter)
+    ctrl_logger = logging.getLogger("ctrl")
+    ctrl_logger.setLevel(logging.INFO)
+    ctrl_logger.propagate = False
+
+    ingest_logger = logging.getLogger("ingest")
+    ingest_logger.setLevel(logging.INFO)
+    ingest_logger.propagate = False
+
     # ATTACH
     # main logger:
     if not main_logger.handlers:
@@ -60,6 +68,14 @@ def setup_loggers() -> None:
     if not events_logger.handlers:
         events_logger.addHandler(event_console)
         events_logger.addHandler(general_logfile)
+    # --
+    if not ctrl_logger.handlers:
+        ctrl_logger.addHandler(general_console)
+        ctrl_logger.addHandler(general_logfile)
+    # --
+    if not ingest_logger.handlers:
+        ingest_logger.addHandler(general_console)
+        ingest_logger.addHandler(general_logfile)
     # --
     if ST_UTILS_DEBUG:
         debug_logger.addHandler(debug_logfile_handler)

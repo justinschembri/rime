@@ -26,6 +26,7 @@ import json
 import logging
 import tempfile
 import threading
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Literal
 
@@ -130,9 +131,32 @@ class TokensResponse(BaseModel):
     tokens: list[TokenInfo]
 
 
+class LogsResponse(BaseModel):
+    lines: list[str]
+
+
 # ---------------------------------------------------------------------------
 # App factory
 # ---------------------------------------------------------------------------
+
+_STALE_HOURS = 1
+
+
+def _staleness_label(last_obs: str | None) -> tuple[str, str]:
+    """Return (badge_css_class, human_label) for a datastream's last observation."""
+    if not last_obs:
+        return "badge-muted", "no data"
+    dt = datetime.fromisoformat(last_obs.replace("Z", "+00:00"))
+    age = datetime.now(tz=timezone.utc) - dt
+    hours = age.total_seconds() / 3600
+    mins = int(age.total_seconds() / 60)
+    if hours < _STALE_HOURS:
+        return "badge-ok", (f"{mins}m ago" if mins > 0 else "just now")
+    elif hours < 24:
+        return "badge-error", f"{int(hours)}h ago"
+    else:
+        return "badge-error", f"{int(hours / 24)}d ago"
+
 
 def create_app(
     ingest_client: IngestClient,
@@ -141,6 +165,7 @@ def create_app(
     frost_endpoint: str = "http://web:8080/FROST-Server/v1.1",
     credentials_path: Path | None = None,
     tokens_dir: Path | None = None,
+    logs_dir: Path | None = None,
 ) -> FastAPI:
     """Create and return the rime-ctrl FastAPI application.
 
@@ -161,6 +186,9 @@ def create_app(
     if tokens_dir is None:
         from rime.paths import TOKENS_DIR as _TOKENS_DIR
         tokens_dir = _TOKENS_DIR
+    if logs_dir is None:
+        from rime.paths import LOGS_DIR
+        logs_dir = LOGS_DIR
     app = FastAPI(
         title="rime-ctrl",
         description="Control plane for the rime ingestion pipeline.",
@@ -248,6 +276,47 @@ def create_app(
         credentials_path.parent.mkdir(parents=True, exist_ok=True)
         with open(credentials_path, "w") as f:
             json.dump(creds, f, indent=4)
+
+    def _tail_log(n: int = 100) -> list[str]:
+        log_path = logs_dir / "general.log"
+        if not log_path.exists():
+            return []
+        with open(log_path) as f:
+            return f.readlines()[-n:]
+
+    def _classify_line(line: str) -> str:
+        if ": ERROR" in line or ": CRITICAL" in line:
+            return "log-error"
+        if ": WARNING" in line:
+            return "log-warn"
+        return "log-info"
+
+    async def _fetch_datastream_status() -> list[dict[str, Any]]:
+        results: list[dict[str, Any]] = []
+        url: str | None = (
+            f"{frost_endpoint}/Datastreams"
+            "?$expand=Observations($top=1;$orderby=phenomenonTime%20desc),Thing"
+            "&$top=200"
+        )
+        headers = {"Authorization": f"Basic {_frost_auth}"} if _frost_auth else {}
+        async with httpx.AsyncClient() as client:
+            while url:
+                try:
+                    resp = await client.get(url, headers=headers, timeout=15.0)
+                    resp.raise_for_status()
+                except httpx.RequestError:
+                    break
+                data = resp.json()
+                results.extend(data.get("value", []))
+                next_link: str | None = data.get("@iot.nextLink")
+                if next_link:
+                    # Rewrite external host in nextLink back to internal frost_endpoint
+                    internal_base = frost_endpoint.split("/FROST-Server")[0]
+                    external_base = next_link.split("/FROST-Server")[0]
+                    url = next_link.replace(external_base, internal_base)
+                else:
+                    url = None
+        return results
 
     def _load_tokens() -> list[dict[str, Any]]:
         result = []
@@ -569,6 +638,42 @@ def create_app(
         token_file.unlink()
         logger.info("Deleted token for: %s", app_name)
         return MessageResponse(message=f"Token for '{app_name}' deleted.")
+
+    # ------------------------------------------------------------------
+    # GET /logs
+    # ------------------------------------------------------------------
+
+    @app.get("/logs", response_model=LogsResponse, tags=["system"])
+    def get_logs(n: int = 100) -> LogsResponse:
+        """Return the last n lines of general.log."""
+        return LogsResponse(lines=_tail_log(n))
+
+    # ------------------------------------------------------------------
+    # GET /datastreams/status
+    # ------------------------------------------------------------------
+
+    @app.get("/datastreams/status", tags=["system"])
+    async def datastreams_status() -> dict[str, Any]:
+        """Return all FROST datastreams grouped by Thing with staleness info."""
+        raw = await _fetch_datastream_status()
+        by_thing: dict[str, list[dict[str, Any]]] = {}
+        for ds in raw:
+            thing_name = ds.get("Thing", {}).get("name", "Unknown")
+            obs = ds.get("Observations", [])
+            last_time: str | None = obs[0].get("phenomenonTime") if obs else None
+            css, label = _staleness_label(last_time)
+            by_thing.setdefault(thing_name, []).append({
+                "name": ds.get("name", ""),
+                "last_observation": last_time,
+                "staleness_class": css,
+                "staleness_label": label,
+            })
+        return {
+            "things": [
+                {"name": k, "datastreams": v}
+                for k, v in sorted(by_thing.items())
+            ]
+        }
 
     # ------------------------------------------------------------------
     # /frost/{path} — reverse proxy
@@ -937,5 +1042,50 @@ def create_app(
         token_file.unlink()
         logger.info("Deleted token via web UI: %s", name)
         return Response(content="", status_code=200)
+
+    # ------------------------------------------------------------------
+    # Web UI — Logs
+    # ------------------------------------------------------------------
+
+    @app.get("/ui/logs", response_class=HTMLResponse, include_in_schema=False)
+    def logs_page(request: Request) -> HTMLResponse:
+        return _templates.TemplateResponse(request, "logs.html")
+
+    @app.get("/ui/logs/tail", response_class=HTMLResponse, include_in_schema=False)
+    def log_tail_partial(request: Request) -> HTMLResponse:
+        raw_lines = _tail_log(100)
+        lines = [(line.rstrip("\n"), _classify_line(line)) for line in raw_lines]
+        return _templates.TemplateResponse(
+            request, "partials/log_tail.html", {"lines": lines}
+        )
+
+    # ------------------------------------------------------------------
+    # Web UI — Datastreams
+    # ------------------------------------------------------------------
+
+    @app.get("/ui/datastreams", response_class=HTMLResponse, include_in_schema=False)
+    def datastreams_page(request: Request) -> HTMLResponse:
+        return _templates.TemplateResponse(request, "datastreams.html")
+
+    @app.get("/ui/datastreams/data", response_class=HTMLResponse, include_in_schema=False)
+    async def datastreams_partial(request: Request) -> HTMLResponse:
+        raw = await _fetch_datastream_status()
+        by_thing: dict[str, list[dict[str, Any]]] = {}
+        for ds in raw:
+            thing_name = ds.get("Thing", {}).get("name", "Unknown")
+            obs = ds.get("Observations", [])
+            last_time: str | None = obs[0].get("phenomenonTime") if obs else None
+            css, label = _staleness_label(last_time)
+            by_thing.setdefault(thing_name, []).append({
+                "name": ds.get("name", ""),
+                "staleness_class": css,
+                "staleness_label": label,
+            })
+        things = [{"name": k, "datastreams": v} for k, v in sorted(by_thing.items())]
+        frost_reachable = bool(raw)
+        return _templates.TemplateResponse(
+            request, "partials/datastreams_table.html",
+            {"things": things, "frost_reachable": frost_reachable},
+        )
 
     return app

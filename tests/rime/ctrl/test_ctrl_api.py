@@ -39,11 +39,14 @@ def ops_dir(tmp_path) -> dict:
     secrets_dir.mkdir(parents=True)
     tokens_dir = tmp_path / "secrets" / "tokens"
     tokens_dir.mkdir(parents=True)
+    logs_dir = tmp_path / "logs"
+    logs_dir.mkdir(parents=True)
     return {
         "app_config": app_config,
         "sensor_dir": sensor_dir,
         "creds_path": secrets_dir / "application_credentials.json",
         "tokens_dir": tokens_dir,
+        "logs_dir": logs_dir,
     }
 
 
@@ -61,6 +64,7 @@ def client(ops_dir, mock_ingest_client) -> TestClient:
         frost_endpoint="http://frost-mock:8080/FROST-Server/v1.1",
         credentials_path=ops_dir["creds_path"],
         tokens_dir=ops_dir["tokens_dir"],
+        logs_dir=ops_dir["logs_dir"],
     )
     return TestClient(app)
 
@@ -594,3 +598,129 @@ class TestUpsertToken:
     def test_delete_returns_404_when_absent(self, client):
         response = client.delete("/tokens/no-such-app")
         assert response.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# GET /logs
+# ---------------------------------------------------------------------------
+
+class TestGetLogs:
+    def test_returns_empty_list_when_log_file_missing(self, client):
+        response = client.get("/logs")
+        assert response.status_code == 200
+        assert response.json()["lines"] == []
+
+    def test_returns_lines_from_log_file(self, client, ops_dir):
+        log_file = ops_dir["logs_dir"] / "general.log"
+        log_file.write_text("line1\nline2\nline3\n")
+        response = client.get("/logs")
+        assert response.status_code == 200
+        lines = response.json()["lines"]
+        assert len(lines) == 3
+        assert "line1\n" in lines
+
+    def test_respects_n_query_param(self, client, ops_dir):
+        log_file = ops_dir["logs_dir"] / "general.log"
+        log_file.write_text("\n".join(f"line{i}" for i in range(200)) + "\n")
+        response = client.get("/logs?n=10")
+        assert response.status_code == 200
+        assert len(response.json()["lines"]) == 10
+
+
+# ---------------------------------------------------------------------------
+# GET /datastreams/status
+# ---------------------------------------------------------------------------
+
+def _make_ds_response(value: list, next_link: str | None = None) -> "httpx.Response":
+    import httpx
+    body: dict = {"value": value}
+    if next_link:
+        body["@iot.nextLink"] = next_link
+    return httpx.Response(
+        200,
+        json=body,
+        request=httpx.Request(
+            "GET",
+            "http://frost-mock:8080/FROST-Server/v1.1/Datastreams",
+        ),
+    )
+
+
+class TestDatastreamsStatus:
+    def _ds(self, name: str, thing_name: str, last_obs: str | None = None) -> dict:
+        obs = [{"phenomenonTime": last_obs}] if last_obs else []
+        return {"name": name, "Thing": {"name": thing_name}, "Observations": obs}
+
+    def test_returns_grouped_by_thing(self, client):
+        import httpx
+        from unittest.mock import AsyncMock
+
+        ds_list = [
+            self._ds("Temperature", "Station A", "2030-01-01T00:00:00Z"),
+            self._ds("Humidity", "Station A", "2030-01-01T00:01:00Z"),
+            self._ds("Temperature", "Station B", "2030-01-01T00:02:00Z"),
+        ]
+        with patch("httpx.AsyncClient.get", new=AsyncMock(return_value=_make_ds_response(ds_list))):
+            response = client.get("/datastreams/status")
+
+        assert response.status_code == 200
+        data = response.json()
+        thing_names = [t["name"] for t in data["things"]]
+        assert "Station A" in thing_names
+        assert "Station B" in thing_names
+        station_a = next(t for t in data["things"] if t["name"] == "Station A")
+        assert len(station_a["datastreams"]) == 2
+
+    def test_marks_fresh_observation_correctly(self, client):
+        import httpx
+        from datetime import datetime, timezone, timedelta
+        from unittest.mock import AsyncMock
+
+        recent = (datetime.now(tz=timezone.utc) - timedelta(minutes=5)).isoformat()
+        ds_list = [self._ds("Temp", "Station A", recent)]
+        with patch("httpx.AsyncClient.get", new=AsyncMock(return_value=_make_ds_response(ds_list))):
+            response = client.get("/datastreams/status")
+
+        thing = response.json()["things"][0]
+        ds = thing["datastreams"][0]
+        assert ds["staleness_class"] == "badge-ok"
+        assert "m ago" in ds["staleness_label"] or ds["staleness_label"] == "just now"
+
+    def test_marks_stale_observation_correctly(self, client):
+        import httpx
+        from datetime import datetime, timezone, timedelta
+        from unittest.mock import AsyncMock
+
+        old = (datetime.now(tz=timezone.utc) - timedelta(hours=3)).isoformat()
+        ds_list = [self._ds("Temp", "Station A", old)]
+        with patch("httpx.AsyncClient.get", new=AsyncMock(return_value=_make_ds_response(ds_list))):
+            response = client.get("/datastreams/status")
+
+        ds = response.json()["things"][0]["datastreams"][0]
+        assert ds["staleness_class"] == "badge-error"
+        assert "h ago" in ds["staleness_label"]
+
+    def test_marks_no_data_when_no_observations(self, client):
+        import httpx
+        from unittest.mock import AsyncMock
+
+        ds_list = [self._ds("Temp", "Station A", None)]
+        with patch("httpx.AsyncClient.get", new=AsyncMock(return_value=_make_ds_response(ds_list))):
+            response = client.get("/datastreams/status")
+
+        ds = response.json()["things"][0]["datastreams"][0]
+        assert ds["staleness_class"] == "badge-muted"
+        assert ds["staleness_label"] == "no data"
+
+    def test_handles_frost_unreachable_gracefully(self, client):
+        import httpx
+        from unittest.mock import AsyncMock
+
+        with patch(
+            "httpx.AsyncClient.get",
+            new=AsyncMock(side_effect=httpx.RequestError("timeout")),
+        ):
+            response = client.get("/datastreams/status")
+
+        assert response.status_code == 200
+        assert response.json()["things"] == []

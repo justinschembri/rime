@@ -1,0 +1,7 @@
+{% if lines %}
+{% for line, css_class in lines %}
+<div class="{{ css_class }}" style="white-space: pre; padding: 1px 0;">{{ line }}</div>
+{% endfor %}
+{% else %}
+<div style="color: var(--pico-muted-color);">No log entries found. The log file may not exist yet.</div>
+{% endif %}

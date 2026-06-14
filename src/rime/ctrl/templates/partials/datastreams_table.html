@@ -1,0 +1,30 @@
+{% if not frost_reachable %}
+<div class="flash-error">
+  FROST Server is unreachable — datastream status unavailable.
+</div>
+{% elif not things %}
+<div class="empty-state">
+  <p>No datastreams found in FROST.</p>
+</div>
+{% else %}
+{% for thing in things %}
+<details open>
+  <summary>
+    <strong>{{ thing.name }}</strong>
+    <small style="font-weight: normal; margin-left: 0.5em;">{{ thing.datastreams | length }} datastream(s)</small>
+  </summary>
+  <table>
+    <tbody>
+      {% for ds in thing.datastreams %}
+      <tr>
+        <td>{{ ds.name }}</td>
+        <td style="text-align: right; width: 1%;">
+          <span class="badge {{ ds.staleness_class }}">{{ ds.staleness_label }}</span>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</details>
+{% endfor %}
+{% endif %}
