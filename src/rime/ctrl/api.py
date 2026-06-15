@@ -279,8 +279,13 @@ def create_app(
 
     def _tail_log(n: int = 100) -> list[str]:
         log_path = logs_dir / "general.log"
-        if not log_path.exists():
-            return []
+        # If the current file is empty (e.g. just rotated at midnight),
+        # fall back to the most recent rotated file.
+        if not log_path.exists() or log_path.stat().st_size == 0:
+            rotated = sorted(logs_dir.glob("general.log.*"))
+            if not rotated:
+                return []
+            log_path = rotated[-1]
         with open(log_path) as f:
             return f.readlines()[-n:]
 
