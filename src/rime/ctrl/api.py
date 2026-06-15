@@ -34,6 +34,7 @@ import httpx
 import requests as _requests
 from fastapi import FastAPI, Form, HTTPException, status
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
+from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
 from starlette.requests import Request
@@ -200,6 +201,10 @@ def create_app(
     _reconcile_lock = threading.Lock()
 
     _templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
+
+    _web_dir = Path(__file__).parent.parent.parent.parent / "web" / "rime"
+    if _web_dir.exists():
+        app.mount("/static/map", StaticFiles(directory=str(_web_dir)), name="map-static")
 
     # ------------------------------------------------------------------
     # Helpers
@@ -751,6 +756,12 @@ def create_app(
     # ------------------------------------------------------------------
 
     @app.get("/", response_class=HTMLResponse, include_in_schema=False)
+    def map_page(request: Request) -> HTMLResponse:
+        return _templates.TemplateResponse(request, "map.html", {
+            "frost_base": "/frost",
+        })
+
+    @app.get("/ui/dashboard", response_class=HTMLResponse, include_in_schema=False)
     def dashboard(request: Request) -> HTMLResponse:
         return _templates.TemplateResponse(request, "dashboard.html")
 

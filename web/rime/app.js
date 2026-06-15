@@ -1,5 +1,7 @@
 // Configuration and state are now in separate modules (js/config.js and js/state.js)
 
+const FROST_BASE = window.RIME_CONFIG?.frostBase ?? '../FROST-Server/v1.1';
+
 // Initialize application
 document.addEventListener('DOMContentLoaded', () => {
     initializeMap();
@@ -358,7 +360,7 @@ async function fetchThings() {
     updateStatus('Fetching things...', '');
     
     try {
-        const response = await fetch('../FROST-Server/v1.1/Things');
+        const response = await fetch(`${FROST_BASE}/Things`);
         
         if (!response.ok) {
             throw new Error(`HTTP error! Status: ${response.status}`);
@@ -491,7 +493,7 @@ async function loadDatastreamsForThing(thingId) {
     if (!thing) return;
     
     try {
-        const response = await fetch(`../FROST-Server/v1.1/Things(${thingId})/Datastreams`);
+        const response = await fetch(`${FROST_BASE}/Things(${thingId})/Datastreams`);
         
         if (!response.ok) {
             throw new Error(`HTTP error! Status: ${response.status}`);
@@ -705,7 +707,7 @@ async function loadChartData(datastreamId) {
     
     try {
         // Fetch datastream info
-        const dsResponse = await fetch(`../FROST-Server/v1.1/Datastreams(${datastreamId})`);
+        const dsResponse = await fetch(`${FROST_BASE}/Datastreams(${datastreamId})`);
         if (!dsResponse.ok) throw new Error(`HTTP error! Status: ${dsResponse.status}`);
         
         const dsData = await dsResponse.json();
@@ -715,7 +717,7 @@ async function loadChartData(datastreamId) {
         
         // Fetch observations
         const currentProtocol = window.location.protocol;
-        const obsUrl = `../FROST-Server/v1.1/Datastreams(${datastreamId})/Observations?$top=${state.currentLimit}&$orderby=phenomenonTime%20desc`;
+        const obsUrl = `${FROST_BASE}/Datastreams(${datastreamId})/Observations?$top=${state.currentLimit}&$orderby=phenomenonTime%20desc`;
         const secureObsUrl = obsUrl.replace(/^http:/, currentProtocol);
         const obsResponse = await fetch(secureObsUrl);
         
@@ -1321,7 +1323,7 @@ async function downloadThingData(thingId, startDate = null, endDate = null) {
     
     try {
         // Fetch all datastreams for the thing
-        const response = await fetch(`../FROST-Server/v1.1/Things(${thingId})/Datastreams`);
+        const response = await fetch(`${FROST_BASE}/Things(${thingId})/Datastreams`);
         if (!response.ok) {
             throw new Error(`HTTP error! Status: ${response.status}`);
         }

@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Unified web app** — the Leaflet+Chart.js map dashboard and rime-ctrl management panel are
+  now served from a single origin (`http://localhost:8002`). Researchers no longer need two URLs.
+  - `GET /` serves the interactive sensor map (was `http://localhost:8080/rime`).
+  - `GET /ui/dashboard` is the management dashboard (was `GET /`).
+  - `GET /static/map/*` serves the map's CSS, JS, and icons from `web/rime/` (copied into the
+    image via `COPY . /app/` — no extra volume mount needed).
+  - `window.RIME_CONFIG = { frostBase: "/frost" }` is injected by the Jinja2 template so
+    `app.js` uses the existing `/frost` proxy instead of the Tomcat-relative `../FROST-Server`
+    path. The fallback (`?? '../FROST-Server/v1.1'`) keeps `http://localhost:8080/rime` working
+    for deployments that still use Tomcat.
+  - All rime-ctrl management nav pages gain a **Map** link back to `/`.
+  - The Settings button on the map links to `/ui/dashboard`; the Health Report button links to
+    `/ui/datastreams` (both now relative paths, no hardcoded port).
+
 - **`rime-ctrl` Datastream Staleness Monitoring** — new Datastreams page
   (`/ui/datastreams`) queries FROST for every datastream's latest observation
   and shows per-datastream staleness badges grouped by Thing. Threshold: 1 hour.
