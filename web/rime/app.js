@@ -170,7 +170,8 @@ function updateStatus(message, type = '') {
 // Calculate thing health status asynchronously
 async function calculateThingHealthStatusAsync(thingId, datastreams) {
     const thing = state.things[thingId];
-    if (!thing || !datastreams || datastreams.length === 0) {
+    if (!thing) return;
+    if (!datastreams || datastreams.length === 0) {
         thing.healthStatus = 'active';
         thing.timeSinceLastObservation = null;
         updateThingStatusTags();
@@ -649,16 +650,25 @@ function highlightThingInList(thingName) {
 // Filter things by search
 function filterThings(query) {
     const things = document.querySelectorAll('.thing-item');
-    const lowerQuery = query.toLowerCase();
-    
+    const lowerQuery = query.toLowerCase().trim();
+    let visibleCount = 0;
+
     things.forEach(thing => {
         const name = thing.dataset.thingName.toLowerCase();
-        if (name.includes(lowerQuery)) {
-            thing.style.display = '';
-        } else {
-            thing.style.display = 'none';
-        }
+        const matches = name.includes(lowerQuery);
+        thing.style.display = matches ? '' : 'none';
+        if (matches) visibleCount++;
     });
+
+    const countEl = document.getElementById('searchCount');
+    if (!countEl) return;
+    if (lowerQuery === '') {
+        countEl.textContent = '';
+    } else if (visibleCount === 0) {
+        countEl.textContent = 'No results';
+    } else {
+        countEl.textContent = `${visibleCount} of ${things.length}`;
+    }
 }
 
 // Select datastream and load chart
