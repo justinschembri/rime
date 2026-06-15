@@ -4,7 +4,7 @@
 
 {% if created %}
 <div class="flash-ok">
-  <strong>Sensor added.</strong> Return to the <a href="/">Dashboard</a> and click <strong>Apply Changes</strong> to activate it.
+  <strong>Sensor added.</strong> Return to the <a href="/ui/dashboard">Dashboard</a> and click <strong>Apply Changes</strong> to activate it.
 </div>
 {% endif %}
 
@@ -41,7 +41,7 @@
     {% endfor %}
   </tbody>
 </table>
-<p><small>{{ sensors | length }} sensor configuration(s) found. After making changes, go to the <a href="/">Dashboard</a> and click <strong>Apply Changes</strong>.</small></p>
+<p><small>{{ sensors | length }} sensor configuration(s) found. After making changes, go to the <a href="/ui/dashboard">Dashboard</a> and click <strong>Apply Changes</strong>.</small></p>
 {% else %}
 <div class="empty-state">
   <p>No sensor configurations found.</p>

@@ -1,37 +1,442 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="light">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}rime-ctrl{% endblock %}</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.classless.min.css">
   <script src="https://unpkg.com/htmx.org@2.0.4/dist/htmx.min.js"></script>
   <style>
-    nav { border-bottom: 1px solid var(--pico-muted-border-color); padding-bottom: 0.5rem; margin-bottom: 2rem; }
-    nav ul:first-child a { text-decoration: none; font-weight: 700; font-size: 1.1em; color: var(--pico-color); }
-    .badge { display: inline-flex; align-items: center; gap: 0.3em; padding: 0.25em 0.7em; border-radius: 999px; font-size: 0.8em; font-weight: 600; }
+    /* ---------------------------------------------------------------
+       Design system — same tokens as web/rime/styles.css
+    --------------------------------------------------------------- */
+    :root {
+      --primary:       #3b82f6;
+      --primary-dark:  #2563eb;
+      --primary-light: #dbeafe;
+      --success:       #22c55e;
+      --danger:        #ef4444;
+      --warning:       #f59e0b;
+      --gray-50:       #f9fafb;
+      --gray-100:      #f3f4f6;
+      --gray-200:      #e5e7eb;
+      --gray-300:      #d1d5db;
+      --gray-400:      #9ca3af;
+      --gray-500:      #6b7280;
+      --gray-600:      #4b5563;
+      --gray-700:      #374151;
+      --gray-800:      #1f2937;
+      --gray-900:      #111827;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: var(--gray-100);
+      color: var(--gray-800);
+      min-height: 100vh;
+    }
+
+    /* ---------------------------------------------------------------
+       Navigation
+    --------------------------------------------------------------- */
+    nav {
+      background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+      color: white;
+      padding: 0 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 56px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    nav ul {
+      list-style: none;
+      display: flex;
+      align-items: center;
+      gap: 0.2rem;
+    }
+
+    nav ul:first-child a {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: white;
+      text-decoration: none;
+      letter-spacing: -0.01em;
+    }
+
+    nav ul:last-child a {
+      color: rgba(255, 255, 255, 0.85);
+      text-decoration: none;
+      padding: 0.375rem 0.75rem;
+      border-radius: 0.375rem;
+      font-size: 0.875rem;
+      font-weight: 500;
+      transition: background 0.15s, color 0.15s;
+      white-space: nowrap;
+    }
+
+    nav ul:last-child a:hover {
+      background: rgba(255, 255, 255, 0.18);
+      color: white;
+    }
+
+    /* ---------------------------------------------------------------
+       Main content container
+    --------------------------------------------------------------- */
+    main, .container {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 2rem;
+    }
+
+    /* ---------------------------------------------------------------
+       Typography
+    --------------------------------------------------------------- */
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--gray-900);
+      margin-bottom: 1.25rem;
+    }
+
+    h2 {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--gray-800);
+      margin: 1.5rem 0 0.75rem;
+    }
+
+    h3 {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--gray-700);
+    }
+
+    p {
+      line-height: 1.6;
+      color: var(--gray-600);
+      margin-bottom: 0.75rem;
+    }
+
+    p:last-child { margin-bottom: 0; }
+
+    small { font-size: 0.8em; color: var(--gray-500); }
+
+    strong { color: var(--gray-800); }
+
+    code {
+      font-family: ui-monospace, "SFMono-Regular", Menlo, "Courier New", monospace;
+      font-size: 0.875em;
+      background: var(--gray-100);
+      border: 1px solid var(--gray-200);
+      padding: 0.1em 0.4em;
+      border-radius: 0.3rem;
+      color: var(--gray-700);
+    }
+
+    a { color: var(--primary); text-decoration: none; }
+    a:hover { color: var(--primary-dark); text-decoration: underline; }
+
+    hr {
+      border: none;
+      border-top: 1px solid var(--gray-200);
+      margin: 1.75rem 0;
+    }
+
+    /* ---------------------------------------------------------------
+       Buttons and button-role links
+    --------------------------------------------------------------- */
+    button, a[role="button"] {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4em;
+      padding: 0.5rem 1.2rem;
+      border: 1.5px solid transparent;
+      border-radius: 0.5rem;
+      font-size: 0.875rem;
+      font-weight: 500;
+      font-family: inherit;
+      cursor: pointer;
+      text-decoration: none;
+      line-height: 1.4;
+      transition: background 0.15s, border-color 0.15s, box-shadow 0.15s, transform 0.1s;
+      background: var(--primary);
+      color: white;
+    }
+
+    button:hover, a[role="button"]:hover {
+      background: var(--primary-dark);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+      text-decoration: none;
+      color: white;
+    }
+
+    button.secondary, a[role="button"].secondary {
+      background: white;
+      border-color: var(--gray-300);
+      color: var(--gray-700);
+    }
+
+    button.secondary:hover, a[role="button"].secondary:hover {
+      background: var(--gray-50);
+      border-color: var(--gray-400);
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+      color: var(--gray-700);
+    }
+
+    button.secondary.outline, a[role="button"].secondary.outline {
+      background: transparent;
+      border-color: var(--gray-300);
+      color: var(--gray-600);
+    }
+
+    button[disabled], button:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
+    /* Small buttons inside tables */
+    table button {
+      padding: 0.3rem 0.75rem;
+      font-size: 0.8rem;
+      border-radius: 0.375rem;
+    }
+
+    /* ---------------------------------------------------------------
+       Forms
+    --------------------------------------------------------------- */
+    form { margin-top: 0.5rem; }
+
+    label {
+      display: block;
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: var(--gray-700);
+      margin-bottom: 1rem;
+    }
+
+    label small {
+      display: block;
+      margin-top: 0.3rem;
+      font-weight: 400;
+      color: var(--gray-400);
+    }
+
+    input, select, textarea {
+      display: block;
+      width: 100%;
+      margin-top: 0.375rem;
+      padding: 0.6rem 0.875rem;
+      border: 1.5px solid var(--gray-300);
+      border-radius: 0.5rem;
+      font-size: 0.875rem;
+      font-family: inherit;
+      color: var(--gray-800);
+      background: white;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+    }
+
+    textarea { resize: vertical; min-height: 6rem; }
+
+    /* ---------------------------------------------------------------
+       Grid (2-column form layouts)
+    --------------------------------------------------------------- */
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+
+    /* ---------------------------------------------------------------
+       Tables
+    --------------------------------------------------------------- */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: white;
+      border-radius: 0.75rem;
+      overflow: hidden;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.07);
+      margin: 1rem 0;
+    }
+
+    thead th {
+      background: var(--gray-50);
+      color: var(--gray-500);
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      padding: 0.75rem 1rem;
+      text-align: left;
+      border-bottom: 1px solid var(--gray-200);
+    }
+
+    td {
+      padding: 0.875rem 1rem;
+      border-bottom: 1px solid var(--gray-100);
+      vertical-align: middle;
+      font-size: 0.875rem;
+      color: var(--gray-700);
+    }
+
+    tbody tr:last-child td { border-bottom: none; }
+    tbody tr:hover td { background: var(--gray-50); }
+
+    /* ---------------------------------------------------------------
+       Cards (article element)
+    --------------------------------------------------------------- */
+    article {
+      background: white;
+      border: 1px solid var(--gray-200);
+      border-radius: 0.75rem;
+      padding: 1.25rem 1.5rem;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+      margin-bottom: 1rem;
+    }
+
+    /* ---------------------------------------------------------------
+       Details / Summary (collapsible sections)
+    --------------------------------------------------------------- */
+    details {
+      background: white;
+      border: 1px solid var(--gray-200);
+      border-radius: 0.75rem;
+      overflow: hidden;
+      margin-bottom: 0.75rem;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+    }
+
+    summary {
+      padding: 0.875rem 1.25rem;
+      cursor: pointer;
+      user-select: none;
+      font-weight: 600;
+      color: var(--gray-800);
+      border-bottom: 1px solid transparent;
+      transition: background 0.15s;
+      list-style: none;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    summary::-webkit-details-marker { display: none; }
+
+    details[open] summary {
+      border-bottom-color: var(--gray-200);
+      background: var(--gray-50);
+    }
+
+    summary::before {
+      content: "▶";
+      font-size: 0.65em;
+      color: var(--gray-400);
+      transition: transform 0.2s;
+      flex-shrink: 0;
+    }
+
+    details[open] summary::before { transform: rotate(90deg); }
+
+    details table { border-radius: 0; box-shadow: none; margin: 0; }
+
+    /* ---------------------------------------------------------------
+       Badges
+    --------------------------------------------------------------- */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25em;
+      padding: 0.25em 0.75em;
+      border-radius: 999px;
+      font-size: 0.78em;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
     .badge-ok    { background: #dcfce7; color: #166534; }
     .badge-error { background: #fee2e2; color: #991b1b; }
-    .badge-muted { background: #f3f4f6; color: #6b7280; }
-    .log-error { color: #991b1b; }
+    .badge-muted { background: var(--gray-100); color: var(--gray-500); border: 1px solid var(--gray-200); }
+
+    /* ---------------------------------------------------------------
+       Flash messages
+    --------------------------------------------------------------- */
+    .flash-ok, .flash-error {
+      padding: 0.875rem 1.25rem;
+      border-radius: 0.625rem;
+      margin-bottom: 1.5rem;
+      font-size: 0.875rem;
+      border: 1px solid;
+    }
+
+    .flash-ok    { background: #f0fdf4; border-color: #bbf7d0; color: #166534; }
+    .flash-error { background: #fef2f2; border-color: #fecaca; color: #991b1b; }
+
+    /* ---------------------------------------------------------------
+       Log viewer
+    --------------------------------------------------------------- */
+    .log-error { color: #b91c1c; }
     .log-warn  { color: #92400e; }
-    .flash-ok    { background: #dcfce7; color: #166534; padding: 0.9em 1.2em; border-radius: 8px; border: 1px solid #bbf7d0; margin-bottom: 1.5rem; }
-    .flash-error { background: #fee2e2; color: #991b1b; padding: 0.9em 1.2em; border-radius: 8px; border: 1px solid #fecaca; margin-bottom: 1.5rem; }
+
+    /* ---------------------------------------------------------------
+       HTMX helpers
+    --------------------------------------------------------------- */
     .htmx-indicator { opacity: 0; transition: opacity 150ms ease; }
     .htmx-request .htmx-indicator,
     .htmx-request.htmx-indicator { opacity: 1; }
     .htmx-swapping { opacity: 0; transition: opacity 300ms ease; }
-    table button { margin: 0; padding: 0.3em 0.7em; font-size: 0.82em; }
-    .page-header { display: flex; align-items: baseline; justify-content: space-between; gap: 1em; flex-wrap: wrap; }
-    .page-header h1 { margin: 0; }
-    .empty-state { text-align: center; padding: 3em 1em; color: var(--pico-muted-color); }
-    .empty-state p { margin-bottom: 1.5rem; }
+
+    /* Loading state */
+    [aria-busy="true"] {
+      color: var(--gray-400);
+      font-style: italic;
+    }
+
+    /* ---------------------------------------------------------------
+       Layout helpers
+    --------------------------------------------------------------- */
+    .page-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1em;
+      flex-wrap: wrap;
+      margin-bottom: 1.5rem;
+    }
+
+    .page-header h1 { margin-bottom: 0; }
+
+    .empty-state {
+      text-align: center;
+      padding: 4rem 1rem;
+      color: var(--gray-400);
+      background: white;
+      border-radius: 0.75rem;
+      border: 1px solid var(--gray-200);
+      margin: 1rem 0;
+    }
+
+    .empty-state p { color: var(--gray-400); }
   </style>
 </head>
 <body>
-<nav class="container">
+<nav>
   <ul>
-    <li><a href="/">rime-ctrl</a></li>
+    <li><a href="/">rime</a></li>
   </ul>
   <ul>
     <li><a href="/">Map</a></li>
@@ -44,7 +449,7 @@
     <li><a href="/docs" target="_blank" rel="noopener">API Docs ↗</a></li>
   </ul>
 </nav>
-<main class="container">
+<main>
   {% block content %}{% endblock %}
 </main>
 </body>

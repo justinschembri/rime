@@ -4,7 +4,7 @@
 
 {% if created %}
 <div class="flash-ok">
-  <strong>Application added.</strong> Return to the <a href="/">Dashboard</a> and click <strong>Apply Changes</strong> to start the transport.
+  <strong>Application added.</strong> Return to the <a href="/ui/dashboard">Dashboard</a> and click <strong>Apply Changes</strong> to start the transport.
 </div>
 {% endif %}
 
@@ -67,7 +67,7 @@
     {% endfor %}
   </tbody>
 </table>
-<p><small>{{ applications | length }} application(s). After making changes, go to the <a href="/">Dashboard</a> and click <strong>Apply Changes</strong>.</small></p>
+<p><small>{{ applications | length }} application(s). After making changes, go to the <a href="/ui/dashboard">Dashboard</a> and click <strong>Apply Changes</strong>.</small></p>
 {% else %}
 <div class="empty-state">
   <p>No provider applications configured.</p>
