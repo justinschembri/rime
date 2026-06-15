@@ -21,6 +21,7 @@ services:
       - 8080:8080
     volumes:
       - ./init-frost.sh:/init-frost.sh
+      - ../web/rime:/usr/local/tomcat/webapps/rime:ro
     secrets:
       - postgres_credentials
     depends_on:
