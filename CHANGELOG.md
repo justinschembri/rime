@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Single "Manage" button on map** — replaced the redundant Settings + Health Report overlay
+  buttons with one "⚙ Manage" button linking to `/ui/dashboard`. From there the full nav
+  (including Datastreams) is one click away.
+- **Unified visual design** — management panel (`/ui/*`) now shares the same design system as
+  the map: CSS custom properties (`--primary #3b82f6`, gray scale), same font stack
+  (`-apple-system / Segoe UI / Roboto`), nav bar with the same blue gradient as the map sidebar
+  header. Pico CSS dropped entirely; tables, forms, badges, and buttons all restyled to match.
 - **Unified web app** — the Leaflet+Chart.js map dashboard and rime-ctrl management panel are
   now served from a single origin (`http://localhost:8002`). Researchers no longer need two URLs.
   - `GET /` serves the interactive sensor map (was `http://localhost:8080/rime`).
