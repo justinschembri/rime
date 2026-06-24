@@ -41,8 +41,8 @@ OAuth tokens need to be rewritten and are thus handled differently by Docker.
 
 Static credential keys are kept in `application_credentials.json` in
 `./secrets/credentials/` and mounted read-only into the container. You can
-override this path by setting `CREDENTIALS_DIR` in a `.env` in this deployment
-directory. The format of this file is:
+override this path by setting the `CREDENTIALS_DIR` environment variable in your
+shell session.
 
 ```json
 {
@@ -65,7 +65,7 @@ SensorThings API model.
 
 By default, docker compose will mount the directory `sensor_configs` found in
 this deployment directory to `/app/runtime/sensor_configs/`. You can override
-this by specifying `SENSOR_CONFIG_PATH` in a `.env` in this directory.
+this by specifying `SENSOR_CONFIG_PATH` in the shell session. 
 
 ---
 
@@ -73,7 +73,9 @@ this by specifying `SENSOR_CONFIG_PATH` in a `.env` in this directory.
 
 If you only need the ingestion pipeline and that will point at a remote FROST
 server, you can define: a `FROST_ENDPOINT` in your shell environment:
-`FROST_ENDPOINT=<your-frost-endpoint>`, and start the ingest only service:
+`FROST_ENDPOINT=<your-frost-endpoint>`. If that end-point needs credentials, you
+can override the path of the credential files by setting
+`FROST_CREDENTIALS_PATH`, and start the ingest only service:
 
 ```sh
 docker compose -f docker-compose.base.yml up --no-deps rime-ingest -d
@@ -83,7 +85,7 @@ If you are going to have multiple ingest containers, use unique project tags
 `-p` in docker compose: 
 
 ```sh
-docker compose -p rime-ingest-<instantce-name> -f docker-compose.base.yml up --no-deps rime-ingest -d
+docker compose -p rime-ingest-<instance-name> -f docker-compose.base.yml up --no-deps rime-ingest -d
 ```
 
 ---

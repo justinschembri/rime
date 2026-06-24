@@ -12,6 +12,7 @@ services:
       - auth_db_url=jdbc:postgresql://database:5432/sensorthings
       - auth_allowAnonymousRead=${FROST_ALLOW_ANONYMOUS_READ:-true}
       - auth_autoUpdateDatabase=true
+
   database:
     environment:
       - auth_requireReadAuth=${FROST_REQUIRE_READ_AUTH:-true}
@@ -24,5 +25,5 @@ services:
 
 secrets:
   frost_credentials:
-    file: ./secrets/credentials/frost_credentials.json
+    file: ${FROST_CREDENTIALS_PATH:-./secrets/credentials/frost_credentials.json}
 
