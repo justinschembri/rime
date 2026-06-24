@@ -7,11 +7,11 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0"
     >
-    <title>Rime · Sensor Network</title>
+    <title>Rime Observatory</title>
 
     <link
       rel="icon"
-      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%236366f1'/%3E%3Ccircle cx='16' cy='16' r='5' fill='white'/%3E%3Ccircle cx='16' cy='16' r='9' fill='none' stroke='white' stroke-opacity='0.5' stroke-width='2'/%3E%3C/svg%3E"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23070b16'/%3E%3Ccircle cx='16' cy='16' r='4' fill='%2322d3ee'/%3E%3Ccircle cx='16' cy='16' r='8.5' fill='none' stroke='%2322d3ee' stroke-opacity='0.6' stroke-width='1.5'/%3E%3Ccircle cx='16' cy='16' r='12.5' fill='none' stroke='%2322d3ee' stroke-opacity='0.25' stroke-width='1.5'/%3E%3C/svg%3E"
     >
 
     <link
@@ -24,7 +24,7 @@
       crossorigin
     >
     <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap"
       rel="stylesheet"
     >
 
@@ -50,133 +50,222 @@
   </head>
 
   <body>
-    <div class="app-container">
+    <!-- Full-bleed dark map stage with floating glass HUD -->
+    <div class="app-shell main-content">
 
-      <!-- Sidebar -->
-      <aside class="sidebar">
-        <div class="sidebar-header">
-          <div class="brand">
-            <span class="brand-mark" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none">
-                <circle cx="12" cy="12" r="3.2" fill="currentColor" />
-                <circle cx="12" cy="12" r="6.4" stroke="currentColor" stroke-opacity="0.55" stroke-width="1.6" />
-                <circle cx="12" cy="12" r="9.6" stroke="currentColor" stroke-opacity="0.25" stroke-width="1.6" />
-              </svg>
-            </span>
-            <div class="brand-text">
-              <h1>Rime</h1>
-              <p>Sensor Network</p>
-            </div>
+      <div id="map"></div>
+      <div class="stage-aurora" aria-hidden="true"></div>
+      <div class="stage-grid" aria-hidden="true"></div>
+      <div class="stage-vignette" aria-hidden="true"></div>
+
+      <!-- Top command bar -->
+      <header class="command-bar">
+        <div class="brand">
+          <span class="brand-orb" aria-hidden="true"></span>
+          <div class="brand-text">
+            <h1>RIME</h1>
+            <p>Observatory</p>
           </div>
         </div>
 
-        <div class="sidebar-content">
-          <div class="search-box">
-            <svg class="search-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="9" cy="9" r="6" />
-              <path stroke-linecap="round" d="M14 14l3.5 3.5" />
-            </svg>
-            <input
-              type="text"
-              id="searchInput"
-              placeholder="Search sensors…"
-              autocomplete="off"
-            >
-          </div>
-
-          <div class="status-legend" id="statusLegend">
-            <button class="legend-chip" data-filter="all" id="legendTotal">
-              <span class="legend-dot dot-total"></span>
-              <span class="legend-label">All</span>
-              <span class="legend-count" id="countTotal">0</span>
-            </button>
-            <button class="legend-chip" data-filter="active">
-              <span class="legend-dot dot-active"></span>
-              <span class="legend-label">Online</span>
-              <span class="legend-count" id="countActive">0</span>
-            </button>
-            <button class="legend-chip" data-filter="warning">
-              <span class="legend-dot dot-warning"></span>
-              <span class="legend-label">Lagging</span>
-              <span class="legend-count" id="countWarning">0</span>
-            </button>
-            <button class="legend-chip" data-filter="down">
-              <span class="legend-dot dot-down"></span>
-              <span class="legend-label">Offline</span>
-              <span class="legend-count" id="countDown">0</span>
-            </button>
-          </div>
-
-          <ul
-            class="things-list"
-            id="thingsList"
-          ></ul>
-        </div>
-
-        <div class="sidebar-footer">
-          <a
-            href="logs/health.html"
-            target="_blank"
-            class="health-link-btn"
-            title="View health status report"
+        <div class="search-box">
+          <svg class="search-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="9" cy="9" r="6" />
+            <path stroke-linecap="round" d="M14 14l3.5 3.5" />
+          </svg>
+          <input
+            type="text"
+            id="searchInput"
+            placeholder="Search the network…"
+            autocomplete="off"
           >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              stroke-width="2"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                d="M3 12h4l2 5 4-12 2 7h6"
-              />
-            </svg>
-            <span>Health Report</span>
-          </a>
         </div>
+
+        <div class="status-legend" id="statusLegend">
+          <button class="legend-chip active" data-filter="all" id="legendTotal">
+            <span class="legend-dot dot-total"></span>
+            <span class="legend-count" id="countTotal">0</span>
+            <span class="legend-label">nodes</span>
+          </button>
+          <button class="legend-chip" data-filter="active">
+            <span class="legend-dot dot-active"></span>
+            <span class="legend-count" id="countActive">0</span>
+            <span class="legend-label">online</span>
+          </button>
+          <button class="legend-chip" data-filter="warning">
+            <span class="legend-dot dot-warning"></span>
+            <span class="legend-count" id="countWarning">0</span>
+            <span class="legend-label">lagging</span>
+          </button>
+          <button class="legend-chip" data-filter="down">
+            <span class="legend-dot dot-down"></span>
+            <span class="legend-count" id="countDown">0</span>
+            <span class="legend-label">offline</span>
+          </button>
+        </div>
+
+        <a
+          href="logs/health.html"
+          target="_blank"
+          class="health-link-btn"
+          title="View health status report"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M3 12h4l2 5 4-12 2 7h6"
+            />
+          </svg>
+          <span>Health</span>
+        </a>
+      </header>
+
+      <!-- Sensor roster (floating glass rail) -->
+      <aside class="roster" id="roster">
+        <div class="roster-head">
+          <span class="roster-title">Sensors</span>
+          <button class="roster-collapse" id="rosterCollapse" title="Collapse roster">
+            <svg width="18" height="18" viewBox="0 0 20 20" fill="currentColor">
+              <path d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" />
+            </svg>
+          </button>
+        </div>
+        <ul
+          class="things-list"
+          id="thingsList"
+        ></ul>
       </aside>
 
-      <!-- Main content -->
-      <div class="main-content">
-        <div class="map-container">
-          <div id="map"></div>
+      <button class="roster-reopen" id="rosterReopen" title="Show sensors">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="currentColor">
+          <path d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" />
+        </svg>
+        <span>Sensors</span>
+      </button>
 
-          <div class="map-controls">
-            <button
-              class="map-control-btn"
-              id="zoomExtentsBtn"
-              title="Zoom to all sensors"
+      <!-- Floating map controls -->
+      <div class="map-controls">
+        <button
+          class="map-control-btn"
+          id="zoomExtentsBtn"
+          title="Frame all sensors"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M4 8V4h4M16 4h4v4M20 16v4h-4M8 20H4v-4"
+            />
+          </svg>
+        </button>
+      </div>
+
+      <!-- Inspector (slides over from the right) -->
+      <div
+        class="thing-metadata-sidebar"
+        id="thingMetadataSidebar"
+      >
+        <div class="thing-metadata-header">
+          <div class="inspector-eyebrow">Inspecting node</div>
+          <h2 id="thingMetadataTitle">Thing Details</h2>
+          <button
+            class="thing-metadata-close"
+            id="thingMetadataClose"
+            title="Close"
+          >
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 20 20"
+              fill="currentColor"
             >
+              <path
+                d="M10 8.586L2.929 1.515 1.515 2.929 8.586 10l-7.071 7.071 1.414 1.414L10 11.414l7.071 7.071 1.414-1.414L11.414 10l7.071-7.071-1.414-1.414L10 8.586z"
+              />
+            </svg>
+          </button>
+        </div>
+        <div
+          class="thing-metadata-content"
+          id="thingMetadataContent"
+        >
+          <p>Select a node to inspect</p>
+        </div>
+      </div>
+
+      <!-- Oscilloscope chart dock -->
+      <div
+        class="chart-panel"
+        id="chartPanel"
+      >
+        <div
+          class="chart-panel-header"
+          id="chartPanelHeader"
+        >
+          <div class="chart-panel-title">
+            <div>
+              <div class="chart-eyebrow">
+                <span class="live-dot"></span>
+                <span>Signal</span>
+              </div>
+              <h2 id="chartTitle">No signal locked</h2>
+              <p id="chartSubtitle">Select a datastream from a node to trace it</p>
+            </div>
+            <button
+              class="chart-next-datastream-btn"
+              id="chartNextDatastreamBtn"
+              title="Next Datastream"
+              style="display: none;"
+            >
+              <span>Next</span>
               <svg
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                stroke-width="2"
+                width="16"
+                height="16"
+                viewBox="0 0 20 20"
+                fill="currentColor"
               >
                 <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  d="M4 8V4h4M16 4h4v4M20 16v4h-4M8 20H4v-4"
+                  d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
                 />
               </svg>
             </button>
           </div>
-        </div>
-
-        <!-- Thing metadata drawer -->
-        <div
-          class="thing-metadata-sidebar"
-          id="thingMetadataSidebar"
-        >
-          <div class="thing-metadata-header">
-            <h2 id="thingMetadataTitle">Thing Details</h2>
+          <div class="chart-panel-controls">
+            <div class="chart-limit-group">
+              <button
+                class="chart-panel-btn"
+                data-limit="100"
+              >100</button>
+              <button
+                class="chart-panel-btn"
+                data-limit="500"
+              >500</button>
+              <button
+                class="chart-panel-btn active"
+                data-limit="1000"
+              >1k</button>
+              <button
+                class="chart-panel-btn"
+                data-limit="2500"
+              >2.5k</button>
+            </div>
             <button
-              class="thing-metadata-close"
-              id="thingMetadataClose"
-              title="Close"
+              class="chart-panel-toggle"
+              id="chartPanelToggle"
+              title="Expand / collapse"
             >
               <svg
                 width="20"
@@ -185,109 +274,29 @@
                 fill="currentColor"
               >
                 <path
-                  d="M10 8.586L2.929 1.515 1.515 2.929 8.586 10l-7.071 7.071 1.414 1.414L10 11.414l7.071 7.071 1.414-1.414L11.414 10l7.071-7.071-1.414-1.414L10 8.586z"
+                  d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
                 />
               </svg>
             </button>
           </div>
-          <div
-            class="thing-metadata-content"
-            id="thingMetadataContent"
-          >
-            <p>Select a thing to view details</p>
-          </div>
         </div>
-
-        <!-- Chart drawer -->
         <div
-          class="chart-panel"
-          id="chartPanel"
+          class="chart-panel-content"
+          id="chartPanelContent"
         >
-          <div
-            class="chart-panel-header"
-            id="chartPanelHeader"
-          >
-            <span class="chart-panel-grip" aria-hidden="true"></span>
-            <div class="chart-panel-title">
-              <div>
-                <h2 id="chartTitle">Select a datastream</h2>
-                <p id="chartSubtitle">Pick a datastream from a sensor to plot
-                  its time series</p>
-              </div>
-              <button
-                class="chart-next-datastream-btn"
-                id="chartNextDatastreamBtn"
-                title="Next Datastream"
-                style="display: none;"
-              >
-                <span>Next</span>
-                <svg
-                  width="18"
-                  height="18"
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                >
-                  <path
-                    d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
-                  />
-                </svg>
-              </button>
+          <div class="no-data-message">
+            <div class="no-data-icon" aria-hidden="true">
+              <svg viewBox="0 0 48 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M1 12h7l3-9 5 18 4-13 3 7h6l3-4 4 4h8" />
+              </svg>
             </div>
-            <div class="chart-panel-controls">
-              <div class="chart-limit-group">
-                <button
-                  class="chart-panel-btn"
-                  data-limit="100"
-                >100</button>
-                <button
-                  class="chart-panel-btn"
-                  data-limit="500"
-                >500</button>
-                <button
-                  class="chart-panel-btn active"
-                  data-limit="1000"
-                >1k</button>
-                <button
-                  class="chart-panel-btn"
-                  data-limit="2500"
-                >2.5k</button>
-              </div>
-              <button
-                class="chart-panel-toggle"
-                id="chartPanelToggle"
-                title="Expand / collapse"
-              >
-                <svg
-                  width="20"
-                  height="20"
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                >
-                  <path
-                    d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
-                  />
-                </svg>
-              </button>
-            </div>
-          </div>
-          <div
-            class="chart-panel-content"
-            id="chartPanelContent"
-          >
-            <div class="no-data-message">
-              <div class="no-data-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M3 3v18h18M7 14l3-3 3 3 4-5" />
-                </svg>
-              </div>
-              <h3>No datastream selected</h3>
-              <p>Select a datastream from a sensor to view its time series data</p>
-            </div>
+            <h3>No signal locked</h3>
+            <p>Select a datastream from a node to trace its time series</p>
           </div>
         </div>
       </div>
 
-      <!-- Status bar -->
+      <!-- Status readout -->
       <div class="status-bar">
         <div
           class="status-message"
