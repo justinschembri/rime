@@ -44,12 +44,12 @@ function initializeMap() {
         maxZoom: 19
     });
 
-    voyager.addTo(state.map);
+    darkMatter.addTo(state.map);
 
     L.control.layers({
+        'Dark': darkMatter,
         'Streets': voyager,
         'Light': positron,
-        'Dark': darkMatter,
         'Satellite': satellite
     }, null, { position: 'topright', collapsed: true }).addTo(state.map);
 
@@ -70,13 +70,13 @@ function initializeMap() {
                 state.maxClusterSize = count;
             }
 
-            // Brand-coloured clusters: deeper indigo for larger groups
+            // Cluster glow scales cyan -> indigo with group size
             const maxCount = Math.max(state.maxClusterSize, 10);
             const normalized = Math.min(Math.log(count + 1) / Math.log(maxCount + 1), 1);
-            // Indigo-400 (#818cf8) -> Indigo-700 (#4338ca)
-            const red = Math.round(129 - (129 - 67) * normalized);
-            const green = Math.round(140 - (140 - 56) * normalized);
-            const blue = Math.round(248 - (248 - 202) * normalized);
+            // Cyan-400 (#22d3ee) -> Indigo-400 (#818cf8)
+            const red = Math.round(34 + (129 - 34) * normalized);
+            const green = Math.round(211 - (211 - 140) * normalized);
+            const blue = Math.round(238 + (248 - 238) * normalized);
             const color = `rgb(${red}, ${green}, ${blue})`;
 
             let size = 'small';
@@ -132,6 +132,23 @@ function initializeEventListeners() {
             setStatusFilter(state.activeStatusFilter === filter ? 'all' : filter);
         });
     });
+
+    // Roster collapse / reopen
+    const appShell = document.querySelector('.app-shell');
+    const rosterCollapse = document.getElementById('rosterCollapse');
+    const rosterReopen = document.getElementById('rosterReopen');
+    if (rosterCollapse && appShell) {
+        rosterCollapse.addEventListener('click', () => {
+            appShell.classList.add('roster-collapsed');
+            setTimeout(() => state.map && state.map.invalidateSize(), 450);
+        });
+    }
+    if (rosterReopen && appShell) {
+        rosterReopen.addEventListener('click', () => {
+            appShell.classList.remove('roster-collapsed');
+            setTimeout(() => state.map && state.map.invalidateSize(), 450);
+        });
+    }
 
     // Chart panel toggle - only on header title area, not buttons
     const chartPanelTitle = document.querySelector('.chart-panel-title > div:not(.chart-panel-nav)');
@@ -196,13 +213,13 @@ function updateStatus(message, type = '') {
     statusEl.appendChild(document.createTextNode(message));
 }
 
-// Status colour palette shared by markers + UI
+// Status colour palette shared by markers + UI (tuned for the dark stage)
 const STATUS_COLORS = {
-    active: '#10b981',
-    warning: '#f59e0b',
-    down: '#ef4444',
-    selected: '#6366f1',
-    unknown: '#94a3b8'
+    active: '#34d399',
+    warning: '#fbbf24',
+    down: '#fb7185',
+    selected: '#22d3ee',
+    unknown: '#6b7c93'
 };
 
 function getStatusColor(status) {
@@ -1003,17 +1020,18 @@ function renderChart(data, unitSymbol, datastreamName, stats) {
 
     const ctx = document.getElementById('timeSeriesChart').getContext('2d');
 
-    // Soft indigo gradient fill beneath the line
-    const gradient = ctx.createLinearGradient(0, 0, 0, 360);
-    gradient.addColorStop(0, 'rgba(99, 102, 241, 0.28)');
-    gradient.addColorStop(1, 'rgba(99, 102, 241, 0.01)');
+    // Neon cyan trace with a luminous gradient fill on the dark stage
+    const gradient = ctx.createLinearGradient(0, 0, 0, 340);
+    gradient.addColorStop(0, 'rgba(34, 211, 238, 0.42)');
+    gradient.addColorStop(0.55, 'rgba(34, 211, 238, 0.1)');
+    gradient.addColorStop(1, 'rgba(34, 211, 238, 0)');
 
     const chartData = {
         datasets: [
             {
                 label: datastreamName,
                 data: data,
-                borderColor: '#6366f1',
+                borderColor: '#22d3ee',
                 backgroundColor: gradient,
                 borderWidth: 2,
                 fill: true,
@@ -1022,18 +1040,34 @@ function renderChart(data, unitSymbol, datastreamName, stats) {
                 spanGaps: false,
                 pointRadius: 0,
                 pointHoverRadius: 5,
-                pointHoverBackgroundColor: '#6366f1',
-                pointHoverBorderColor: '#ffffff',
+                pointHoverBackgroundColor: '#22d3ee',
+                pointHoverBorderColor: '#03121a',
                 pointHoverBorderWidth: 2
             }
         ]
     };
 
-    Chart.defaults.font.family = "'Inter', sans-serif";
+    Chart.defaults.font.family = "'Space Grotesk', sans-serif";
+    Chart.defaults.color = '#9fb0c3';
+
+    // Subtle glow under the trace line
+    const glowPlugin = {
+        id: 'rimeGlow',
+        beforeDatasetDraw(chart) {
+            const c = chart.ctx;
+            c.save();
+            c.shadowColor = 'rgba(34, 211, 238, 0.55)';
+            c.shadowBlur = 12;
+        },
+        afterDatasetDraw(chart) {
+            chart.ctx.restore();
+        }
+    };
 
     state.currentChart = new Chart(ctx, {
         type: 'line',
         data: chartData,
+        plugins: [glowPlugin],
         options: {
             responsive: true,
             maintainAspectRatio: false,
@@ -1046,14 +1080,16 @@ function renderChart(data, unitSymbol, datastreamName, stats) {
                     display: false
                 },
                 tooltip: {
-                    backgroundColor: 'rgba(15, 23, 42, 0.92)',
-                    titleColor: '#e2e8f0',
-                    bodyColor: '#f8fafc',
+                    backgroundColor: 'rgba(5, 9, 18, 0.92)',
+                    borderColor: 'rgba(34, 211, 238, 0.4)',
+                    borderWidth: 1,
+                    titleColor: '#9fb0c3',
+                    bodyColor: '#e6eef7',
                     padding: 12,
                     cornerRadius: 10,
                     displayColors: false,
-                    titleFont: { weight: '600', size: 12 },
-                    bodyFont: { weight: '600', size: 13 },
+                    titleFont: { family: "'Space Grotesk', sans-serif", weight: '500', size: 11 },
+                    bodyFont: { family: "'JetBrains Mono', monospace", weight: '600', size: 13 },
                     callbacks: {
                         label: (context) => {
                             if (context.raw.gapFiller) {
@@ -1082,8 +1118,8 @@ function renderChart(data, unitSymbol, datastreamName, stats) {
                         autoSkip: true,
                         maxTicksLimit: 8,
                         maxRotation: 0,
-                        color: '#94a3b8',
-                        font: { size: 11 }
+                        color: '#6b7c93',
+                        font: { family: "'JetBrains Mono', monospace", size: 10 }
                     },
                     grid: {
                         display: false
@@ -1093,12 +1129,12 @@ function renderChart(data, unitSymbol, datastreamName, stats) {
                     beginAtZero: false,
                     border: { display: false },
                     ticks: {
-                        color: '#94a3b8',
-                        font: { size: 11 },
+                        color: '#6b7c93',
+                        font: { family: "'JetBrains Mono', monospace", size: 10 },
                         padding: 8
                     },
                     grid: {
-                        color: 'rgba(148, 163, 184, 0.18)',
+                        color: 'rgba(140, 170, 210, 0.1)',
                         drawTicks: false
                     }
                 }
