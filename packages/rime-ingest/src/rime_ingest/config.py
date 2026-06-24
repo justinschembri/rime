@@ -3,45 +3,55 @@
 # standard
 import json
 from pathlib import Path
-from typing import List
+from collections import defaultdict
+from typing import List, Literal
 import os
 import base64
 from functools import lru_cache
+import logging
 import dotenv
 from .paths import (
         RUNTIME_SENSOR_CONFIG_PATH,
         CREDENTIALS_DIR,
         ENV_FILE,
         )
+
+event_logger = logging.getLogger("events")
 # ENVIRONMENT  #################################################################
 CONTAINER_ENVIRONMENT = bool(os.getenv("CONTAINER_ENVIRONMENT"))
 if not os.getenv("CONTAINER_ENVIRONMENT"):
     dotenv.load_dotenv(ENV_FILE)  # docker-compose makes .env redundant
 
 
-def get_frost_credentials() -> tuple[str, str]:
-    """Read FROST password from Docker secret or environment variable."""
+def get_frost_credentials() -> dict[str, str]:
+    """Read FROST credentials from Docker secret or local credentials file.
+    
+    Returns an empty dict if the credentials file does not exist or cannot be
+    parsed — callers that need auth will receive None from get_frost_auth_header
+    and should omit the Authorization header (anonymous / read-only mode).
+    """
     if CONTAINER_ENVIRONMENT:
-        secret_file = Path("/run/secrets/frost_credentials") 
+        secret_file = Path("/run/secrets/frost_credentials")
     else:
         secret_file = CREDENTIALS_DIR / "frost_credentials.json"
     try:
         with open(secret_file, "r") as f:
-            credentials = json.load(f)
+            return json.load(f)
     except Exception:
-        print("Starting rime setup.")
-        from .cli.credentials import setup_frost_credentials
-        setup_frost_credentials()
-        with open(secret_file, "r") as f:
-            credentials = json.load(f)
-
-    return (credentials["frost_username"], credentials["frost_password"])
+        return {}
 
 
 @lru_cache(maxsize=1)
-def get_frost_auth_header() -> str:
-    """Return base64-encoded credentials for FROST authorization headers."""
-    frost_user, frost_password = get_frost_credentials()
+def get_frost_auth_header(kind: Literal["read", "write"]) -> str | None:
+    """Return base64-encoded credentials for FROST authorization headers.
+    
+    Returns None when credentials are not configured (anonymous mode).
+    """
+    credentials = get_frost_credentials()
+    frost_user = credentials.get(f"frost_{kind}_user")
+    frost_password = credentials.get(f"frost_{kind}_password")
+    if not frost_user or not frost_password:
+        return None
     return base64.b64encode(f"{frost_user}:{frost_password}".encode()).decode("utf-8")
 
 

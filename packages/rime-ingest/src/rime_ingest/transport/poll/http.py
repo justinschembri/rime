@@ -64,7 +64,7 @@ class HTTPTransport(SensorTransport):
                     continue
                 self._last_payload = wire_message
                 self._process_wire_message(wire_message)
-                netmon.add_named_count("wire_messages_received", self.app_name, 1)
+                netmon.add_named_count("messages_received", self.app_name, 1)
                 failures = 0
                 time.sleep(self.request_interval)
             except Exception as e:

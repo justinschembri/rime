@@ -15,4 +15,4 @@ COPY --from=builder /app /app
 ENV PATH="/app/.venv/bin:${PATH}"
 ENV CONTAINER_ENVIRONMENT=true
 
-CMD ["rime"]
+CMD ["python", "src/rime_ingest/main.py"]

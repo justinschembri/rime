@@ -120,7 +120,9 @@ def make_frost_entity(
         Reference to the existing or newly created entity.
     """
     root_url, version = sanitize_root_url(root_url, version)
-    existing_entity = check_object_existence(st_object, root_url, version)
+    existing_entity = check_object_existence(
+        st_object, root_url, version, auth_headers=auth_headers
+    )
     if existing_entity:
         main_logger.info(
             f"Skipping creation {st_object} exists at: {existing_entity}"
@@ -172,11 +174,11 @@ def frost_observation_upload(
     _root, _version = get_frost_root_url()
     root_url = root_url or _root
     version = version or _version
-    auth_headers = auth_headers or get_frost_auth_header()
+    auth_headers = auth_headers or get_frost_auth_header("write")
 
     observation, datastream_name = observation_set
     datastream_url = find_datastream_observations_url(
-        sensor_name, datastream_name, root_url, version
+        sensor_name, datastream_name, root_url, version, auth_headers=auth_headers
     )
     if not datastream_url:
         raise FrostRequestError(

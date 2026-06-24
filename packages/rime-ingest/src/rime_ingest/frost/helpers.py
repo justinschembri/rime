@@ -3,7 +3,7 @@
 import logging
 
 from rime_ingest.config import FROST_ROOT_DEFAULT, FROST_VERSION_DEFAULT
-from rime_ingest.frost.get import frost_entity_lookup, frost_object_lookup
+from rime_ingest.frost.get import frost_entity_lookup, frost_object_lookup, general_frost_get
 from rime_ingest.frost.sanitization import sanitize_root_url
 from rime_ingest.sta.core import Datastream, Observation, SensorThingsObject, UnLinkedSensorThingsObjects
 from rime_ingest.sta.schema import SensorThingsEntity, SensorThingsEntityGroups
@@ -16,7 +16,8 @@ event_logger = logging.getLogger("events")
 
 def check_frost_connection(
         root_url:str = FROST_ROOT_DEFAULT,
-        version:str = FROST_VERSION_DEFAULT
+        version:str = FROST_VERSION_DEFAULT,
+        auth_headers: str | None = None,
         ) -> bool:
     """Probe every FROST entity endpoint to verify read connectivity.
 
@@ -26,6 +27,7 @@ def check_frost_connection(
     Args:
         root_url: FROST server root URL, without the version segment.
         version: API version.
+        auth_headers: Base64-encoded credentials for the ``Authorization`` header.
 
     Returns:
         ``True`` when all endpoints respond with a 2xx status;
@@ -35,9 +37,8 @@ def check_frost_connection(
     base_url = f"{root_url}/v{version}"
     try:
         for endpoint in FrostEndpoints:
-            url = base_url + endpoint.value    
-            response = requests.get(url)
-            response.raise_for_status()
+            url = base_url + endpoint.value
+            general_frost_get(url, auth_headers=auth_headers)
     except Exception as e:
         event_logger.critical(f"FROST Connection failed: {e} for {base_url}.")
         return False
@@ -48,7 +49,8 @@ def check_frost_connection(
 def _check_unlinked_object_exists(
         st_object: UnLinkedSensorThingsObjects,
         root_url:str = FROST_ROOT_DEFAULT,
-        version: str = FROST_VERSION_DEFAULT
+        version: str = FROST_VERSION_DEFAULT,
+        auth_headers: str | None = None,
         ) -> None | FrostEntityRef:
     """Check whether an unlinked SensorThings object exists on the FROST server.
 
@@ -66,7 +68,7 @@ def _check_unlinked_object_exists(
         A ``FrostEntityRef`` for the first matching entity, or ``None`` when no
         match is found. Logs a warning when more than one candidate exists.
     """
-    response = frost_object_lookup(st_object, root_url, version)
+    response = frost_object_lookup(st_object, root_url, version, auth_headers=auth_headers)
     if not response:
         return None
     cls = type(st_object)
@@ -86,7 +88,8 @@ def _check_unlinked_object_exists(
 def _check_datastream_object_exists(
         st_datastream: Datastream,
         root_url:str = FROST_ROOT_DEFAULT,
-        version: str = FROST_VERSION_DEFAULT
+        version: str = FROST_VERSION_DEFAULT,
+        auth_headers: str | None = None,
         ) -> None | FrostEntityRef:
     """Check whether a content-equivalent Datastream with its linked Sensor exists.
 
@@ -136,6 +139,7 @@ def _check_datastream_object_exists(
             FrostParams.FILTER: f"name eq '{st_datastream.name}'",
             FrostParams.EXPAND: expand_select,
         },
+        auth_headers=auth_headers,
     )
     if not matches:
         return None
@@ -157,7 +161,8 @@ def _check_datastream_object_exists(
 def _check_observation_object_exists(
         st_observation: Observation,
         root_url:str = FROST_ROOT_DEFAULT,
-        version: str = FROST_VERSION_DEFAULT
+        version: str = FROST_VERSION_DEFAULT,
+        auth_headers: str | None = None,
         ) -> None | FrostEntityRef:
     """Check whether a content-equivalent Observation exists on the FROST server.
 
@@ -175,7 +180,7 @@ def _check_observation_object_exists(
         A ``FrostEntityRef`` for the first matching entity, or ``None``.
     """
     #TODO: test the real robustness of this function!
-    matches = frost_object_lookup(st_observation, root_url, version)
+    matches = frost_object_lookup(st_observation, root_url, version, auth_headers=auth_headers)
     if not matches:
         return None
     for match in matches:
@@ -186,7 +191,8 @@ def _check_observation_object_exists(
 def check_object_existence(
         st_object: SensorThingsObject | Observation,
         root_url:str = FROST_ROOT_DEFAULT,
-        version: str = FROST_VERSION_DEFAULT
+        version: str = FROST_VERSION_DEFAULT,
+        auth_headers: str | None = None,
         ) -> None | FrostEntityRef:
     """Route an existence check to the appropriate type-specific checker.
 
@@ -199,6 +205,7 @@ def check_object_existence(
         st_object: The domain object to look up on the server.
         root_url: FROST server root URL, without the version segment.
         version: API version.
+        auth_headers: Base64-encoded credentials for the ``Authorization`` header.
 
     Returns:
         A ``FrostEntityRef`` when a matching entity exists, otherwise ``None``.
@@ -208,11 +215,17 @@ def check_object_existence(
     """
 
     if isinstance(st_object, Datastream):
-        return _check_datastream_object_exists(st_object, root_url, version)
+        return _check_datastream_object_exists(
+            st_object, root_url, version, auth_headers=auth_headers
+        )
     elif isinstance(st_object, Observation):
-        return _check_observation_object_exists(st_object, root_url, version)
+        return _check_observation_object_exists(
+            st_object, root_url, version, auth_headers=auth_headers
+        )
     elif isinstance(st_object, UnLinkedSensorThingsObjects):
-        return _check_unlinked_object_exists(st_object, root_url, version)
+        return _check_unlinked_object_exists(
+            st_object, root_url, version, auth_headers=auth_headers
+        )
     else:
         raise ValueError(f"Received unexpected object type: {type(st_object)}")
 

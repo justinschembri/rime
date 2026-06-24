@@ -91,7 +91,7 @@ def _setup_sensor_arrangements(
         sensor_config,
         root_url=root_url,
         version=version,
-        auth_headers=get_frost_auth_header(),
+        auth_headers=get_frost_auth_header("read"),
     )
 
 
