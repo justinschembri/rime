@@ -71,17 +71,19 @@ this by specifying `SENSOR_CONFIG_PATH` in a `.env` in this directory.
 
 ## Ingest-only Deployment
 
-If you only need the ingestion pipeline and already have a FROST server, set
-`FROST_ENDPOINT` in a `.env` file in this directory:
-
-```dotenv
-FROST_ENDPOINT=https://your-frost-server/FROST-Server
-```
-
-Then start only the `rime-ingest` service:
+If you only need the ingestion pipeline and that will point at a remote FROST
+server, you can define: a `FROST_ENDPOINT` in your shell environment:
+`FROST_ENDPOINT=<your-frost-endpoint>`, and start the ingest only service:
 
 ```sh
 docker compose -f docker-compose.base.yml up --no-deps rime-ingest -d
+```
+
+If you are going to have multiple ingest containers, use unique project tags
+`-p` in docker compose: 
+
+```sh
+docker compose -p rime-ingest-<instantce-name> -f docker-compose.base.yml up --no-deps rime-ingest -d
 ```
 
 ---
