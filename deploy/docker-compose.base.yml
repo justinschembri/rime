@@ -1,16 +1,9 @@
-# BASE IMAGE - NOT FOR PRODUCTION #####################
-# Minimal and appless FROST+PG set up. 
-# Note that this compose includes:
-# - NO python application                             
-# - NO FROST authentication
-# - NO volume persistence                             
-# See README for more.
-# #####################################################
 services:
-  web:
+  frost:
     image: fraunhoferiosb/frost-server:2.6
+    env_file: .env
     environment:
-      - serviceRootUrl=http://localhost:8080/FROST-Server
+      - serviceRootUrl=${FROST_URL:-http://localhost:8080/FROST-Server}
       - plugins_multiDatastream.enable=false
       - http_cors_enable=true
       - http_cors_allowed_origins=*
@@ -18,26 +11,46 @@ services:
       - persistence_db_url=jdbc:postgresql://database:5432/sensorthings
       - persistence_autoUpdateDatabase=true
     ports:
-      - 8080:8080
+      - ${FROST_BIND_PORT:-8080}:8080
     volumes:
       - ./init-frost.sh:/init-frost.sh
+      - ../web/rime:/usr/local/tomcat/webapps/rime #TODO: migrate away from deploying the frontend via Tomcat.
+      - rime-ingest_logs:/usr/local/tomcat/webapps/rime/logs:ro #TODO: migrate away from deploying the frontend via Tomcat.
+    entrypoint: ["/init-frost.sh"]
     secrets:
       - postgres_credentials
+      - frost_credentials
     depends_on:
       database:
         condition: service_healthy
-    entrypoint: ["/init-frost.sh"]
 
-  mosquitto:
-    image: eclipse-mosquitto:2
-    ports:
-      - 1883:1883
-    secrets:
-      - mqtt_credentials
+  rime-ingest:
+    build:
+      context: ../packages/rime-ingest
+      dockerfile: Dockerfile
+    depends_on:
+      - frost
+      - database
+    env_file: .env
+    environment:
+      - FROST_ENDPOINT=${FROST_ENDPOINT:-http://frost:8080/FROST-Server}
+      - FROST_VERSION=${FROST_VERSION:-v1.1}
+      - CONTAINER_ENVIRONMENT=true 
+      # container environment should manage these paths, overriding them here is weird:
+      - SENSOR_CONFIG_PATH=/app/runtime/sensor_configs #this is strange
+      - APPLICATION_CONFIG_FILE=/app/runtime/application-configs.yml #this is strange
+      - RIME_CREDENTIALS_DIR=/app/runtime/secrets/credentials #this is strange
+      - RIME_TOKENS_DIR=/app/runtime/secrets/tokens #this is strange
     volumes:
-      - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
-      - ./mosquitto/init-mosquitto.sh:/mosquitto/init-mosquitto.sh:ro
-    entrypoint: ["/mosquitto/init-mosquitto.sh"]
+      - rime-ingest_logs:/app/logs
+      - ${CREDENTIALS_DIR:-./secrets/credentials}:/app/runtime/secrets/credentials:ro
+      - ${TOKENS_PATH:-./secrets/tokens}:/app/runtime/secrets/tokens
+      - ${SENSOR_CONFIG_PATH:-./sensor_configs}:/app/runtime/sensor_configs
+      - ${APPLICATION_CONFIG_FILE:-./application-configs.yml}:/app/runtime/application-configs.yml
+    restart: unless-stopped
+    secrets:
+      - application_credentials
+      - frost_credentials 
 
   database:
     image: postgis/postgis:16-3.4-alpine
@@ -45,6 +58,7 @@ services:
       - POSTGRES_DB=sensorthings
     secrets:
       - postgres_credentials
+      - frost_credentials
     healthcheck:
       test: |
           PGUSER=$$(awk -F'"' '/"postgres_user"/ {print $$4}' /run/secrets/postgres_credentials) 
@@ -53,11 +67,18 @@ services:
       timeout: 2s
       retries: 10
     volumes:
+      - postgis_volume:/var/lib/postgresql/data
       - ./init-db.sh:/init-db.sh
-    entrypoint: ["./init-db.sh"]
+    entrypoint: ["/init-db.sh"]
+
+volumes:
+  rime-ingest_logs:
+  postgis_volume:
 
 secrets:
   postgres_credentials:
     file: ./secrets/credentials/postgres_credentials.json
-  mqtt_credentials:
-    file: ./secrets/credentials/mqtt_credentials.json
+  frost_credentials:
+    file: ./secrets/credentials/frost_credentials.json
+  application_credentials:
+    file: ./secrets/credentials/application_credentials.json
