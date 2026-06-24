@@ -1,2 +1,2 @@
 #!/bin/sh
-docker compose -p rime-dev -v --remove-orphans down
+docker compose -p rime-dev down --remove-orphans -v
