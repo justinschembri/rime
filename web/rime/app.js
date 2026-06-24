@@ -18,13 +18,41 @@ function initializeMap() {
         doubleClickZoom: true,
         scrollWheelZoom: true
     }).setView([52.00482, 4.37034], 13);
-    
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; OpenStreetMap contributors',
-        fadeAnimation: true,
+
+    // Modern basemaps (CARTO + Esri imagery) with a tasteful default
+    const voyager = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+        subdomains: 'abcd',
+        maxZoom: 20,
         updateWhenZooming: true
-    }).addTo(state.map);
-    
+    });
+
+    const positron = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+        subdomains: 'abcd',
+        maxZoom: 20
+    });
+
+    const darkMatter = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+        subdomains: 'abcd',
+        maxZoom: 20
+    });
+
+    const satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        attribution: 'Tiles &copy; Esri &mdash; Source: Esri, Maxar, Earthstar Geographics',
+        maxZoom: 19
+    });
+
+    voyager.addTo(state.map);
+
+    L.control.layers({
+        'Streets': voyager,
+        'Light': positron,
+        'Dark': darkMatter,
+        'Satellite': satellite
+    }, null, { position: 'topright', collapsed: true }).addTo(state.map);
+
     // Initialize marker cluster group
     state.markerCluster = L.markerClusterGroup({
         chunkedLoading: true,
@@ -37,27 +65,20 @@ function initializeMap() {
         animateAddingMarkers: true, // Animate when adding markers
         iconCreateFunction: function(cluster) {
             const count = cluster.getChildCount();
-            
-            // Update max cluster size if this cluster is larger
+
             if (count > state.maxClusterSize) {
                 state.maxClusterSize = count;
             }
-            
-            // Calculate color based on count (red for few, green for many)
-            // Use logarithmic scale for better color distribution
-            // Normalize count to 0-1 range using log scale
+
+            // Brand-coloured clusters: deeper indigo for larger groups
             const maxCount = Math.max(state.maxClusterSize, 10);
             const normalized = Math.min(Math.log(count + 1) / Math.log(maxCount + 1), 1);
-            
-            // Interpolate between red (few) and green (many)
-            // Red: rgb(239, 68, 68), Green: rgb(34, 197, 94)
-            const red = Math.round(239 - (239 - 34) * normalized);
-            const green = Math.round(68 + (197 - 68) * normalized);
-            const blue = Math.round(68 + (94 - 68) * normalized);
-            
+            // Indigo-400 (#818cf8) -> Indigo-700 (#4338ca)
+            const red = Math.round(129 - (129 - 67) * normalized);
+            const green = Math.round(140 - (140 - 56) * normalized);
+            const blue = Math.round(248 - (248 - 202) * normalized);
             const color = `rgb(${red}, ${green}, ${blue})`;
-            
-            // Determine size based on count
+
             let size = 'small';
             let iconSize = 40;
             if (count > 100) {
@@ -67,7 +88,7 @@ function initializeMap() {
                 size = 'medium';
                 iconSize = 50;
             }
-            
+
             return L.divIcon({
                 html: `<div style="background-color: ${color};"><span>${count}</span></div>`,
                 className: 'marker-cluster marker-cluster-' + size,
@@ -75,7 +96,7 @@ function initializeMap() {
             });
         }
     });
-    
+
     state.map.addLayer(state.markerCluster);
     
     // Handle cluster click to zoom to cluster extents
@@ -101,6 +122,15 @@ function initializeEventListeners() {
     const searchInput = document.getElementById('searchInput');
     searchInput.addEventListener('input', (e) => {
         filterThings(e.target.value);
+    });
+
+    // Status legend filter chips
+    document.querySelectorAll('.legend-chip').forEach(chip => {
+        chip.addEventListener('click', () => {
+            const filter = chip.dataset.filter;
+            // Toggle off if the same chip is clicked again
+            setStatusFilter(state.activeStatusFilter === filter ? 'all' : filter);
+        });
     });
 
     // Chart panel toggle - only on header title area, not buttons
@@ -161,8 +191,36 @@ function initializeEventListeners() {
 // Update status message
 function updateStatus(message, type = '') {
     const statusEl = document.getElementById('statusMessage');
-    statusEl.textContent = message;
     statusEl.className = `status-message ${type}`;
+    statusEl.innerHTML = '<span class="status-dot"></span>';
+    statusEl.appendChild(document.createTextNode(message));
+}
+
+// Status colour palette shared by markers + UI
+const STATUS_COLORS = {
+    active: '#10b981',
+    warning: '#f59e0b',
+    down: '#ef4444',
+    selected: '#6366f1',
+    unknown: '#94a3b8'
+};
+
+function getStatusColor(status) {
+    return STATUS_COLORS[status] || STATUS_COLORS.unknown;
+}
+
+// Build a status-aware map marker icon
+function makePinIcon(status, isSelected) {
+    const color = isSelected ? STATUS_COLORS.selected : getStatusColor(status);
+    const classes = ['rime-pin'];
+    if (isSelected) classes.push('selected');
+    if (status === 'active' && !isSelected) classes.push('pulse');
+    return L.divIcon({
+        className: 'custom-marker',
+        html: `<div class="${classes.join(' ')}" style="position:relative;background:${color};color:${color};"></div>`,
+        iconSize: [18, 18],
+        iconAnchor: [9, 9]
+    });
 }
 
 // Calculate thing health status asynchronously
@@ -271,6 +329,10 @@ function updateThingStatusTags() {
         const timeSince = thing.timeSinceLastObservation;
         updateThingItemStatus(item, status, label, timeSince);
     });
+
+    // Reflect health on the map markers and the sidebar counters
+    refreshMarkerStatusColors();
+    updateStatusCounts();
     
     // Update metadata sidebar if open
     const metadataSidebar = document.getElementById('thingMetadataSidebar');
@@ -291,6 +353,11 @@ function updateThingStatusTags() {
 
 // Update thing item with status tag
 function updateThingItemStatus(item, status, label, timeSince = null) {
+    // Reflect status on the item's accent border
+    item.classList.remove('status-active', 'status-warning', 'status-down');
+    item.classList.add(`status-${status}`);
+    item.dataset.status = status;
+
     // Remove existing status tag
     const existingTag = item.querySelector('.thing-status-tag');
     if (existingTag) {
@@ -424,14 +491,9 @@ async function processThing(thing) {
     const coordinates = locationData.value[0].location.coordinates;
     const locationDescription = locationData.value[0].description || '';
     
-    // Create custom icon for marker
-    const defaultIcon = L.divIcon({
-        className: 'custom-marker',
-        html: '<div style="background-color: #3b82f6; width: 20px; height: 20px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>',
-        iconSize: [20, 20],
-        iconAnchor: [10, 10]
-    });
-    
+    // Create custom icon for marker (status colour filled in once health is known)
+    const defaultIcon = makePinIcon('unknown', false);
+
     // Create marker (coordinates are [lat, lon] from FROST API)
     const marker = L.marker([coordinates[0], coordinates[1]], {
         icon: defaultIcon
@@ -644,19 +706,58 @@ function highlightThingInList(thingName) {
     }
 }
 
-// Filter things by search
+// Filter things by search query (kept for the search input handler)
 function filterThings(query) {
-    const things = document.querySelectorAll('.thing-item');
-    const lowerQuery = query.toLowerCase();
-    
-    things.forEach(thing => {
-        const name = thing.dataset.thingName.toLowerCase();
-        if (name.includes(lowerQuery)) {
-            thing.style.display = '';
-        } else {
-            thing.style.display = 'none';
+    state.searchQuery = (query || '').toLowerCase().trim();
+    applyFilters();
+}
+
+// Set the active status filter from the legend chips
+function setStatusFilter(filter) {
+    state.activeStatusFilter = filter || 'all';
+
+    document.querySelectorAll('.legend-chip').forEach(chip => {
+        chip.classList.toggle('active', chip.dataset.filter === state.activeStatusFilter);
+    });
+
+    applyFilters();
+}
+
+// Apply combined search + status filtering to the sidebar list
+function applyFilters() {
+    const query = state.searchQuery || '';
+    const statusFilter = state.activeStatusFilter || 'all';
+
+    document.querySelectorAll('.thing-item').forEach(item => {
+        const name = item.dataset.thingName.toLowerCase();
+        const status = item.dataset.status || 'active';
+        const matchesSearch = name.includes(query);
+        const matchesStatus = statusFilter === 'all' || status === statusFilter;
+        item.style.display = matchesSearch && matchesStatus ? '' : 'none';
+    });
+}
+
+// Update the sidebar status counters
+function updateStatusCounts() {
+    const counts = { total: 0, active: 0, warning: 0, down: 0 };
+
+    Object.values(state.things).forEach(thing => {
+        counts.total += 1;
+        const status = thing.healthStatus || 'active';
+        if (counts[status] !== undefined) {
+            counts[status] += 1;
         }
     });
+
+    const set = (id, value) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = value;
+    };
+
+    set('countTotal', counts.total);
+    set('countActive', counts.active);
+    set('countWarning', counts.warning);
+    set('countDown', counts.down);
 }
 
 // Select datastream and load chart
@@ -776,13 +877,14 @@ function processObservations(observations) {
         if (previousTime) {
             const gap = timestamp - previousTime;
             
-            // If gap is larger than threshold, insert gap fillers
+            // If gap is larger than threshold, insert a null break so the
+            // line visibly disconnects instead of dropping to zero
             if (gap > gapThreshold) {
                 let fillerTime = new Date(previousTime.getTime() + fillerInterval);
                 while (fillerTime < timestamp) {
                     formattedData.push({ 
                         x: fillerTime, 
-                        y: 0, 
+                        y: null, 
                         gapFiller: true 
                     });
                     fillerTime = new Date(fillerTime.getTime() + fillerInterval);
@@ -886,21 +988,6 @@ function renderChart(data, unitSymbol, datastreamName, stats) {
     
     chartPanelContent.innerHTML = chartHTML;
     
-    // Prepare chart data (original style)
-    const chartData = {
-        datasets: [
-            {
-                label: 'Observed Value',
-                data: data,
-                borderColor: 'rgb(75, 192, 192)',
-                backgroundColor: 'rgba(75, 192, 192, 0.5)',
-                tension: 0.5,
-                cubicInterpolationMode: 'monotone', // smooth curve
-                spanGaps: (ctx) => ctx.raw && ctx.raw.gapFiller !== true
-            }
-        ]
-    };
-    
     // Check for valid data
     const validValues = data.filter(d => !d.gapFiller && d.y !== null).map(d => d.y);
     
@@ -913,9 +1000,37 @@ function renderChart(data, unitSymbol, datastreamName, stats) {
         `;
         return;
     }
-    
-    // Create chart
+
     const ctx = document.getElementById('timeSeriesChart').getContext('2d');
+
+    // Soft indigo gradient fill beneath the line
+    const gradient = ctx.createLinearGradient(0, 0, 0, 360);
+    gradient.addColorStop(0, 'rgba(99, 102, 241, 0.28)');
+    gradient.addColorStop(1, 'rgba(99, 102, 241, 0.01)');
+
+    const chartData = {
+        datasets: [
+            {
+                label: datastreamName,
+                data: data,
+                borderColor: '#6366f1',
+                backgroundColor: gradient,
+                borderWidth: 2,
+                fill: true,
+                tension: 0.35,
+                cubicInterpolationMode: 'monotone',
+                spanGaps: false,
+                pointRadius: 0,
+                pointHoverRadius: 5,
+                pointHoverBackgroundColor: '#6366f1',
+                pointHoverBorderColor: '#ffffff',
+                pointHoverBorderWidth: 2
+            }
+        ]
+    };
+
+    Chart.defaults.font.family = "'Inter', sans-serif";
+
     state.currentChart = new Chart(ctx, {
         type: 'line',
         data: chartData,
@@ -928,16 +1043,24 @@ function renderChart(data, unitSymbol, datastreamName, stats) {
             },
             plugins: {
                 legend: {
-                    display: true,
-                    position: 'top'
+                    display: false
                 },
                 tooltip: {
+                    backgroundColor: 'rgba(15, 23, 42, 0.92)',
+                    titleColor: '#e2e8f0',
+                    bodyColor: '#f8fafc',
+                    padding: 12,
+                    cornerRadius: 10,
+                    displayColors: false,
+                    titleFont: { weight: '600', size: 12 },
+                    bodyFont: { weight: '600', size: 13 },
                     callbacks: {
                         label: (context) => {
                             if (context.raw.gapFiller) {
-                                return 'Data Gap';
+                                return 'Data gap';
                             }
-                            return `${context.dataset.label}: ${context.raw.y?.toFixed(2) || 'N/A'} ${unitSymbol}`;
+                            const v = context.raw.y;
+                            return `${v != null ? v.toFixed(2) : 'N/A'} ${unitSymbol}`.trim();
                         }
                     }
                 }
@@ -954,10 +1077,13 @@ function renderChart(data, unitSymbol, datastreamName, stats) {
                             day: 'MMM dd'
                         }
                     },
+                    border: { display: false },
                     ticks: {
                         autoSkip: true,
-                        maxRotation: 45,
-                        minRotation: 45
+                        maxTicksLimit: 8,
+                        maxRotation: 0,
+                        color: '#94a3b8',
+                        font: { size: 11 }
                     },
                     grid: {
                         display: false
@@ -965,8 +1091,15 @@ function renderChart(data, unitSymbol, datastreamName, stats) {
                 },
                 y: {
                     beginAtZero: false,
+                    border: { display: false },
+                    ticks: {
+                        color: '#94a3b8',
+                        font: { size: 11 },
+                        padding: 8
+                    },
                     grid: {
-                        color: 'rgba(0, 0, 0, 0.1)'
+                        color: 'rgba(148, 163, 184, 0.18)',
+                        drawTicks: false
                     }
                 }
             }
@@ -1027,20 +1160,22 @@ function zoomToExtents() {
     }
 }
 
-// Update marker icon based on selection state
+// Update marker icon based on selection + health state
 function updateMarkerIcon(thingId, isSelected) {
     const marker = state.markers[thingId];
     if (!marker) return;
-    
-    const color = isSelected ? '#ef4444' : '#3b82f6'; // Red when selected, blue otherwise
-    const icon = L.divIcon({
-        className: 'custom-marker',
-        html: `<div style="background-color: ${color}; width: 20px; height: 20px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>`,
-        iconSize: [20, 20],
-        iconAnchor: [10, 10]
+
+    const thing = state.things[thingId];
+    const status = (thing && thing.healthStatus) || 'unknown';
+    marker.setIcon(makePinIcon(status, isSelected));
+}
+
+// Recolour every (unselected) marker to reflect current health status
+function refreshMarkerStatusColors() {
+    Object.keys(state.markers).forEach(thingId => {
+        if (state.selectedThingId === thingId) return;
+        updateMarkerIcon(thingId, false);
     });
-    
-    marker.setIcon(icon);
 }
 
 // Show thing metadata sidebar
@@ -1157,13 +1292,14 @@ function updateThingMetadataDatastreams(thingId, datastreams) {
             const latestValue = obsData.value?.[0]?.result || '-';
             
             const displayName = formatDatastreamName(ds.name);
+            const latestText = `${latestValue}${unitSymbol ? ' ' + unitSymbol : ''}`;
             const dsItem = document.createElement('div');
             dsItem.className = 'metadata-datastream-item';
             dsItem.innerHTML = `
                 <div class="metadata-datastream-name">${displayName}</div>
                 <div class="metadata-datastream-meta">
-                    <span>${unitSymbol}</span>
-                    <span style="font-weight: 600;">${latestValue}</span>
+                    <span>Latest reading</span>
+                    <span class="ds-latest">${latestText}</span>
                 </div>
             `;
             dsItem.addEventListener('click', () => {

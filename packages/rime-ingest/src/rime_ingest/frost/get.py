@@ -29,12 +29,15 @@ from .types import FrostParams, FrostResultPageIterator, FrostUrl, FrostVersions
 def general_frost_get(
     url: str,
     params: Optional[Mapping[str, Any]] = None,
+    auth_headers: str | None = None,
 ) -> dict[str, Any]:
     """Execute a raw GET request and return the parsed JSON body.
 
     Args:
         url: Fully-qualified URL to request.
         params: Optional query-string parameters to append.
+        auth_headers: Base64-encoded credentials for the ``Authorization``
+            header. Omit when the server requires no auth.
 
     Returns:
         Parsed JSON response as a dict.
@@ -42,8 +45,11 @@ def general_frost_get(
     Raises:
         FrostRequestError: On any HTTP or connection error.
     """
+    headers: dict[str, str] = {}
+    if auth_headers:
+        headers["Authorization"] = f"Basic {auth_headers}"
     try:
-        response = requests.get(url, params=params)  # type: ignore[arg-type]
+        response = requests.get(url, params=params, headers=headers or None)  # type: ignore[arg-type]
         response.raise_for_status()
         return response.json()
     except Exception as exc:
@@ -56,7 +62,8 @@ def frost_entity_lookup_pages(
         params: Optional[Mapping[str | FrostParams, Any]] = None,
         *,
         first_entity_id: Optional[int | str] = "",
-        second_entity: Optional[str | SensorThingsEntityGroups | SensorThingsEntity] = ""
+        second_entity: Optional[str | SensorThingsEntityGroups | SensorThingsEntity] = "",
+        auth_headers: str | None = None,
         ) -> FrostResultPageIterator:
     """Query a FROST endpoint and yield each page of ``value`` rows.
 
@@ -76,6 +83,7 @@ def frost_entity_lookup_pages(
         first_entity_id: ID of the first entity when traversing a relationship
             (e.g. ``Things(42)/Locations`` requires ``first_entity_id=42``).
         second_entity: Child entity collection to retrieve from the first entity.
+        auth_headers: Base64-encoded credentials for the ``Authorization`` header.
 
     Yields:
         Each ``value`` page as a list of dicts. Exhausts without yielding when
@@ -94,7 +102,7 @@ def frost_entity_lookup_pages(
         second_entity=second_entity,
     )
     try:
-        response = general_frost_get(url, sanitized_params)
+        response = general_frost_get(url, sanitized_params, auth_headers=auth_headers)
 
         while True:
             page = response.get("value")
@@ -105,7 +113,10 @@ def frost_entity_lookup_pages(
             next_link = response.get("@iot.nextLink")
             if not next_link:
                 break
-            response = general_frost_get(rewrite_to_internal(next_link, url))
+            response = general_frost_get(
+                rewrite_to_internal(next_link, url),
+                auth_headers=auth_headers,
+            )
 
     except Exception as e:
         raise FrostRequestError(e, url)
@@ -118,6 +129,7 @@ def frost_entity_lookup(
         *,
         first_entity_id: Optional[int | str] = "",
         second_entity: Optional[str | SensorThingsEntityGroups | SensorThingsEntity] = "",
+        auth_headers: str | None = None,
         ) -> list[dict[str, Any]] | None:
     """Merge all pages from ``frost_entity_lookup_pages`` into a single list.
 
@@ -133,6 +145,7 @@ def frost_entity_lookup(
         params=params,
         first_entity_id=first_entity_id,
         second_entity=second_entity,
+        auth_headers=auth_headers,
     )
     data: list[dict[str, Any]] = []
     for page in pages:
@@ -144,6 +157,7 @@ def frost_object_lookup_pages(
         st_object: SensorThingsObject | Observation,
         root_url: str = FROST_ROOT_DEFAULT,
         version: str | float | int | FrostVersions = FROST_VERSION_DEFAULT,
+        auth_headers: str | None = None,
         ) -> FrostResultPageIterator:
     """Yield FROST pages matching an in-memory SensorThings object.
 
@@ -182,6 +196,7 @@ def frost_object_lookup_pages(
             root_url=root_url,
             version=version,
             params=params,
+            auth_headers=auth_headers,
             )
 
 
@@ -189,6 +204,7 @@ def frost_object_lookup(
         st_object: SensorThingsObject | Observation,
         root_url: str = FROST_ROOT_DEFAULT,
         version: str | float | int | FrostVersions = FROST_VERSION_DEFAULT,
+        auth_headers: str | None = None,
         ) -> list[dict[str, Any]] | None:
     """Merge all pages from ``frost_object_lookup_pages`` into a single list.
 
@@ -204,6 +220,7 @@ def frost_object_lookup(
         st_object=st_object,
         root_url=root_url,
         version=version,
+        auth_headers=auth_headers,
     )
     data: list[dict[str, Any]] = []
     for page in pages:
@@ -224,6 +241,7 @@ def get_frost_datastream_observations(
         result_eq: Optional[int | float] = None,
         order_by: Optional[str] = "phenomenonTime",
         descending: bool = True,
+        auth_headers: str | None = None,
         ) -> list[dict[str, Any]]:
     """Return all observations for a datastream with optional filter helpers.
 
@@ -277,6 +295,7 @@ def get_frost_datastream_observations(
         first_entity_id=datastream_id,
         second_entity=SensorThingsEntityGroups.OBSERVATIONS,
         params=cast(Mapping[str | FrostParams, Any], params_map),
+        auth_headers=auth_headers,
     )
     if not lookup_result:
         return []
@@ -290,6 +309,7 @@ def find_datastream_observations_url(
         datastream_name: str,
         root_url: str = FROST_ROOT_DEFAULT,
         version: str | float | int | FrostVersions = FROST_VERSION_DEFAULT,
+        auth_headers: str | None = None,
 ) -> FrostUrl | None:
     """Resolve the Datastream entity URL for posting Observations.
 
@@ -321,6 +341,7 @@ def find_datastream_observations_url(
         root_url=root_url,
         version=version,
         params={FrostParams.FILTER: f"name eq '{sensor_name}'"},
+        auth_headers=auth_headers,
     )
     if not sensors:
         return None
@@ -336,6 +357,7 @@ def find_datastream_observations_url(
         root_url=root_url,
         version=version,
         params={FrostParams.FILTER: f"name eq '{datastream_name}'"},
+        auth_headers=auth_headers,
     )
     if not datastreams:
         return None

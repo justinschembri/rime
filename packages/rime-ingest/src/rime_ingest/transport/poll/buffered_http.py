@@ -120,7 +120,7 @@ class BufferedHTTPTransport(SensorTransport):
                 try:
                     self._process_wire_message(envelope)
                     netmon.add_named_count(
-                        "payloads_received", self.app_name, 1
+                        "messages_received", self.app_name, 1
                     )
                     acked_ids.append(envelope.id)
                     failures = 0

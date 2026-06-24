@@ -11,6 +11,8 @@ const state = {
     maxClusterSize: 1, // Track maximum cluster size for color normalization
     currentThingDatastreams: [], // Track datastreams for current thing
     currentDatastreamIndex: -1, // Track current datastream index for cycling
-    selectedThingId: null // Track currently selected thing for marker highlighting
+    selectedThingId: null, // Track currently selected thing for marker highlighting
+    searchQuery: '', // Current sidebar search query
+    activeStatusFilter: 'all' // Current status filter from the legend chips
 };
 

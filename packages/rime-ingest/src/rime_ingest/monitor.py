@@ -35,9 +35,9 @@ class _NetworkMonitor:
         self.push_success: dict[SensorUUID, int] = defaultdict(int)
         self.push_fail: dict[SensorUUID, int] = defaultdict(int)
         self.last_push_time: dict[SensorUUID, float] = defaultdict(float)
-        self.rejected_payloads: dict[SensorUUID, int] = defaultdict(int)
+        self.rejected_messages: dict[SensorUUID, int] = defaultdict(int)
         self.sensor_config_fail: int = 0
-        self.payloads_received: dict[str, int] = defaultdict(int)
+        self.messages_received: dict[str, int] = defaultdict(int)
         self.connections: set["SensorTransport"] = set()
         self.first_report_issued: bool = False
         self._lock = threading.Lock()
@@ -144,12 +144,12 @@ class _NetworkMonitor:
             msg = f"Uptime: {uptime}"
             health_report.append(msg)
             main_logger.info(msg)
-            for k, v in self.payloads_received.items():
-                msg = f"Payloads received from {k} : {v}"
+            for k, v in self.messages_received.items():
+                msg = f"Messages received from {k} : {v}"
                 health_report.append(msg)
                 main_logger.info(msg)
-            for k, v in self.rejected_payloads.items():
-                msg = f"Payloads rejected for {k} : {v}"
+            for k, v in self.rejected_messages.items():
+                msg = f"Messages rejected for {k} : {v}"
                 health_report.append(msg)
                 main_logger.warning(msg)
             for i, (k, v) in enumerate(self.push_success.items()):
