@@ -3,28 +3,24 @@
 # Must be merged with the base compose.               #
 # - Adds authentication to FROST.                     #
 # #####################################################
-name: rime-appless-auth
 
 services:
-  web:
-    volumes:
-      - ./init-frost.sh:/init-auth-frost.sh
-    secrets:
-      - frost_credentials
+  frost:
     environment:
       - auth_provider=de.fraunhofer.iosb.ilt.frostserver.auth.basic.BasicAuthProvider
       - auth_db_driver=org.postgresql.Driver
       - auth_db_url=jdbc:postgresql://database:5432/sensorthings
+      - auth_allowAnonymousRead=${FROST_ALLOW_ANONYMOUS_READ:-true}
       - auth_autoUpdateDatabase=true
-      - auth_allowAnonymousRead=true
-    entrypoint: ["/init-auth-frost.sh"]
-
   database:
+    environment:
+      - auth_requireReadAuth=${FROST_REQUIRE_READ_AUTH:-true}
+      - auth_requireWriteAuth=${FROST_REQUIRE_WRITE_AUTH:-true}
     secrets:
       - frost_credentials 
     volumes:
-      - ./init-auth-db.sh:/init-auth-db.sh
-    entrypoint: ["/init-auth-db.sh"] 
+      - ./init-db.sh:/init-db.sh
+    entrypoint: ["/init-db.sh"] 
 
 secrets:
   frost_credentials:

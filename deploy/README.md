@@ -183,31 +183,8 @@ to be populated.
 }
 ```
 
-### `mqtt_credentials.json` — required
-
-Used by `mosquitto` to create users, passwords, and ACLs at startup.
-
-```json
-[
-  {
-    "username": "<mqtt-username>",
-    "password": "<mqtt-password>",
-    "topics": [
-      { "name": "<topic>", "perm": "read" },
-      { "name": "<topic>", "perm": "write" }
-    ]
-  }
-]
-```
-
-Valid `perm` values are `read`, `write`, and `readwrite`.
-
 ### `application_credentials.json` — required
 
 Used by `rime-ingest` for provider API keys. See
 [Common Setup: Provider Credentials](#common-setup-provider-credentials).
 
-### `tomcat-users.xml` — required for full stack
-
-Mounted into the Tomcat configuration for the `frost` service web application.
-Place it at `./secrets/credentials/tomcat-users.xml`.
