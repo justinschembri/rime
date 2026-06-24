@@ -21,8 +21,9 @@ until wget -q --spider "${FROST_SERVICE_URL}/Datastreams" 2>/dev/null; do
 done
 
 if [ "${auth_requireReadAuth:-}" = "true" ]; then
-
-export FROST_READ_USER=$(awk -F'"' '/"frost_read_user"/ {print $4}' /run/secrets/frost_credentials)
+# the first request builds the USERS table
+wget --header="Authorization: Basic $(echo -n 'username:password' | base64)" -O Datastreams.json http://frost:8080/FROST-Server/v1.1/Datastreams
+export FROST_READ_USER=$(awk -F'"' '/"frost_read_username"/ {print $4}' /run/secrets/frost_credentials)
 export FROST_READ_PASSWORD=$(awk -F'"' '/"frost_read_password"/ {print $4}' /run/secrets/frost_credentials)
 
 psql -U "${POSTGRES_USER}" -d sensorthings <<EOF
@@ -41,8 +42,9 @@ EOF
 fi
 
 if [ "${auth_requireWriteAuth:-}" = "true" ]; then
-
-export FROST_WRITE_USER=$(awk -F'"' '/"frost_write_user"/ {print $4}' /run/secrets/frost_credentials)
+# the first request builds the USERS table
+wget --header="Authorization: Basic $(echo -n 'username:password' | base64)" -O Datastreams.json http://frost:8080/FROST-Server/v1.1/Datastreams
+export FROST_WRITE_USER=$(awk -F'"' '/"frost_write_username"/ {print $4}' /run/secrets/frost_credentials)
 export FROST_WRITE_PASSWORD=$(awk -F'"' '/"frost_write_password"/ {print $4}' /run/secrets/frost_credentials)
 
 psql -U "${POSTGRES_USER}" -d sensorthings <<EOF

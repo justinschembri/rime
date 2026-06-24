@@ -41,14 +41,14 @@ def get_frost_credentials() -> dict[str, str]:
         return {}
 
 
-@lru_cache(maxsize=1)
+@lru_cache(maxsize=2)
 def get_frost_auth_header(kind: Literal["read", "write"]) -> str | None:
     """Return base64-encoded credentials for FROST authorization headers.
     
     Returns None when credentials are not configured (anonymous mode).
     """
     credentials = get_frost_credentials()
-    frost_user = credentials.get(f"frost_{kind}_user")
+    frost_user = credentials.get(f"frost_{kind}_username")
     frost_password = credentials.get(f"frost_{kind}_password")
     if not frost_user or not frost_password:
         return None

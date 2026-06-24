@@ -96,7 +96,8 @@ def make_frost_entity(
     st_object: SensorThingsObject | Observation,
     root_url: str = FROST_ROOT_DEFAULT,
     version: str | float | int = FROST_VERSION_DEFAULT,
-    auth_headers: Optional[str] = None,
+    read_auth_headers: Optional[str] = None,
+    write_auth_headers: Optional[str] = None,
     *,
     endpoint: Optional[FrostUrl] = None,
 ) -> FrostEntityRef:
@@ -121,7 +122,7 @@ def make_frost_entity(
     """
     root_url, version = sanitize_root_url(root_url, version)
     existing_entity = check_object_existence(
-        st_object, root_url, version, auth_headers=auth_headers
+        st_object, root_url, version, auth_headers=read_auth_headers
     )
     if existing_entity:
         main_logger.info(
@@ -134,7 +135,7 @@ def make_frost_entity(
     else:
         endpoint = rewrite_to_internal(endpoint, root_url)
         post_url = f"{endpoint}{endpoint_tail}"
-    response = general_post(post_url, st_object, auth_headers=auth_headers)
+    response = general_post(post_url, st_object, auth_headers=write_auth_headers)
     return response
 
 
@@ -143,7 +144,8 @@ def frost_observation_upload(
         observation_set: tuple[Observation, str],
         root_url: str | None = None,
         version: str | None = None,
-        auth_headers: Optional[str] = None,
+        read_auth_headers: Optional[str] = None,
+        write_auth_headers: Optional[str] = None,
 ) -> FrostEntityRef:
     """Upload a single Observation to the appropriate Datastream on FROST.
 
@@ -174,11 +176,12 @@ def frost_observation_upload(
     _root, _version = get_frost_root_url()
     root_url = root_url or _root
     version = version or _version
-    auth_headers = auth_headers or get_frost_auth_header("write")
+    write_auth = write_auth_headers or get_frost_auth_header("write")
+    read_auth = read_auth_headers or get_frost_auth_header("read")
 
     observation, datastream_name = observation_set
     datastream_url = find_datastream_observations_url(
-        sensor_name, datastream_name, root_url, version, auth_headers=auth_headers
+        sensor_name, datastream_name, root_url, version, auth_headers=read_auth
     )
     if not datastream_url:
         raise FrostRequestError(
@@ -189,7 +192,8 @@ def frost_observation_upload(
         observation,
         root_url=root_url,
         version=version,
-        auth_headers=auth_headers,
+        read_auth_headers=read_auth,
+        write_auth_headers=write_auth,
         endpoint=datastream_url,
     )
 

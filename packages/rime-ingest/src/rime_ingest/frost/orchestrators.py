@@ -6,7 +6,7 @@ from rime_ingest.config import FROST_ROOT_DEFAULT, FROST_VERSION_DEFAULT
 from rime_ingest.frost.post import make_frost_entity
 from rime_ingest.frost.sanitization import sanitize_root_url
 from rime_ingest.frost.types import FrostEntityRef
-from rime_ingest.sta.core import Location, Thing
+from rime_ingest.sta.core import Location
 from rime_ingest.sta.extensions import SensorConfig
 from rime_ingest.sta.schema import (
     ENTITIES_TO_ENTITY_GROUPS,
@@ -31,7 +31,8 @@ def initial_setup(
     sensor_config: SensorConfig,
     root_url: str = FROST_ROOT_DEFAULT,
     version: str = FROST_VERSION_DEFAULT,
-    auth_headers: str | None = None,
+    read_auth_headers: str | None = None,
+    write_auth_headers: str | None = None
 ) -> list[FrostEntityRef]:
     """Provision all SensorThings entities described in a ``SensorConfig`` on FROST.
 
@@ -85,7 +86,8 @@ def initial_setup(
                 st_object,
                 root_url=root_url,
                 version=version,
-                auth_headers=auth_headers,
+                read_auth_headers=read_auth_headers,
+                write_auth_headers=write_auth_headers,
                 endpoint=endpoint
             )
             registry[(entity_type, st_object.name)] = ref
@@ -117,7 +119,8 @@ def initial_setup(
             datastream,
             root_url=root_url,
             version=version,
-            auth_headers=auth_headers,
+            read_auth_headers=read_auth_headers,
+            write_auth_headers=write_auth_headers,
         )
         registry[(SensorThingsEntity.DATASTREAM, datastream.name)] = ref
         created_refs.append(ref)
