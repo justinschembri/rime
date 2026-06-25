@@ -313,6 +313,254 @@ body {
   letter-spacing: 0.08em;
 }
 
+/* ------------------------------------------------------------------ */
+/* Endpoint switcher                                                   */
+/* ------------------------------------------------------------------ */
+.endpoint-switcher {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.endpoint-display {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.5rem 0.85rem;
+  border: 1px solid var(--glass-line);
+  border-radius: 999px;
+  background: rgba(5, 9, 18, 0.4);
+  color: var(--txt-dim);
+  font-size: 0.78rem;
+  font-weight: 600;
+  font-family: "JetBrains Mono", monospace;
+  cursor: pointer;
+  transition: all 0.18s var(--ease);
+  white-space: nowrap;
+  max-width: 200px;
+}
+
+.endpoint-display:hover,
+.endpoint-display.active {
+  border-color: rgba(34, 211, 238, 0.5);
+  background: rgba(34, 211, 238, 0.1);
+  color: #fff;
+}
+
+#endpointLabel {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 150px;
+  display: inline-block;
+}
+
+.endpoint-popover {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  width: 360px;
+  background: var(--glass-2);
+  backdrop-filter: blur(22px) saturate(140%);
+  -webkit-backdrop-filter: blur(22px) saturate(140%);
+  border: 1px solid var(--glass-line-hi);
+  border-radius: var(--radius-lg);
+  padding: 1rem 1.1rem 0.9rem;
+  box-shadow: var(--shadow);
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.endpoint-popover[hidden] {
+  display: none;
+}
+
+.endpoint-popover-label {
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--txt-mute);
+}
+
+.endpoint-input-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.endpoint-input {
+  flex: 1;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid var(--glass-line);
+  border-radius: var(--radius);
+  font-size: 0.82rem;
+  font-family: "JetBrains Mono", monospace;
+  background: rgba(5, 9, 18, 0.6);
+  color: var(--txt);
+  outline: none;
+  transition: all 0.18s var(--ease);
+  color-scheme: dark;
+}
+
+.endpoint-input:focus {
+  border-color: rgba(34, 211, 238, 0.55);
+  box-shadow: 0 0 0 4px rgba(34, 211, 238, 0.12);
+}
+
+/* Quick-pick shortcuts */
+.endpoint-quickpicks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: -0.1rem;
+}
+
+.endpoint-quickpick {
+  padding: 0.28rem 0.65rem;
+  border: 1px solid var(--glass-line);
+  border-radius: 999px;
+  background: rgba(34, 211, 238, 0.07);
+  color: var(--accent);
+  font-size: 0.72rem;
+  font-weight: 600;
+  font-family: "JetBrains Mono", monospace;
+  cursor: pointer;
+  transition: all 0.15s var(--ease);
+}
+
+.endpoint-quickpick:hover {
+  background: rgba(34, 211, 238, 0.18);
+  border-color: var(--accent);
+}
+
+/* API version button group */
+.endpoint-version-group {
+  display: flex;
+  gap: 0.35rem;
+}
+
+.endpoint-version-btn {
+  flex: 1;
+  padding: 0.38rem 0.5rem;
+  border: 1px solid var(--glass-line);
+  border-radius: var(--radius);
+  background: rgba(5, 9, 18, 0.5);
+  color: var(--txt-dim);
+  font-size: 0.78rem;
+  font-weight: 600;
+  font-family: "JetBrains Mono", monospace;
+  cursor: pointer;
+  transition: all 0.15s var(--ease);
+  text-align: center;
+}
+
+.endpoint-version-btn:hover {
+  border-color: rgba(34, 211, 238, 0.4);
+  color: #fff;
+}
+
+.endpoint-version-btn.active {
+  border-color: var(--accent);
+  background: rgba(34, 211, 238, 0.15);
+  color: var(--accent);
+  box-shadow: 0 0 10px rgba(34, 211, 238, 0.2);
+}
+
+.endpoint-auth-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: none;
+  border: none;
+  padding: 0.3rem 0;
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--txt-dim);
+  cursor: pointer;
+  transition: color 0.15s var(--ease);
+  width: fit-content;
+}
+
+.endpoint-auth-toggle:hover {
+  color: var(--accent);
+}
+
+.endpoint-auth-chevron {
+  transition: transform 0.18s var(--ease);
+}
+
+.endpoint-auth-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.endpoint-auth-fields[hidden] {
+  display: none;
+}
+
+.endpoint-auth-row {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.endpoint-input-half {
+  flex: 1;
+  min-width: 0;
+}
+
+.endpoint-popover-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 0.1rem;
+}
+
+.endpoint-apply-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.85rem;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  border: none;
+  border-radius: var(--radius);
+  color: #03121a;
+  font-size: 0.78rem;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.18s var(--ease);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.endpoint-apply-btn:hover {
+  box-shadow: 0 0 18px rgba(34, 211, 238, 0.45);
+  transform: translateY(-1px);
+}
+
+.endpoint-apply-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+/* Lock badge when credentials are active */
+.endpoint-display.has-auth {
+  border-color: rgba(34, 211, 238, 0.4);
+  background: rgba(34, 211, 238, 0.08);
+}
+
+.endpoint-hint {
+  font-size: 0.68rem;
+  color: var(--txt-mute);
+  line-height: 1.4;
+  flex: 1;
+}
+
 .health-link-btn {
   display: flex;
   align-items: center;

@@ -104,6 +104,85 @@
           </button>
         </div>
 
+        <!-- FROST endpoint switcher -->
+        <div class="endpoint-switcher" id="endpointSwitcher">
+          <button class="endpoint-display" id="endpointDisplay" title="Change FROST endpoint">
+            <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14">
+              <path fill-rule="evenodd" d="M2 5a2 2 0 012-2h12a2 2 0 012 2v2a2 2 0 01-2 2H4a2 2 0 01-2-2V5zm14 1a1 1 0 11-2 0 1 1 0 012 0zM2 13a2 2 0 012-2h12a2 2 0 012 2v2a2 2 0 01-2 2H4a2 2 0 01-2-2v-2zm14 1a1 1 0 11-2 0 1 1 0 012 0z" clip-rule="evenodd"/>
+            </svg>
+            <span id="endpointLabel">FROST</span>
+          </button>
+          <div class="endpoint-popover" id="endpointPopover" hidden>
+
+            <!-- Base URL -->
+            <label class="endpoint-popover-label">Server URL</label>
+            <div class="endpoint-input-row">
+              <input
+                type="text"
+                id="endpointInput"
+                class="endpoint-input"
+                placeholder="http://host/FROST-Server"
+                autocomplete="off"
+                spellcheck="false"
+              >
+            </div>
+
+            <!-- Quick-picks -->
+            <div class="endpoint-quickpicks">
+              <button class="endpoint-quickpick" data-base="http://localhost:8080/FROST-Server" type="button">localhost</button>
+            </div>
+
+            <!-- API version -->
+            <label class="endpoint-popover-label">API version</label>
+            <div class="endpoint-version-group" id="endpointVersionGroup">
+              <button class="endpoint-version-btn" data-version="v1"   type="button">v1</button>
+              <button class="endpoint-version-btn active" data-version="v1.1" type="button">v1.1</button>
+              <button class="endpoint-version-btn" data-version="v2"   type="button">v2</button>
+            </div>
+
+            <!-- Credentials (collapsible) -->
+            <button class="endpoint-auth-toggle" id="endpointAuthToggle" type="button">
+              <svg viewBox="0 0 20 20" fill="currentColor" width="13" height="13">
+                <path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"/>
+              </svg>
+              <span id="endpointAuthToggleLabel">Add credentials</span>
+              <svg class="endpoint-auth-chevron" id="endpointAuthChevron" viewBox="0 0 20 20" fill="currentColor" width="13" height="13">
+                <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"/>
+              </svg>
+            </button>
+
+            <div class="endpoint-auth-fields" id="endpointAuthFields" hidden>
+              <div class="endpoint-auth-row">
+                <input
+                  type="text"
+                  id="endpointUsername"
+                  class="endpoint-input endpoint-input-half"
+                  placeholder="Username"
+                  autocomplete="username"
+                  spellcheck="false"
+                >
+                <input
+                  type="password"
+                  id="endpointPassword"
+                  class="endpoint-input endpoint-input-half"
+                  placeholder="Password"
+                  autocomplete="current-password"
+                >
+              </div>
+            </div>
+
+            <div class="endpoint-popover-footer">
+              <p class="endpoint-hint">Enter connects. Version is appended automatically.</p>
+              <button class="endpoint-apply-btn" id="endpointApply" title="Connect">
+                <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14">
+                  <path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd"/>
+                </svg>
+                Connect
+              </button>
+            </div>
+          </div>
+        </div>
+
         <a
           href="logs/health.html"
           target="_blank"

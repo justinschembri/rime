@@ -8,11 +8,17 @@ const state = {
     currentLimit: 1000,
     map: null,
     markerCluster: null,
-    maxClusterSize: 1, // Track maximum cluster size for color normalization
-    currentThingDatastreams: [], // Track datastreams for current thing
-    currentDatastreamIndex: -1, // Track current datastream index for cycling
-    selectedThingId: null, // Track currently selected thing for marker highlighting
-    searchQuery: '', // Current sidebar search query
-    activeStatusFilter: 'all' // Current status filter from the legend chips
+    maxClusterSize: 1,
+    currentThingDatastreams: [],
+    currentDatastreamIndex: -1,
+    selectedThingId: null,
+    searchQuery: '',
+    activeStatusFilter: 'all',
+    // FROST endpoint: base URL (no version) + version string.
+    // frostRoot is always kept in sync as frostBase + '/' + frostVersion.
+    frostBase: `${window.location.origin}/FROST-Server`,
+    frostVersion: 'v1.1',
+    get frostRoot() { return `${this.frostBase}/${this.frostVersion}`; },
+    frostReadAuth: null, // Base64-encoded "user:pass" for read access, or null for anonymous
 };
 
