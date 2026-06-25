@@ -1,7 +1,6 @@
 services:
   frost:
     image: fraunhoferiosb/frost-server:2.6
-    env_file: .env
     environment:
       - serviceRootUrl=${FROST_URL:-http://localhost:8080/FROST-Server}
       - plugins_multiDatastream.enable=false
@@ -31,7 +30,6 @@ services:
     depends_on:
       - frost
       - database
-    env_file: .env
     environment:
       - FROST_ENDPOINT=${FROST_ENDPOINT:-http://frost:8080/FROST-Server}
       - FROST_VERSION=${FROST_VERSION:-v1.1}

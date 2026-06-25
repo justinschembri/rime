@@ -44,13 +44,13 @@ function initializeMap() {
         maxZoom: 19
     });
 
-    darkMatter.addTo(state.map);
+    satellite.addTo(state.map);
 
     L.control.layers({
+        'Satellite': satellite,
         'Dark': darkMatter,
         'Streets': voyager,
         'Light': positron,
-        'Satellite': satellite
     }, null, { position: 'topright', collapsed: true }).addTo(state.map);
 
     // Initialize marker cluster group
@@ -133,6 +133,9 @@ function initializeEventListeners() {
         });
     });
 
+    // Endpoint switcher
+    initializeEndpointSwitcher();
+
     // Roster collapse / reopen
     const appShell = document.querySelector('.app-shell');
     const rosterCollapse = document.getElementById('rosterCollapse');
@@ -205,6 +208,210 @@ function initializeEventListeners() {
     }
 }
 
+// FROST-aware fetch wrapper -----------------------------------------------
+// Injects Authorization header when read credentials are set.
+function frostFetch(url, options = {}) {
+    if (state.frostReadAuth) {
+        options = {
+            ...options,
+            headers: {
+                'Authorization': `Basic ${state.frostReadAuth}`,
+                ...(options.headers || {}),
+            },
+        };
+    }
+    return fetch(url, options);
+}
+
+// Endpoint switcher -------------------------------------------------------
+
+function initializeEndpointSwitcher() {
+    const display      = document.getElementById('endpointDisplay');
+    const popover      = document.getElementById('endpointPopover');
+    const input        = document.getElementById('endpointInput');
+    const applyBtn     = document.getElementById('endpointApply');
+    const label        = document.getElementById('endpointLabel');
+    const versionGroup = document.getElementById('endpointVersionGroup');
+    const authToggle   = document.getElementById('endpointAuthToggle');
+    const authFields   = document.getElementById('endpointAuthFields');
+    const authChevron  = document.getElementById('endpointAuthChevron');
+    const authToggleLabel = document.getElementById('endpointAuthToggleLabel');
+    const usernameInput = document.getElementById('endpointUsername');
+    const passwordInput = document.getElementById('endpointPassword');
+
+    // ---- label pill ----
+    function syncLabel() {
+        // Show "host/path @ vX.X", strip protocol
+        const host = state.frostBase.replace(/^https?:\/\//, '');
+        label.textContent = `${host} @ ${state.frostVersion}`;
+        display.classList.toggle('has-auth', !!state.frostReadAuth);
+    }
+    syncLabel();
+
+    // ---- version button group ----
+    function syncVersionButtons() {
+        versionGroup.querySelectorAll('.endpoint-version-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.version === state.frostVersion);
+        });
+    }
+    syncVersionButtons();
+
+    versionGroup.addEventListener('click', (e) => {
+        const btn = e.target.closest('.endpoint-version-btn');
+        if (!btn) return;
+        state.frostVersion = btn.dataset.version;
+        syncVersionButtons();
+    });
+
+    // ---- quick-picks ----
+    popover.querySelectorAll('.endpoint-quickpick').forEach(btn => {
+        btn.addEventListener('click', () => {
+            input.value = btn.dataset.base;
+            input.focus();
+        });
+    });
+
+    // ---- credentials toggle ----
+    authToggle.addEventListener('click', () => {
+        const isOpen = !authFields.hidden;
+        authFields.hidden = isOpen;
+        authChevron.style.transform = isOpen ? '' : 'rotate(180deg)';
+        authToggleLabel.textContent = isOpen ? 'Add credentials' : 'Hide credentials';
+        if (!isOpen) usernameInput.focus();
+    });
+
+    // ---- open / close popover ----
+    function openPopover() {
+        // Strip any trailing version segment the user may have left in the URL
+        input.value = state.frostBase;
+        syncVersionButtons();
+
+        if (state.frostReadAuth) {
+            try {
+                const decoded = atob(state.frostReadAuth);
+                const colon = decoded.indexOf(':');
+                usernameInput.value = decoded.substring(0, colon);
+                passwordInput.value = decoded.substring(colon + 1);
+            } catch (_) {}
+            authFields.hidden = false;
+            authChevron.style.transform = 'rotate(180deg)';
+            authToggleLabel.textContent = 'Hide credentials';
+        }
+        popover.hidden = false;
+        display.classList.add('active');
+        input.focus();
+        input.select();
+    }
+
+    function closePopover() {
+        popover.hidden = true;
+        display.classList.remove('active');
+    }
+
+    display.addEventListener('click', (e) => {
+        e.stopPropagation();
+        popover.hidden ? openPopover() : closePopover();
+    });
+
+    document.addEventListener('click', (e) => {
+        if (!document.getElementById('endpointSwitcher').contains(e.target)) {
+            closePopover();
+        }
+    });
+
+    // ---- apply ----
+    function applyEndpoint() {
+        // Strip trailing slashes and any version suffix the user may have typed
+        let raw = input.value.trim().replace(/\/+$/, '');
+        // If they accidentally included a version suffix (/v1, /v1.1, /v2) strip it
+        raw = raw.replace(/\/(v\d+(\.\d+)?)$/i, '');
+        if (!raw) { closePopover(); return; }
+
+        const user = usernameInput.value.trim();
+        const pass = passwordInput.value;
+        const newAuth = (user || pass) ? btoa(`${user}:${pass}`) : null;
+
+        const authChanged = newAuth !== state.frostReadAuth;
+
+        const prevRoot = state.frostRoot;
+        state.frostBase    = raw;
+        // frostVersion was already updated live by the button group
+        state.frostReadAuth = newAuth;
+        const newRoot = state.frostRoot;
+
+        syncLabel();
+        closePopover();
+
+        if (prevRoot !== newRoot || authChanged) {
+            resetAndReload();
+        }
+    }
+
+    applyBtn.addEventListener('click', applyEndpoint);
+    [input, usernameInput, passwordInput].forEach(el => {
+        el.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') applyEndpoint();
+            if (e.key === 'Escape') closePopover();
+        });
+    });
+}
+
+// Clear all sensor state and re-fetch from the current state.frostRoot
+function resetAndReload() {
+    // Close any open panels
+    hideThingMetadata();
+    const chartPanel = document.getElementById('chartPanel');
+    if (chartPanel) chartPanel.classList.remove('expanded');
+
+    // Destroy existing chart
+    if (state.currentChart) {
+        state.currentChart.destroy();
+        state.currentChart = null;
+    }
+
+    // Clear all markers from the cluster layer and map
+    if (state.markerCluster) {
+        state.markerCluster.clearLayers();
+    }
+
+    // Reset state collections
+    state.things = {};
+    state.thingsByName = {};
+    state.markers = {};
+    state.currentDatastream = null;
+    state.currentThingDatastreams = [];
+    state.currentDatastreamIndex = -1;
+    state.selectedThingId = null;
+    state.maxClusterSize = 1;
+    state.searchQuery = '';
+    state.activeStatusFilter = 'all';
+
+    // Reset UI
+    document.getElementById('thingsList').innerHTML = '';
+    document.getElementById('chartPanelContent').innerHTML = `
+        <div class="no-data-message">
+            <div class="no-data-icon" aria-hidden="true">
+                <svg viewBox="0 0 48 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M1 12h7l3-9 5 18 4-13 3 7h6l3-4 4 4h8" />
+                </svg>
+            </div>
+            <h3>No signal locked</h3>
+            <p>Select a datastream from a node to trace its time series</p>
+        </div>`;
+    document.getElementById('chartTitle').textContent = 'No signal locked';
+    document.getElementById('chartSubtitle').textContent = 'Select a datastream from a node to trace it';
+    document.getElementById('chartNextDatastreamBtn').style.display = 'none';
+    document.getElementById('searchInput').value = '';
+    document.querySelectorAll('.legend-chip').forEach(c => c.classList.remove('active'));
+    document.querySelector('.legend-chip[data-filter="all"]')?.classList.add('active');
+    ['countTotal', 'countActive', 'countWarning', 'countDown'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = '0';
+    });
+
+    fetchThings();
+}
+
 // Update status message
 function updateStatus(message, type = '') {
     const statusEl = document.getElementById('statusMessage');
@@ -256,7 +463,7 @@ async function calculateThingHealthStatusAsync(thingId, datastreams) {
         try {
             const obsUrl = ds['Observations@iot.navigationLink'] + '?$top=1&$orderby=phenomenonTime%20desc';
             const secureObsUrl = obsUrl.replace(/^http:/, currentProtocol);
-            const obsResponse = await fetch(secureObsUrl);
+            const obsResponse = await frostFetch(secureObsUrl);
             const obsData = await obsResponse.json();
             
             if (obsData.value && obsData.value.length > 0) {
@@ -442,7 +649,7 @@ async function fetchThings() {
     updateStatus('Fetching things...', '');
     
     try {
-        const response = await fetch('../FROST-Server/v1.1/Things');
+        const response = await frostFetch(`${state.frostRoot}/Things`);
         
         if (!response.ok) {
             throw new Error(`HTTP error! Status: ${response.status}`);
@@ -498,7 +705,7 @@ async function processThing(thing) {
     // Fetch location
     const locationUrl = thing['Locations@iot.navigationLink'];
     const secureUrl = locationUrl.replace(/^http:/, currentProtocol);
-    const locationResponse = await fetch(secureUrl);
+    const locationResponse = await frostFetch(secureUrl);
     const locationData = await locationResponse.json();
     
     if (!locationData.value || locationData.value.length === 0) {
@@ -570,7 +777,7 @@ async function loadDatastreamsForThing(thingId) {
     if (!thing) return;
     
     try {
-        const response = await fetch(`../FROST-Server/v1.1/Things(${thingId})/Datastreams`);
+        const response = await frostFetch(`${state.frostRoot}/Things(${thingId})/Datastreams`);
         
         if (!response.ok) {
             throw new Error(`HTTP error! Status: ${response.status}`);
@@ -628,7 +835,7 @@ async function updatePopupWithDatastreams(thingId, datastreams) {
             const currentProtocol = window.location.protocol;
             const obsUrl = ds['Observations@iot.navigationLink'] + '?$top=1&$orderby=phenomenonTime%20desc';
             const secureObsUrl = obsUrl.replace(/^http:/, currentProtocol);
-            const obsResponse = await fetch(secureObsUrl);
+            const obsResponse = await frostFetch(secureObsUrl);
             const obsData = await obsResponse.json();
             return { 
                 ds, 
@@ -823,7 +1030,7 @@ async function loadChartData(datastreamId) {
     
     try {
         // Fetch datastream info
-        const dsResponse = await fetch(`../FROST-Server/v1.1/Datastreams(${datastreamId})`);
+        const dsResponse = await frostFetch(`${state.frostRoot}/Datastreams(${datastreamId})`);
         if (!dsResponse.ok) throw new Error(`HTTP error! Status: ${dsResponse.status}`);
         
         const dsData = await dsResponse.json();
@@ -832,10 +1039,8 @@ async function loadChartData(datastreamId) {
         const datastreamDescription = dsData.description || '';
         
         // Fetch observations
-        const currentProtocol = window.location.protocol;
-        const obsUrl = `../FROST-Server/v1.1/Datastreams(${datastreamId})/Observations?$top=${state.currentLimit}&$orderby=phenomenonTime%20desc`;
-        const secureObsUrl = obsUrl.replace(/^http:/, currentProtocol);
-        const obsResponse = await fetch(secureObsUrl);
+        const obsUrl = `${state.frostRoot}/Datastreams(${datastreamId})/Observations?$top=${state.currentLimit}&$orderby=phenomenonTime%20desc`;
+        const obsResponse = await frostFetch(obsUrl);
         
         if (!obsResponse.ok) throw new Error(`HTTP error! Status: ${obsResponse.status}`);
         
@@ -1323,7 +1528,7 @@ function updateThingMetadataDatastreams(thingId, datastreams) {
             const currentProtocol = window.location.protocol;
             const obsUrl = ds['Observations@iot.navigationLink'] + '?$top=1&$orderby=phenomenonTime%20desc';
             const secureObsUrl = obsUrl.replace(/^http:/, currentProtocol);
-            const obsResponse = await fetch(secureObsUrl);
+            const obsResponse = await frostFetch(secureObsUrl);
             const obsData = await obsResponse.json();
             const latestValue = obsData.value?.[0]?.result || '-';
             
@@ -1431,7 +1636,7 @@ async function fetchAllObservations(observationsUrl, maxRetries = 5, delay = 50,
         
         try {
             await new Promise(resolve => setTimeout(resolve, delay));
-            const response = await fetch(urlWithParams);
+            const response = await frostFetch(urlWithParams);
             
             if (!response.ok) {
                 throw new Error(`HTTP error! Status: ${response.status}`);
@@ -1493,7 +1698,7 @@ async function downloadThingData(thingId, startDate = null, endDate = null) {
     
     try {
         // Fetch all datastreams for the thing
-        const response = await fetch(`../FROST-Server/v1.1/Things(${thingId})/Datastreams`);
+        const response = await frostFetch(`${state.frostRoot}/Things(${thingId})/Datastreams`);
         if (!response.ok) {
             throw new Error(`HTTP error! Status: ${response.status}`);
         }
