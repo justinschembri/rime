@@ -206,6 +206,88 @@ function initializeEventListeners() {
             navigateToDatastream(1);
         });
     }
+
+    // Mobile bottom-sheet UX (no-ops on desktop)
+    initMobileBottomSheet();
+}
+
+// ── Mobile bottom-sheet behaviour ──────────────────────────────────────────
+// Uses a CSS breakpoint helper to gate all mobile-only logic so it is
+// completely inert on wider screens.
+
+const isMobileView = () => window.matchMedia('(max-width: 640px)').matches;
+
+function initMobileBottomSheet() {
+    const roster    = document.getElementById('roster');
+    const handle    = document.getElementById('sheetHandle');
+    const head      = roster?.querySelector('.roster-head');
+    const mapEl     = document.getElementById('map');
+    const searchBox = document.getElementById('searchBox');
+    const searchToggle = document.getElementById('mobileSearchToggle');
+    const chartTraceToggle = document.getElementById('chartTraceToggle');
+    const chartPanel       = document.getElementById('chartPanel');
+
+    // ── Sheet expand / collapse ──────────────────────────────────────────
+    function sheetToggle(e) {
+        if (!isMobileView()) return;
+        // Prevent clicks on interactive children from toggling
+        if (e && e.target.closest('button, a, input, select')) return;
+        roster.classList.toggle('sheet-expanded');
+        setTimeout(() => state.map?.invalidateSize(), 420);
+    }
+
+    if (handle) handle.addEventListener('click', sheetToggle);
+    if (head)   head.addEventListener('click',   sheetToggle);
+
+    // Tapping the bare map collapses the sheet and closes search
+    if (mapEl) {
+        mapEl.addEventListener('click', () => {
+            if (!isMobileView()) return;
+            roster?.classList.remove('sheet-expanded');
+            searchBox?.classList.remove('mobile-open');
+            searchToggle?.classList.remove('active');
+        });
+    }
+
+    // ── Mobile search overlay ────────────────────────────────────────────
+    if (searchToggle && searchBox) {
+        searchToggle.addEventListener('click', () => {
+            if (!isMobileView()) return;
+            const opening = !searchBox.classList.contains('mobile-open');
+            searchBox.classList.toggle('mobile-open', opening);
+            searchToggle.classList.toggle('active', opening);
+            if (opening) {
+                searchBox.querySelector('input')?.focus();
+            }
+        });
+
+        // Close when user commits a search or presses Escape
+        searchBox.querySelector('input')?.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' || e.key === 'Enter') {
+                searchBox.classList.remove('mobile-open');
+                searchToggle.classList.remove('active');
+            }
+        });
+    }
+
+    // ── Chart trace toggle ───────────────────────────────────────────────
+    if (chartTraceToggle && chartPanel) {
+        chartTraceToggle.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (!isMobileView()) return;
+            const expanding = !chartPanel.classList.contains('mobile-trace-expanded');
+            chartPanel.classList.toggle('mobile-trace-expanded', expanding);
+            chartTraceToggle.classList.toggle('trace-active', expanding);
+            const label = chartTraceToggle.querySelector('.trace-label');
+            if (label) label.textContent = expanding ? 'Stats' : 'Trace';
+        });
+    }
+}
+
+// Collapse the roster sheet on mobile (called when chart or inspector opens)
+function mobileCollapseRoster() {
+    if (!isMobileView()) return;
+    document.getElementById('roster')?.classList.remove('sheet-expanded');
 }
 
 // FROST-aware fetch wrapper -----------------------------------------------
@@ -1125,6 +1207,14 @@ function updateStatusCounts() {
     set('countActive', counts.active);
     set('countWarning', counts.warning);
     set('countDown', counts.down);
+
+    // Mobile roster badge: "N nodes · X online"
+    const mobileBadge = document.getElementById('rosterMobileCount');
+    if (mobileBadge) {
+        const parts = [`${counts.total}`];
+        if (counts.active > 0) parts.push(`${counts.active} online`);
+        mobileBadge.textContent = parts.join(' · ');
+    }
 }
 
 // Select datastream and load chart
@@ -1153,7 +1243,9 @@ async function selectDatastream(datastreamId, datastreamName) {
     if (!chartPanel.classList.contains('expanded')) {
         chartPanel.classList.add('expanded');
     }
-    
+    // On mobile, collapse the roster sheet so the chart has room
+    mobileCollapseRoster();
+
     // Close metadata sidebar
     hideThingMetadata();
     
@@ -1585,7 +1677,9 @@ function showThingMetadata(thingId) {
     if (mainContent) {
         mainContent.classList.add('has-metadata-sidebar');
     }
-    
+    // On mobile, collapse the roster sheet so the inspector can fill the screen
+    mobileCollapseRoster();
+
     // Build metadata content (status will be added by updateMetadataSidebarStatus)
     let metadataHTML = `
         <div class="metadata-section">

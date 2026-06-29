@@ -1668,9 +1668,20 @@ body {
 
 .leaflet-tile-container { transition: opacity 0.3s ease; }
 
-/* ------------------------------------------------------------------ */
+/* ================================================================== */
 /* Responsive                                                          */
-/* ------------------------------------------------------------------ */
+/* ================================================================== */
+
+/* Sheet handle — hidden on desktop */
+.sheet-handle {
+  display: none;
+}
+
+/* Mobile-only elements hidden on desktop */
+.mobile-search-toggle { display: none; }
+.roster-mobile-count  { display: none; }
+.chart-trace-toggle-btn { display: none; }
+
 @media (max-width: 1100px) {
   .legend-label { display: none; }
 }
@@ -1703,4 +1714,276 @@ body {
   }
 
   .chart-container { height: 280px; }
+}
+
+/* ------------------------------------------------------------------ */
+/* Mobile (≤ 640 px) — bottom-sheet architecture                       */
+/* ------------------------------------------------------------------ */
+@media (max-width: 640px) {
+
+  /* ---- CSS variables ---- */
+  :root {
+    --bar-h: 52px;
+    --sheet-peek: 60px;   /* handle pill + roster-head visible */
+  }
+
+  /* ---- Command bar: single compact row ---- */
+  .command-bar {
+    top: 8px;
+    left: 8px;
+    right: 8px;
+    height: var(--bar-h);
+    flex-wrap: nowrap;
+    padding: 0 0.65rem;
+    gap: 0.45rem;
+  }
+
+  /* Shrink brand — drop subtitle */
+  .brand-text p { display: none; }
+  .brand-text h1 { font-size: 1rem; }
+  .brand-orb { width: 26px; height: 26px; }
+
+  /* Hide desktop search in the bar; shown as overlay when toggled */
+  .search-box { display: none; }
+  .search-box.mobile-open {
+    display: flex;
+    position: fixed;
+    top: calc(var(--bar-h) + 14px);
+    left: 8px;
+    right: 8px;
+    max-width: none;
+    background: var(--glass-2);
+    backdrop-filter: blur(22px) saturate(140%);
+    -webkit-backdrop-filter: blur(22px) saturate(140%);
+    border: 1px solid var(--glass-line-hi);
+    border-radius: var(--radius-lg);
+    padding: 0.4rem 0.8rem 0.4rem 0.5rem;
+    z-index: 200;
+    box-shadow: var(--shadow);
+    animation: slideDown 0.22s var(--ease);
+  }
+
+  @keyframes slideDown {
+    from { opacity: 0; transform: translateY(-8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .search-box.mobile-open .search-icon { left: 0.75rem; }
+
+  /* Show mobile search icon button */
+  .mobile-search-toggle {
+    display: grid;
+    place-items: center;
+    background: rgba(5, 9, 18, 0.4);
+    border: 1px solid var(--glass-line);
+    border-radius: var(--radius);
+    color: var(--txt-dim);
+    padding: 0.45rem;
+    cursor: pointer;
+    transition: all 0.18s var(--ease);
+    flex-shrink: 0;
+  }
+
+  .mobile-search-toggle:hover,
+  .mobile-search-toggle.active {
+    border-color: rgba(34, 211, 238, 0.5);
+    color: var(--accent);
+  }
+
+  /* Hide desktop status legend chips; they move to bottom sheet */
+  .status-legend { display: none; }
+
+  /* Health link: icon-only pill */
+  .health-link-btn span { display: none; }
+  .health-link-btn { padding: 0.45rem 0.55rem; min-width: 36px; justify-content: center; }
+
+  /* Endpoint: icon-only, shorter label */
+  #endpointLabel { display: none; }
+  .endpoint-display { padding: 0.45rem 0.6rem; }
+
+  /* Endpoint popover: stretch full width */
+  .endpoint-popover {
+    position: fixed;
+    top: calc(var(--bar-h) + 14px);
+    left: 8px;
+    right: 8px;
+    width: auto;
+    z-index: 300;
+  }
+
+  /* ---- Sheet handle pill ---- */
+  .sheet-handle {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 0.55rem 0 0.25rem;
+    cursor: grab;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  .sheet-handle::before {
+    content: "";
+    display: block;
+    width: 36px;
+    height: 4px;
+    background: var(--glass-line-hi);
+    border-radius: 999px;
+  }
+
+  /* ---- Mobile count badge in roster head ---- */
+  .roster-mobile-count {
+    display: inline-block;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--txt-mute);
+    margin-left: auto;
+    margin-right: 0.5rem;
+    flex-shrink: 0;
+  }
+
+  /* ---- Roster → bottom sheet ---- */
+  .roster {
+    /* Reset desktop positioning */
+    position: fixed;
+    top: auto;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    max-width: 100%;
+    max-height: 72vh;
+    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+    border-left: none;
+    border-right: none;
+    border-bottom: none;
+
+    /* Start in peek state */
+    transform: translateY(calc(100% - var(--sheet-peek)));
+    transition: transform 0.4s var(--ease), opacity 0.3s var(--ease);
+    z-index: 35;
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .roster.sheet-expanded {
+    transform: translateY(0);
+  }
+
+  /* Override desktop collapse animation — not used on mobile */
+  .app-shell.roster-collapsed .roster {
+    transform: translateY(calc(100% - var(--sheet-peek)));
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  /* Hide desktop collapse/reopen controls */
+  .roster-collapse { display: none; }
+  .roster-reopen   { display: none; }
+
+  /* ---- Leaflet controls: respect compact bar ---- */
+  .leaflet-control-zoom {
+    margin-top: calc(var(--bar-h) + 18px) !important;
+    margin-left: 8px !important;
+  }
+
+  .leaflet-control-layers {
+    margin-top: calc(var(--bar-h) + 18px) !important;
+  }
+
+  /* ---- Map controls ---- */
+  .map-controls {
+    right: 8px;
+    bottom: calc(var(--sheet-peek) + 14px);
+  }
+
+  /* ---- Status bar: park above the sheet peek ---- */
+  .status-bar {
+    left: 8px;
+    bottom: calc(var(--sheet-peek) + 8px);
+    max-width: calc(100vw - 90px);
+    z-index: 36;   /* above roster sheet */
+  }
+
+  /* ---- Inspector → full-screen slide-up overlay ---- */
+  .thing-metadata-sidebar {
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    max-width: 100%;
+    border-radius: 0;
+    transform: translateY(100%);
+    z-index: 60;
+  }
+
+  .thing-metadata-sidebar.open {
+    transform: translateY(0);
+  }
+
+  /* ---- Chart panel → full-width bottom sheet ---- */
+  .chart-panel {
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0;
+    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+    z-index: 45;    /* above roster, below inspector */
+    max-height: 70vh;
+  }
+
+  /* Peek state: only header strip visible */
+  .chart-panel:not(.expanded) {
+    transform: translateY(calc(100% - 64px));
+  }
+
+  /* Override has-metadata-sidebar desktop adjustments */
+  .main-content.has-metadata-sidebar .chart-panel {
+    right: 0 !important;
+  }
+
+  /* ---- Chart stats-only mode (mobile default) ---- */
+
+  /* Canvas hidden unless user taps Trace */
+  .chart-panel .chart-container { display: none; }
+  .chart-panel.mobile-trace-expanded .chart-container { display: block; }
+
+  /* Stats are always shown when chart panel is expanded */
+  .chart-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  /* Show trace toggle button */
+  .chart-trace-toggle-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.4rem 0.65rem;
+    background: rgba(34, 211, 238, 0.1);
+    border: 1px solid rgba(34, 211, 238, 0.35);
+    border-radius: 999px;
+    color: var(--accent);
+    font-size: 0.74rem;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.18s var(--ease);
+    flex-shrink: 0;
+  }
+
+  .chart-trace-toggle-btn:hover {
+    background: rgba(34, 211, 238, 0.2);
+    color: #fff;
+  }
+
+  .chart-trace-toggle-btn.trace-active {
+    background: rgba(34, 211, 238, 0.18);
+    border-color: var(--accent);
+    color: #fff;
+  }
+
+  /* Tighten chart content area */
+  .chart-panel-content { padding: 0.8rem; }
+  .chart-container { height: 220px; }
 }
