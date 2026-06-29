@@ -1,5 +1,71 @@
 // Configuration and constants
 
+// ── Health tiers ───────────────────────────────────────────────────────────
+// Graded "time since last observation" buckets, ordered freshest → oldest.
+// Single source of truth for colours + labels used by markers, roster, legend
+// and the inspector. maxMin is the exclusive upper bound (in minutes) of each
+// tier; the final tier uses Infinity.
+const HEALTH_TIERS = [
+    { key: 'fresh',   maxMin: 60,       label: '< 1h',  color: '#34d399' },
+    { key: 'recent',  maxMin: 120,      label: '< 2h',  color: '#a3e635' },
+    { key: 'stale',   maxMin: 1440,     label: '< 1d',  color: '#facc15' },
+    { key: 'old',     maxMin: 43200,    label: '< 1mo', color: '#fb923c' },
+    { key: 'ancient', maxMin: 525600,   label: '< 1y',  color: '#f87171' },
+    { key: 'dormant', maxMin: Infinity, label: '> 1y',  color: '#e11d48' },
+];
+
+// Sensor reported observations but parsing failed, or no observations at all.
+const NODATA_TIER = { key: 'nodata', label: 'No data', color: '#64748b' };
+
+// Quick lookup by tier key (includes nodata).
+const HEALTH_TIER_MAP = [...HEALTH_TIERS, NODATA_TIER].reduce((m, t) => {
+    m[t.key] = t;
+    return m;
+}, {});
+
+// Resolve a "minutes since last observation" value to a tier object.
+function getHealthTier(minutes) {
+    if (minutes === null || minutes === undefined || Number.isNaN(minutes)) {
+        return NODATA_TIER;
+    }
+    for (const tier of HEALTH_TIERS) {
+        if (minutes < tier.maxMin) return tier;
+    }
+    return HEALTH_TIERS[HEALTH_TIERS.length - 1];
+}
+
+// FROST phenomenonTime may be a single instant ("2026-…Z") or an interval
+// ("2026-…Z/2026-…Z"). For "time since last observation" we use the END of an
+// interval (the most recent edge). Returns a valid Date or null.
+function parsePhenomenonTime(value) {
+    if (!value) return null;
+    const part = value.includes('/') ? value.split('/').pop() : value;
+    const date = new Date(part);
+    return Number.isNaN(date.getTime()) ? null : date;
+}
+
+// ── Colour helpers ─────────────────────────────────────────────────────────
+function hexToRgba(hex, alpha) {
+    const h = hex.replace('#', '');
+    const r = parseInt(h.substring(0, 2), 16);
+    const g = parseInt(h.substring(2, 4), 16);
+    const b = parseInt(h.substring(4, 6), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+// Mix a hex colour toward white by `amount` (0..1) — used for readable tag text
+// on the dark theme.
+function lightenHex(hex, amount) {
+    const h = hex.replace('#', '');
+    let r = parseInt(h.substring(0, 2), 16);
+    let g = parseInt(h.substring(2, 4), 16);
+    let b = parseInt(h.substring(4, 6), 16);
+    r = Math.round(r + (255 - r) * amount);
+    g = Math.round(g + (255 - g) * amount);
+    b = Math.round(b + (255 - b) * amount);
+    return `rgb(${r}, ${g}, ${b})`;
+}
+
 // Mapping of observed property names to display names
 const OBSERVED_PROPERTY_DISPLAY_NAMES = {
     'phenomenon_time': 'Phenomenon Time',
