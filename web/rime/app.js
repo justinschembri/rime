@@ -358,20 +358,6 @@ function initializeEndpointSwitcher() {
 
 // Clear all sensor state and re-fetch from the current state.frostRoot
 function resetAndReload() {
-    // Cancel any in-flight viewport health refresh
-    if (state.healthRefreshTimer) {
-        clearInterval(state.healthRefreshTimer);
-        state.healthRefreshTimer = null;
-    }
-    if (state._moveendHandler) {
-        state.map.off('moveend', state._moveendHandler);
-        state._moveendHandler = null;
-    }
-    if (_moveendDebounceTimer) {
-        clearTimeout(_moveendDebounceTimer);
-        _moveendDebounceTimer = null;
-    }
-
     // Close any open panels
     hideThingMetadata();
     const chartPanel = document.getElementById('chartPanel');
@@ -537,130 +523,6 @@ function calculateThingHealthStatus(timeSinceLastObservationMinutes) {
     }
 }
 
-// ── Viewport-aware health refresh (Option B) ─────────────────────────────
-//
-// Health status is initially computed synchronously from inline $expand data.
-// These functions keep it current by re-fetching latest observations only for
-// Things currently visible in the map viewport, on a 5-minute timer and also
-// whenever the user pans to a new area.
-
-const HEALTH_REFRESH_INTERVAL_MS  = 5 * 60 * 1000; // 5 minutes
-const HEALTH_REFRESH_MOVEEND_MAX   = 150;            // skip pan-refresh if > N nodes visible
-const HEALTH_REFRESH_MOVEEND_DELAY = 1500;           // ms to wait after pan stops
-
-let _moveendDebounceTimer = null;
-
-// Return IDs of Things whose markers lie within the current map viewport.
-function getVisibleThingIds() {
-    const bounds = state.map.getBounds();
-    return Object.keys(state.things).filter(id => {
-        const coords = state.things[id]?.coordinates;
-        return coords && bounds.contains(L.latLng(coords[0], coords[1]));
-    });
-}
-
-// Re-fetch the latest observation for every datastream of a single Thing and
-// update its health status.  Uses the Observations navigation links that were
-// stored during the initial $expand load.
-async function refreshThingHealth(thingId) {
-    const thing = state.things[thingId];
-    if (!thing) return;
-
-    const datastreams = thing.datastreams || [];
-    if (datastreams.length === 0) return;
-
-    const currentProtocol = window.location.protocol;
-    const times = await Promise.all(datastreams.map(async ds => {
-        try {
-            const navLink = ds['Observations@iot.navigationLink'];
-            if (!navLink) return null;
-            const url = navLink.replace(/^http:/, currentProtocol) +
-                        '?$top=1&$orderby=phenomenonTime%20desc';
-            const res  = await frostFetch(url);
-            const data = await res.json();
-            const t = data.value?.[0]?.phenomenonTime;
-            return t ? new Date(t) : null;
-        } catch {
-            return null;
-        }
-    }));
-
-    const valid = times.filter(Boolean);
-    const mostRecent = valid.length
-        ? new Date(Math.max(...valid.map(t => t.getTime())))
-        : null;
-
-    if (mostRecent) {
-        const mins   = (Date.now() - mostRecent) / 60000;
-        const health = calculateThingHealthStatus(mins);
-        thing.timeSinceLastObservation = mins;
-        thing.healthStatus  = health.status;
-        thing.healthLabel   = health.label;
-    } else {
-        thing.timeSinceLastObservation = null;
-        thing.healthStatus  = 'down';
-        thing.healthLabel   = 'No data';
-    }
-    scheduleStatusUpdate();
-}
-
-// Refresh health for a given list of Thing IDs with bounded concurrency.
-async function refreshHealthForIds(ids, gen) {
-    await runConcurrent(
-        ids.map(id => () => {
-            if (state.fetchGeneration !== gen) return Promise.resolve();
-            return refreshThingHealth(id);
-        }),
-        5
-    );
-}
-
-// Kick off a refresh for all Things in the current viewport.
-function refreshViewportHealth(gen) {
-    if (state.fetchGeneration !== gen) return;
-    refreshHealthForIds(getVisibleThingIds(), gen);
-}
-
-// Start the periodic timer and moveend listener for viewport health refresh.
-// Called once after the initial load; cancelled by resetAndReload.
-function startViewportHealthRefresh(gen) {
-    // Clear any previous timer / listener
-    if (state.healthRefreshTimer) {
-        clearInterval(state.healthRefreshTimer);
-        state.healthRefreshTimer = null;
-    }
-    if (state._moveendHandler) {
-        state.map.off('moveend', state._moveendHandler);
-        state._moveendHandler = null;
-    }
-
-    // Periodic full-viewport refresh every 5 minutes
-    state.healthRefreshTimer = setInterval(() => {
-        if (state.fetchGeneration !== gen) {
-            clearInterval(state.healthRefreshTimer);
-            state.healthRefreshTimer = null;
-            return;
-        }
-        refreshViewportHealth(gen);
-    }, HEALTH_REFRESH_INTERVAL_MS);
-
-    // Pan-triggered refresh: fires 1.5 s after the user stops panning,
-    // but only when the viewport is small enough to be sensible.
-    state._moveendHandler = () => {
-        if (state.fetchGeneration !== gen) return;
-        if (_moveendDebounceTimer) clearTimeout(_moveendDebounceTimer);
-        _moveendDebounceTimer = setTimeout(() => {
-            _moveendDebounceTimer = null;
-            if (state.fetchGeneration !== gen) return;
-            const ids = getVisibleThingIds();
-            if (ids.length <= HEALTH_REFRESH_MOVEEND_MAX) {
-                refreshHealthForIds(ids, gen);
-            }
-        }, HEALTH_REFRESH_MOVEEND_DELAY);
-    };
-    state.map.on('moveend', state._moveendHandler);
-}
-// ─────────────────────────────────────────────────────────────────────────────
 
 // Format time since last observation
 function formatTimeSince(minutes) {
@@ -683,36 +545,29 @@ function formatTimeSince(minutes) {
 
 // Update status tags on things
 function updateThingStatusTags() {
-    // Update sidebar list
+    // Update roster list — skip nodes whose health is not yet known
     document.querySelectorAll('.thing-item').forEach(item => {
         const thingId = item.dataset.thingId;
         const thing = state.things[thingId];
-        if (!thing) return;
-        
-        // Get status from thing's last observation time
-        const status = thing.healthStatus || 'active';
-        const label = thing.healthLabel || '<60mins';
-        const timeSince = thing.timeSinceLastObservation;
-        updateThingItemStatus(item, status, label, timeSince);
+        if (!thing || !thing.healthStatus || thing.healthStatus === 'unknown') return;
+        updateThingItemStatus(item, thing.healthStatus, thing.healthLabel, thing.timeSinceLastObservation);
     });
 
-    // Reflect health on the map markers and the sidebar counters
     refreshMarkerStatusColors();
     updateStatusCounts();
-    
+
     // Update metadata sidebar if open
     const metadataSidebar = document.getElementById('thingMetadataSidebar');
     if (metadataSidebar && metadataSidebar.classList.contains('open')) {
         const thingId = Object.keys(state.things).find(id => {
-            const thing = state.things[id];
-            return thing && document.getElementById('thingMetadataTitle')?.textContent === thing.name;
+            const t = state.things[id];
+            return t && document.getElementById('thingMetadataTitle')?.textContent === t.name;
         });
         if (thingId) {
             const thing = state.things[thingId];
-            const status = thing.healthStatus || 'active';
-            const label = thing.healthLabel || '<60mins';
-            const timeSince = thing.timeSinceLastObservation;
-            updateMetadataSidebarStatus(status, label, timeSince);
+            if (thing.healthStatus && thing.healthStatus !== 'unknown') {
+                updateMetadataSidebarStatus(thing.healthStatus, thing.healthLabel, thing.timeSinceLastObservation);
+            }
         }
     }
 }
@@ -814,20 +669,18 @@ function scheduleStatusUpdate() {
     });
 }
 
-// Fetch things from FROST API, following @iot.nextLink pagination.
-// Uses a generation counter so that switching endpoints while loading is in
-// progress cancels all pending work from the previous endpoint.
+// ── Phase 1: place all markers on the map as fast as possible ────────────
+// Uses $expand=Locations only — the lightest query the server can answer.
+// After all markers are placed, fires Phase 2 (fetchHealthData) in the
+// background so the user can interact with the map immediately.
 async function fetchThings() {
-    // Claim this generation; any concurrent/previous call will see a mismatch and exit.
     const gen = ++state.fetchGeneration;
     const stale = () => state.fetchGeneration !== gen;
 
     updateStatus('Fetching nodes…', '');
 
     const allThings = [];
-    // Inline both Locations (coordinates) and each Datastream's latest Observation (health)
-    // so health status can be computed synchronously — no per-Thing background requests.
-    let nextUrl = `${state.frostRoot}/Things?$expand=Locations,Datastreams($expand=Observations($top=1;$orderby=phenomenonTime%20desc))`;
+    let nextUrl = `${state.frostRoot}/Things?$expand=Locations`;
 
     try {
         while (nextUrl) {
@@ -840,7 +693,7 @@ async function fetchThings() {
             if (stale()) return;
 
             const pageThings = data.value || [];
-            const pageAdded = [];
+            const pageAdded  = [];
             const pageMarkers = [];
 
             for (const thing of pageThings) {
@@ -859,55 +712,105 @@ async function fetchThings() {
             }
 
             if (pageAdded.length > 0 && !stale()) {
-                // Add all markers for this page in one call — single smooth cluster animation
                 state.markerCluster.addLayers(pageMarkers);
 
-                // Batch all roster DOM inserts for this page into one DocumentFragment
                 const thingsList = document.getElementById('thingsList');
-                const fragment = document.createDocumentFragment();
+                const fragment   = document.createDocumentFragment();
                 for (const thing of pageAdded) {
                     const li = buildThingListItem(thing);
                     if (li) fragment.appendChild(li);
                 }
                 thingsList.appendChild(fragment);
                 updateStatus(`Loading… ${allThings.length} nodes`, '');
-
-                // Flush health colours for this page immediately — health was computed
-                // synchronously from inline data, so no requests needed.
-                scheduleStatusUpdate();
             }
 
             nextUrl = data['@iot.nextLink'] || null;
-            if (nextUrl) {
-                nextUrl = nextUrl.replace(/^http:/, window.location.protocol);
-            }
+            if (nextUrl) nextUrl = nextUrl.replace(/^http:/, window.location.protocol);
         }
 
         if (stale()) return;
 
-        if (allThings.length === 0) {
-            throw new Error('No Things found at this endpoint');
-        }
+        if (allThings.length === 0) throw new Error('No Things found at this endpoint');
 
         if (state.markerCluster.getLayers().length > 0) {
             state.markerCluster.refreshClusters();
             state.map.fitBounds(state.markerCluster.getBounds().pad(0.1), {
-                animate: true,
-                duration: 1.0,
-                padding: [20, 20]
+                animate: true, duration: 1.0, padding: [20, 20]
             });
         }
 
-        updateStatus(`Loaded ${allThings.length} nodes`, 'success');
+        updateStatus(`Loaded ${allThings.length} nodes · checking health…`, 'success');
 
-        // Health was already computed synchronously from inline $expand data — no background
-        // requests needed here.  Start the viewport-aware periodic refresh instead.
-        startViewportHealthRefresh(gen);
+        // Phase 2: fetch health data in background — not awaited so the user
+        // can interact with the map while health badges fill in progressively.
+        fetchHealthData(gen);
 
     } catch (error) {
-        if (stale()) return; // ignore errors from a superseded load
+        if (stale()) return;
         console.error('Error fetching things:', error);
         updateStatus(`Error: ${error.message}`, 'error');
+    }
+}
+
+// ── Phase 2: fill in health badges without blocking the map ──────────────
+// Paginates through the same Things set but only expands Datastreams and
+// their latest Observation. Each page updates state and schedules a DOM
+// flush — markers turn from grey to their health colour page by page.
+async function fetchHealthData(gen) {
+    const stale = () => state.fetchGeneration !== gen;
+    let nextUrl = `${state.frostRoot}/Things?$expand=Datastreams($expand=Observations($top=1;$orderby=phenomenonTime%20desc))`;
+
+    try {
+        while (nextUrl) {
+            if (stale()) return;
+
+            const response = await frostFetch(nextUrl);
+            if (stale()) return;
+            if (!response.ok) return; // silently stop; Phase 1 already succeeded
+
+            const data = await response.json();
+            if (stale()) return;
+
+            for (const thing of (data.value || [])) {
+                if (stale()) return;
+                const stored = state.things[thing['@iot.id']];
+                if (!stored) continue;
+
+                const datastreams = thing.Datastreams || [];
+                stored.datastreams = datastreams;
+
+                const times = datastreams
+                    .map(ds => ds.Observations?.[0]?.phenomenonTime)
+                    .filter(Boolean)
+                    .map(t => new Date(t));
+
+                if (times.length > 0) {
+                    const mostRecent = new Date(Math.max(...times.map(t => t.getTime())));
+                    const mins   = (Date.now() - mostRecent) / 60000;
+                    const health = calculateThingHealthStatus(mins);
+                    stored.timeSinceLastObservation = mins;
+                    stored.healthStatus = health.status;
+                    stored.healthLabel  = health.label;
+                } else {
+                    stored.timeSinceLastObservation = null;
+                    stored.healthStatus = 'down';
+                    stored.healthLabel  = 'No data';
+                }
+            }
+
+            // Coalesce DOM updates for this page into one animation-frame flush
+            scheduleStatusUpdate();
+
+            nextUrl = data['@iot.nextLink'] || null;
+            if (nextUrl) nextUrl = nextUrl.replace(/^http:/, window.location.protocol);
+        }
+
+        if (!stale()) {
+            updateStatus(`${Object.keys(state.things).length} nodes · health ready`, 'success');
+        }
+
+    } catch (err) {
+        if (!stale()) console.error('Error fetching health data:', err);
     }
 }
 
@@ -945,14 +848,19 @@ async function processThing(thing) {
         icon: defaultIcon
     });
     
-    // Store thing data
+    // Store thing data — healthStatus starts as 'unknown' (not undefined) so that
+    // || 'active' fallbacks elsewhere never fire before Phase 2 sets a real value.
     state.things[thingId] = {
         marker,
         name: thing.name,
         description: thing.description || '',
         coordinates: latLng,
         locationDescription,
-        thingId
+        thingId,
+        healthStatus: 'unknown',
+        healthLabel: null,
+        timeSinceLastObservation: null,
+        datastreams: [],
     };
     
     state.thingsByName[thing.name] = {
@@ -964,33 +872,6 @@ async function processThing(thing) {
     };
     
     state.markers[thingId] = marker;
-
-    // --- Inline health from nested $expand -----------------------------------
-    // Store datastreams so the viewport refresher can use navigation links later.
-    const inlineDatastreams = thing.Datastreams || [];
-    state.things[thingId].datastreams = inlineDatastreams;
-
-    if (inlineDatastreams.length > 0) {
-        const times = inlineDatastreams
-            .map(ds => ds.Observations?.[0]?.phenomenonTime)
-            .filter(Boolean)
-            .map(t => new Date(t));
-
-        if (times.length > 0) {
-            const mostRecent = new Date(Math.max(...times.map(t => t.getTime())));
-            const mins = (Date.now() - mostRecent) / 60000;
-            const health = calculateThingHealthStatus(mins);
-            state.things[thingId].timeSinceLastObservation = mins;
-            state.things[thingId].healthStatus = health.status;
-            state.things[thingId].healthLabel = health.label;
-        } else {
-            // Datastreams exist but no observations yet
-            state.things[thingId].timeSinceLastObservation = null;
-            state.things[thingId].healthStatus = 'down';
-            state.things[thingId].healthLabel = 'No data';
-        }
-    }
-    // -------------------------------------------------------------------------
 
     // Handle marker click - no popup, just open sidebar
     marker.on('click', async () => {
@@ -1229,8 +1110,8 @@ function updateStatusCounts() {
 
     Object.values(state.things).forEach(thing => {
         counts.total += 1;
-        const status = thing.healthStatus || 'active';
-        if (counts[status] !== undefined) {
+        const status = thing.healthStatus;
+        if (status && status !== 'unknown' && counts[status] !== undefined) {
             counts[status] += 1;
         }
     });
@@ -1741,10 +1622,10 @@ function showThingMetadata(thingId) {
     sidebar.classList.add('open');
     
     // Update status section after sidebar is open
-    const healthStatus = thing.healthStatus || 'active';
-    const healthLabel = thing.healthLabel || '<60mins';
-    const timeSince = thing.timeSinceLastObservation;
-    updateMetadataSidebarStatus(healthStatus, healthLabel, timeSince);
+    const healthStatus = (thing.healthStatus && thing.healthStatus !== 'unknown') ? thing.healthStatus : null;
+    if (healthStatus) {
+        updateMetadataSidebarStatus(healthStatus, thing.healthLabel, thing.timeSinceLastObservation);
+    }
     
     // Add download button after status is added
     setTimeout(() => {
