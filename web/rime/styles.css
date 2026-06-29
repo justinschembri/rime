@@ -296,9 +296,7 @@ body {
 }
 
 .dot-total { background: var(--txt-mute); box-shadow: 0 0 8px currentColor; }
-.dot-active { background: var(--ok); box-shadow: 0 0 9px var(--ok); }
-.dot-warning { background: var(--warn); box-shadow: 0 0 9px var(--warn); }
-.dot-down { background: var(--bad); box-shadow: 0 0 9px var(--bad); }
+/* Health tier dots are coloured inline by buildLegend() */
 
 .legend-count {
   font-family: "JetBrains Mono", monospace;
@@ -588,6 +586,56 @@ body {
   height: 16px;
 }
 
+/* On-demand health-check button */
+.health-check-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.5rem 0.9rem;
+  border: 1px solid var(--glass-line);
+  border-radius: 999px;
+  background: rgba(5, 9, 18, 0.4);
+  color: var(--txt-dim);
+  font-size: 0.78rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.18s var(--ease);
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.health-check-btn:hover:not(:disabled) {
+  border-color: rgba(34, 211, 238, 0.5);
+  background: rgba(34, 211, 238, 0.1);
+  color: #fff;
+}
+
+.health-check-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* While scanning: keep enabled-looking but show the spinner */
+.health-check-btn.checking {
+  opacity: 1;
+  border-color: rgba(34, 211, 238, 0.45);
+  color: var(--accent);
+}
+
+/* Once a scan has completed, tint the button to signal "data is live" */
+.health-check-btn.done {
+  border-color: rgba(52, 211, 153, 0.45);
+  color: #6ee7b7;
+}
+
+.health-check-btn .hc-icon { width: 15px; height: 15px; }
+
+/* Spinner is hidden unless the button is in the checking state */
+.health-check-btn .hc-spinner { display: none; }
+.health-check-btn.checking .hc-spinner { display: inline-block; }
+.health-check-btn.checking .hc-icon { display: none; }
+
 /* ------------------------------------------------------------------ */
 /* Roster                                                              */
 /* ------------------------------------------------------------------ */
@@ -710,15 +758,12 @@ body {
   bottom: 14%;
   width: 3px;
   border-radius: 0 4px 4px 0;
-  background: var(--txt-mute);
+  /* Driven by the node's health tier colour (set inline as --status-color) */
+  background: var(--status-color, var(--txt-mute));
+  color: var(--status-color, var(--txt-mute));
   box-shadow: 0 0 8px currentColor;
-  color: var(--txt-mute);
   transition: all 0.16s var(--ease);
 }
-
-.thing-item.status-active::before { background: var(--ok); color: var(--ok); }
-.thing-item.status-warning::before { background: var(--warn); color: var(--warn); }
-.thing-item.status-down::before { background: var(--bad); color: var(--bad); }
 
 .thing-item:hover {
   border-color: var(--glass-line-hi);
@@ -760,24 +805,7 @@ body {
   white-space: nowrap;
   flex-shrink: 0;
   border: 1px solid transparent;
-}
-
-.thing-status-active {
-  background: rgba(52, 211, 153, 0.14);
-  color: #6ee7b7;
-  border-color: rgba(52, 211, 153, 0.3);
-}
-
-.thing-status-warning {
-  background: rgba(251, 191, 36, 0.14);
-  color: #fcd34d;
-  border-color: rgba(251, 191, 36, 0.3);
-}
-
-.thing-status-down {
-  background: rgba(251, 113, 133, 0.14);
-  color: #fda4af;
-  border-color: rgba(251, 113, 133, 0.3);
+  /* background / color / border-color set inline from the health tier */
 }
 
 .thing-description {
@@ -1160,10 +1188,7 @@ body {
   background: currentColor;
   box-shadow: 0 0 8px currentColor;
 }
-
-.status-tag-active { background: rgba(52, 211, 153, 0.14); color: #6ee7b7; }
-.status-tag-warning { background: rgba(251, 191, 36, 0.14); color: #fcd34d; }
-.status-tag-down { background: rgba(251, 113, 133, 0.14); color: #fda4af; }
+/* .status-tag background / color set inline from the health tier */
 
 /* Download section */
 .download-thing-btn {
@@ -1796,6 +1821,10 @@ body {
   /* Health link: icon-only pill */
   .health-link-btn span { display: none; }
   .health-link-btn { padding: 0.45rem 0.55rem; min-width: 36px; justify-content: center; }
+
+  /* Health-check: icon-only pill */
+  .health-check-btn #healthCheckLabel { display: none; }
+  .health-check-btn { padding: 0.45rem 0.55rem; min-width: 36px; justify-content: center; }
 
   /* Endpoint: icon-only, shorter label */
   #endpointLabel { display: none; }

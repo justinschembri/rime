@@ -89,28 +89,25 @@
           >
         </div>
 
+        <!-- Total chip is authored here; graded health tier chips are injected
+             by buildLegend() from HEALTH_TIERS so colours stay in sync. -->
         <div class="status-legend" id="statusLegend">
           <button class="legend-chip active" data-filter="all" id="legendTotal">
             <span class="legend-dot dot-total"></span>
             <span class="legend-count" id="countTotal">0</span>
             <span class="legend-label">nodes</span>
           </button>
-          <button class="legend-chip" data-filter="active">
-            <span class="legend-dot dot-active"></span>
-            <span class="legend-count" id="countActive">0</span>
-            <span class="legend-label">online</span>
-          </button>
-          <button class="legend-chip" data-filter="warning">
-            <span class="legend-dot dot-warning"></span>
-            <span class="legend-count" id="countWarning">0</span>
-            <span class="legend-label">lagging</span>
-          </button>
-          <button class="legend-chip" data-filter="down">
-            <span class="legend-dot dot-down"></span>
-            <span class="legend-count" id="countDown">0</span>
-            <span class="legend-label">offline</span>
-          </button>
         </div>
+
+        <!-- One-time, on-demand health scan -->
+        <button class="health-check-btn" id="healthCheckBtn" disabled
+                title="Run a one-time health scan of all nodes">
+          <span class="hc-spinner loading" aria-hidden="true"></span>
+          <svg class="hc-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M22 12h-4l-3 9L9 3l-3 9H2" />
+          </svg>
+          <span id="healthCheckLabel">Check health</span>
+        </button>
 
         <!-- FROST endpoint switcher -->
         <div class="endpoint-switcher" id="endpointSwitcher">

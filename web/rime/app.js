@@ -118,6 +118,9 @@ function initializeMap() {
 
 // Initialize event listeners
 function initializeEventListeners() {
+    // Build the graded health legend before wiring chip listeners below
+    buildLegend();
+
     // Search functionality
     const searchInput = document.getElementById('searchInput');
     searchInput.addEventListener('input', (e) => {
@@ -132,6 +135,12 @@ function initializeEventListeners() {
             setStatusFilter(state.activeStatusFilter === filter ? 'all' : filter);
         });
     });
+
+    // Manual health-check button
+    const healthCheckBtn = document.getElementById('healthCheckBtn');
+    if (healthCheckBtn) {
+        healthCheckBtn.addEventListener('click', runHealthCheck);
+    }
 
     // Endpoint switcher
     initializeEndpointSwitcher();
@@ -486,10 +495,11 @@ function resetAndReload() {
     document.getElementById('searchInput').value = '';
     document.querySelectorAll('.legend-chip').forEach(c => c.classList.remove('active'));
     document.querySelector('.legend-chip[data-filter="all"]')?.classList.add('active');
-    ['countTotal', 'countActive', 'countWarning', 'countDown'].forEach(id => {
+    ['countTotal', ...[...HEALTH_TIERS, NODATA_TIER].map(t => `count-${t.key}`)].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.textContent = '0';
     });
+    setHealthCheckButtonState('disabled');
 
     fetchThings();
 }
@@ -502,25 +512,24 @@ function updateStatus(message, type = '') {
     statusEl.appendChild(document.createTextNode(message));
 }
 
-// Status colour palette shared by markers + UI (tuned for the dark stage)
-const STATUS_COLORS = {
-    active: '#34d399',
-    warning: '#fbbf24',
-    down: '#fb7185',
-    selected: '#22d3ee',
-    unknown: '#6b7c93'
-};
+// Non-health UI colours (health tier colours come from HEALTH_TIER_MAP).
+const SELECTED_COLOR = '#22d3ee';
+const UNKNOWN_COLOR  = '#6b7c93';
 
+// Resolve any status key (health tier, 'selected', or 'unknown') to a colour.
 function getStatusColor(status) {
-    return STATUS_COLORS[status] || STATUS_COLORS.unknown;
+    if (status === 'selected') return SELECTED_COLOR;
+    if (!status || status === 'unknown') return UNKNOWN_COLOR;
+    return HEALTH_TIER_MAP[status]?.color || UNKNOWN_COLOR;
 }
 
 // Build a status-aware map marker icon
 function makePinIcon(status, isSelected) {
-    const color = isSelected ? STATUS_COLORS.selected : getStatusColor(status);
+    const color = isSelected ? SELECTED_COLOR : getStatusColor(status);
     const classes = ['rime-pin'];
     if (isSelected) classes.push('selected');
-    if (status === 'active' && !isSelected) classes.push('pulse');
+    // Only the freshest tier pulses (keeps the map calm once health is graded).
+    if (status === 'fresh' && !isSelected) classes.push('pulse');
     return L.divIcon({
         className: 'custom-marker',
         html: `<div class="${classes.join(' ')}" style="position:relative;background:${color};color:${color};"></div>`,
@@ -529,99 +538,37 @@ function makePinIcon(status, isSelected) {
     });
 }
 
-// Calculate thing health status asynchronously
-async function calculateThingHealthStatusAsync(thingId, datastreams, gen = state.fetchGeneration) {
-    if (state.fetchGeneration !== gen) return;
-    const thing = state.things[thingId];
-    if (!thing || !datastreams || datastreams.length === 0) {
-        if (thing) {
-            thing.healthStatus = 'active';
-            thing.timeSinceLastObservation = null;
-            updateThingStatusTags();
-        }
-        return;
-    }
-    
-    // Fetch last observations for all datastreams in parallel
-    const currentProtocol = window.location.protocol;
-    const observationPromises = datastreams.map(async (ds) => {
-        try {
-            const obsUrl = ds['Observations@iot.navigationLink'] + '?$top=1&$orderby=phenomenonTime%20desc';
-            const secureObsUrl = obsUrl.replace(/^http:/, currentProtocol);
-            const obsResponse = await frostFetch(secureObsUrl);
-            const obsData = await obsResponse.json();
-            
-            if (obsData.value && obsData.value.length > 0) {
-                return new Date(obsData.value[0].phenomenonTime);
-            }
-            return null;
-        } catch (error) {
-            console.warn(`Error fetching last observation for datastream ${ds['@iot.id']}:`, error);
-            return null;
-        }
-    });
-    
-    const observationTimes = await Promise.all(observationPromises);
-    if (state.fetchGeneration !== gen) return;
-    
-    // Find the most recent observation
-    const validTimes = observationTimes.filter(t => t !== null);
-    let mostRecentTime = null;
-    
-    if (validTimes.length > 0) {
-        mostRecentTime = new Date(Math.max(...validTimes.map(t => t.getTime())));
-    }
-    
-    if (mostRecentTime) {
-        const now = new Date();
-        const timeDiffMinutes = (now - mostRecentTime) / (1000 * 60);
-        thing.timeSinceLastObservation = timeDiffMinutes;
-        const healthInfo = calculateThingHealthStatus(timeDiffMinutes);
-        thing.healthStatus = healthInfo.status;
-        thing.healthLabel = healthInfo.label;
-    } else {
-        thing.timeSinceLastObservation = null;
-        thing.healthStatus = 'down';
-        thing.healthLabel = 'No data';
-    }
-
-    // Coalesce DOM updates: many health checks can complete within the same
-    // animation frame; scheduleStatusUpdate batches them into one flush.
-    scheduleStatusUpdate();
-}
-
-// Calculate thing health status based on time since last observation
+// Map "minutes since last observation" to a graded health tier.
 function calculateThingHealthStatus(timeSinceLastObservationMinutes) {
-    if (timeSinceLastObservationMinutes === null || timeSinceLastObservationMinutes === undefined) {
-        return { status: 'down', label: 'No data' }; // No observations
-    }
-    
-    if (timeSinceLastObservationMinutes < 60) {
-        return { status: 'active', label: '<60mins' };
-    } else if (timeSinceLastObservationMinutes < 120) {
-        return { status: 'warning', label: '<120mins' };
-    } else {
-        return { status: 'down', label: '>120mins' };
-    }
+    const tier = getHealthTier(timeSinceLastObservationMinutes);
+    return { status: tier.key, label: tier.label, color: tier.color };
 }
 
 
 // Format time since last observation
 function formatTimeSince(minutes) {
-    if (minutes === null || minutes === undefined) {
+    if (minutes === null || minutes === undefined || Number.isNaN(minutes)) {
         return 'Never';
     }
-    
+
     if (minutes < 60) {
         return `${Math.round(minutes)}m ago`;
     } else if (minutes < 1440) {
         const hours = Math.floor(minutes / 60);
         const mins = Math.round(minutes % 60);
         return `${hours}h ${mins}m ago`;
-    } else {
+    } else if (minutes < 43200) {
         const days = Math.floor(minutes / 1440);
         const hours = Math.floor((minutes % 1440) / 60);
         return `${days}d ${hours}h ago`;
+    } else if (minutes < 525600) {
+        const months = Math.floor(minutes / 43200);
+        const days = Math.floor((minutes % 43200) / 1440);
+        return `${months}mo ${days}d ago`;
+    } else {
+        const years = Math.floor(minutes / 525600);
+        const months = Math.floor((minutes % 525600) / 43200);
+        return `${years}y ${months}mo ago`;
     }
 }
 
@@ -654,11 +601,19 @@ function updateThingStatusTags() {
     }
 }
 
+// Apply a health tier's colour scheme to a pill-style element (roster tag or
+// inspector status tag).
+function applyTierStyle(el, status) {
+    const color = getStatusColor(status);
+    el.style.background = hexToRgba(color, 0.14);
+    el.style.borderColor = hexToRgba(color, 0.34);
+    el.style.color = lightenHex(color, 0.35);
+}
+
 // Update thing item with status tag
 function updateThingItemStatus(item, status, label, timeSince = null) {
-    // Reflect status on the item's accent border
-    item.classList.remove('status-active', 'status-warning', 'status-down');
-    item.classList.add(`status-${status}`);
+    // Reflect status on the item's accent border via a CSS custom property
+    item.style.setProperty('--status-color', getStatusColor(status));
     item.dataset.status = status;
 
     // Remove existing status tag
@@ -686,7 +641,8 @@ function updateThingItemStatus(item, status, label, timeSince = null) {
     
     // Add new status tag
     const statusTag = document.createElement('div');
-    statusTag.className = `thing-status-tag thing-status-${status}`;
+    statusTag.className = 'thing-status-tag';
+    applyTierStyle(statusTag, status);
     statusTag.textContent = label;
     if (timeSince !== null) {
         statusTag.title = `Last observation: ${formatTimeSince(timeSince)}`;
@@ -709,17 +665,19 @@ function updateMetadataSidebarStatus(status, label, timeSince = null) {
     // Add status section at the top
     const statusSection = document.createElement('div');
     statusSection.className = 'metadata-status-section';
-    const timeText = timeSince !== null ? `<div class="metadata-value" style="font-size: 0.875rem; color: var(--gray-600); margin-top: 0.5rem;">Last observation: ${formatTimeSince(timeSince)}</div>` : '';
+    const timeText = timeSince !== null ? `<div class="metadata-value" style="font-size: 0.8rem; color: var(--txt-dim); margin-top: 0.5rem;">Last observation: ${formatTimeSince(timeSince)}</div>` : '';
     statusSection.innerHTML = `
         <div class="metadata-section">
             <h3>Status</h3>
             <div class="metadata-item">
-                <div class="status-tag status-tag-${status}">${label}</div>
+                <div class="status-tag">${label}</div>
                 ${timeText}
             </div>
         </div>
     `;
-    
+    const tag = statusSection.querySelector('.status-tag');
+    if (tag) applyTierStyle(tag, status);
+
     content.insertBefore(statusSection, content.firstChild);
 }
 
@@ -751,14 +709,90 @@ function scheduleStatusUpdate() {
     });
 }
 
+// ── Manual health check ──────────────────────────────────────────────────
+// The graded health scan (fetchHealthData) is heavy on the FROST server, so it
+// runs only when the user presses the "Check health" button — never on load,
+// never per click, never on a timer.
+function setHealthCheckButtonState(stateName) {
+    const btn = document.getElementById('healthCheckBtn');
+    const label = document.getElementById('healthCheckLabel');
+    if (!btn || !label) return;
+
+    btn.classList.remove('checking', 'done');
+    switch (stateName) {
+        case 'disabled':                 // before nodes are loaded
+            btn.disabled = true;
+            label.textContent = 'Check health';
+            break;
+        case 'ready':                    // nodes loaded, scan not yet run
+            btn.disabled = false;
+            label.textContent = 'Check health';
+            break;
+        case 'checking':                 // scan in progress
+            btn.disabled = true;
+            btn.classList.add('checking');
+            label.textContent = 'Checking…';
+            break;
+        case 'done':                     // scan finished, allow manual rescan
+            btn.disabled = false;
+            btn.classList.add('done');
+            label.textContent = 'Recheck';
+            break;
+    }
+}
+
+async function runHealthCheck() {
+    const btn = document.getElementById('healthCheckBtn');
+    if (!btn || btn.disabled) return;
+    if (Object.keys(state.things).length === 0) return;
+
+    setHealthCheckButtonState('checking');
+    updateStatus('Scanning node health…', '');
+    try {
+        await fetchHealthData(state.fetchGeneration);
+        setHealthCheckButtonState('done');
+    } catch (err) {
+        console.error('Health check failed:', err);
+        updateStatus(`Health check failed: ${err.message}`, 'error');
+        setHealthCheckButtonState('ready');
+    }
+}
+
+// ── Status legend ──────────────────────────────────────────────────────────
+// Builds the graded health legend/filters from HEALTH_TIERS so colours and
+// labels stay in sync with config.js. The "all" (total) chip is authored in
+// HTML; tier chips are injected after it.
+function buildLegend() {
+    const legend = document.getElementById('statusLegend');
+    if (!legend) return;
+
+    // Remove any previously-built tier chips (keep the total chip).
+    legend.querySelectorAll('.legend-chip[data-tier]').forEach(el => el.remove());
+
+    [...HEALTH_TIERS, NODATA_TIER].forEach(tier => {
+        const chip = document.createElement('button');
+        chip.className = 'legend-chip';
+        chip.dataset.filter = tier.key;
+        chip.dataset.tier = tier.key;
+        chip.title = `${tier.label} since last observation`;
+        chip.innerHTML = `
+            <span class="legend-dot" style="background:${tier.color};box-shadow:0 0 9px ${tier.color};color:${tier.color}"></span>
+            <span class="legend-count" id="count-${tier.key}">0</span>
+            <span class="legend-label">${tier.label}</span>
+        `;
+        legend.appendChild(chip);
+    });
+}
+
 // ── Phase 1: place all markers on the map as fast as possible ────────────
 // Uses $expand=Locations only — the lightest query the server can answer.
-// After all markers are placed, fires Phase 2 (fetchHealthData) in the
-// background so the user can interact with the map immediately.
+// Health (Phase 2) is NOT triggered automatically: once markers are placed the
+// "Check health" button is enabled so the user can run the heavy scan on demand.
 async function fetchThings() {
     const gen = ++state.fetchGeneration;
     const stale = () => state.fetchGeneration !== gen;
 
+    setHealthCheckButtonState('disabled');
     updateStatus('Fetching nodes…', '');
 
     const allThings = [];
@@ -821,11 +855,12 @@ async function fetchThings() {
             });
         }
 
-        updateStatus(`Loaded ${allThings.length} nodes · checking health…`, 'success');
+        updateStatus(`Loaded ${allThings.length} nodes · health on demand`, 'success');
 
-        // Phase 2: fetch health data in background — not awaited so the user
-        // can interact with the map while health badges fill in progressively.
-        fetchHealthData(gen);
+        // Health is no longer scanned automatically — it is a heavy, server-
+        // taxing operation. The user triggers it explicitly via the
+        // "Check health" button (see runHealthCheck). Enable it now.
+        setHealthCheckButtonState('ready');
 
     } catch (error) {
         if (stale()) return;
@@ -834,10 +869,11 @@ async function fetchThings() {
     }
 }
 
-// ── Phase 2: fill in health badges without blocking the map ──────────────
-// Paginates through the same Things set but only expands Datastreams and
-// their latest Observation. Each page updates state and schedules a DOM
-// flush — markers turn from grey to their health colour page by page.
+// ── Phase 2 (on-demand): grade every node's health ───────────────────────
+// Invoked only by runHealthCheck (the "Check health" button). Paginates the
+// Things set expanding Datastreams + their latest Observation, then grades each
+// node into a health tier. Each page schedules a DOM flush so markers turn from
+// grey to their tier colour page by page.
 async function fetchHealthData(gen) {
     const stale = () => state.fetchGeneration !== gen;
     let nextUrl = `${state.frostRoot}/Things?$expand=Datastreams($expand=Observations($top=1;$orderby=phenomenonTime%20desc))`;
@@ -861,13 +897,14 @@ async function fetchHealthData(gen) {
                 const datastreams = thing.Datastreams || [];
                 stored.datastreams = datastreams;
 
+                // phenomenonTime may be an instant or an interval (start/end);
+                // parsePhenomenonTime returns the most-recent edge or null.
                 const times = datastreams
-                    .map(ds => ds.Observations?.[0]?.phenomenonTime)
-                    .filter(Boolean)
-                    .map(t => new Date(t));
+                    .map(ds => parsePhenomenonTime(ds.Observations?.[0]?.phenomenonTime))
+                    .filter(Boolean);
 
                 if (times.length > 0) {
-                    const mostRecent = new Date(Math.max(...times.map(t => t.getTime())));
+                    const mostRecent = Math.max(...times.map(t => t.getTime()));
                     const mins   = (Date.now() - mostRecent) / 60000;
                     const health = calculateThingHealthStatus(mins);
                     stored.timeSinceLastObservation = mins;
@@ -875,8 +912,8 @@ async function fetchHealthData(gen) {
                     stored.healthLabel  = health.label;
                 } else {
                     stored.timeSinceLastObservation = null;
-                    stored.healthStatus = 'down';
-                    stored.healthLabel  = 'No data';
+                    stored.healthStatus = NODATA_TIER.key;
+                    stored.healthLabel  = NODATA_TIER.label;
                 }
             }
 
@@ -983,29 +1020,43 @@ function createPopupContent(thing) {
     return content;
 }
 
-// Load datastreams for a thing
+// Load datastreams (with their latest observation) for a thing.
+//
+// Two optimisations over the previous implementation:
+//   (2) Cache: if a prior health check already inlined Datastreams+Observations
+//       on this thing, render straight from cache — zero network calls.
+//   (3) Single expand: otherwise fetch datastreams AND their latest observation
+//       in ONE request, instead of 1 list call + N per-datastream observation
+//       calls (which previously also ran twice — see the duplicate-request bug).
 async function loadDatastreamsForThing(thingId, gen = state.fetchGeneration) {
     if (state.fetchGeneration !== gen) return;
     const thing = state.things[thingId];
     if (!thing) return;
-    
+
+    // (2) Serve from cache when datastreams already carry inline Observations.
+    const cached = thing.datastreams;
+    if (Array.isArray(cached) && cached.length > 0 && cached.some(ds => ds.Observations)) {
+        updateThingMetadataDatastreams(thingId, cached);
+        return;
+    }
+
     try {
-        const response = await frostFetch(`${state.frostRoot}/Things(${thingId})/Datastreams`);
+        // (3) One round-trip for datastreams + their single latest observation.
+        const url = `${state.frostRoot}/Things(${thingId})?$expand=Datastreams($expand=Observations($top=1;$orderby=phenomenonTime%20desc))`;
+        const response = await frostFetch(url);
         if (state.fetchGeneration !== gen) return;
-        
+
         if (!response.ok) {
             throw new Error(`HTTP error! Status: ${response.status}`);
         }
-        
-        const datastreamData = await response.json();
+
+        const data = await response.json();
         if (state.fetchGeneration !== gen) return;
-        
-        // Calculate time since last observation for this thing (async, don't block)
-        calculateThingHealthStatusAsync(thingId, datastreamData.value, gen);
-        
-        // Update metadata sidebar if open
-        updateThingMetadataDatastreams(thingId, datastreamData.value);
-        
+
+        const datastreams = data.Datastreams || [];
+        thing.datastreams = datastreams; // cache for subsequent opens
+        updateThingMetadataDatastreams(thingId, datastreams);
+
     } catch (error) {
         if (state.fetchGeneration !== gen) return;
         console.error(`Error fetching datastreams for thing ${thingId}:`, error);
@@ -1179,16 +1230,17 @@ function applyFilters() {
 
     document.querySelectorAll('.thing-item').forEach(item => {
         const name = item.dataset.thingName.toLowerCase();
-        const status = item.dataset.status || 'active';
+        const status = item.dataset.status || 'unknown';
         const matchesSearch = name.includes(query);
         const matchesStatus = statusFilter === 'all' || status === statusFilter;
         item.style.display = matchesSearch && matchesStatus ? '' : 'none';
     });
 }
 
-// Update the sidebar status counters
+// Update the sidebar status counters (graded by health tier)
 function updateStatusCounts() {
-    const counts = { total: 0, active: 0, warning: 0, down: 0 };
+    const counts = { total: 0 };
+    [...HEALTH_TIERS, NODATA_TIER].forEach(t => { counts[t.key] = 0; });
 
     Object.values(state.things).forEach(thing => {
         counts.total += 1;
@@ -1204,15 +1256,13 @@ function updateStatusCounts() {
     };
 
     set('countTotal', counts.total);
-    set('countActive', counts.active);
-    set('countWarning', counts.warning);
-    set('countDown', counts.down);
+    [...HEALTH_TIERS, NODATA_TIER].forEach(t => set(`count-${t.key}`, counts[t.key]));
 
-    // Mobile roster badge: "N nodes · X online"
+    // Mobile roster badge: "N nodes · X fresh"
     const mobileBadge = document.getElementById('rosterMobileCount');
     if (mobileBadge) {
         const parts = [`${counts.total}`];
-        if (counts.active > 0) parts.push(`${counts.active} online`);
+        if (counts.fresh > 0) parts.push(`${counts.fresh} fresh`);
         mobileBadge.textContent = parts.join(' · ');
     }
 }
@@ -1746,58 +1796,56 @@ function hideThingMetadata() {
     }
 }
 
-// Update datastreams in metadata sidebar
+// Render datastreams in the inspector sidebar.
+// Reads the latest reading straight from each datastream's inlined Observation
+// (provided by loadDatastreamsForThing's single expand query or the health
+// cache) — no per-datastream network calls.
 function updateThingMetadataDatastreams(thingId, datastreams) {
     const datastreamsDiv = document.getElementById('thingMetadataDatastreams');
     if (!datastreamsDiv) return;
-    
-    if (datastreams.length === 0) {
-        datastreamsDiv.innerHTML = '<div style="color: var(--gray-500); font-size: 0.875rem;">No datastreams available</div>';
+
+    // Track for the chart panel's next/prev datastream navigation.
+    state.currentThingDatastreams = datastreams || [];
+
+    if (!datastreams || datastreams.length === 0) {
+        datastreamsDiv.innerHTML = '<div style="color: var(--txt-mute); font-size: 0.85rem;">No datastreams available</div>';
         return;
     }
-    
+
     datastreamsDiv.innerHTML = '';
-    
-    datastreams.forEach(async (ds) => {
+    const fragment = document.createDocumentFragment();
+
+    datastreams.forEach((ds) => {
         const unitSymbol = ds.unitOfMeasurement?.symbol || '';
-        
-        try {
-            const currentProtocol = window.location.protocol;
-            const obsUrl = ds['Observations@iot.navigationLink'] + '?$top=1&$orderby=phenomenonTime%20desc';
-            const secureObsUrl = obsUrl.replace(/^http:/, currentProtocol);
-            const obsResponse = await frostFetch(secureObsUrl);
-            const obsData = await obsResponse.json();
-            const latestValue = obsData.value?.[0]?.result || '-';
-            
-            const displayName = formatDatastreamName(ds.name);
-            const latestText = `${latestValue}${unitSymbol ? ' ' + unitSymbol : ''}`;
-            const dsItem = document.createElement('div');
-            dsItem.className = 'metadata-datastream-item';
-            dsItem.innerHTML = `
-                <div class="metadata-datastream-name">${displayName}</div>
-                <div class="metadata-datastream-meta">
-                    <span>Latest reading</span>
-                    <span class="ds-latest">${latestText}</span>
-                </div>
-            `;
-            dsItem.addEventListener('click', () => {
-                selectDatastream(ds['@iot.id'], displayName);
-            });
-            datastreamsDiv.appendChild(dsItem);
-        } catch (error) {
-            const displayName = formatDatastreamName(ds.name);
-            const dsItem = document.createElement('div');
-            dsItem.className = 'metadata-datastream-item';
-            dsItem.innerHTML = `
-                <div class="metadata-datastream-name">${displayName}</div>
-                <div class="metadata-datastream-meta" style="color: #ef4444;">Error loading</div>
-            `;
-            dsItem.addEventListener('click', () => {
-                selectDatastream(ds['@iot.id'], displayName);
-            });
-            datastreamsDiv.appendChild(dsItem);
-        }
+        const obs = Array.isArray(ds.Observations) ? ds.Observations[0] : null;
+        const hasValue = obs && obs.result !== undefined && obs.result !== null;
+        const latestValue = hasValue ? obs.result : '-';
+        const latestText = `${latestValue}${hasValue && unitSymbol ? ' ' + unitSymbol : ''}`;
+
+        // Relative time of the latest observation (handles interval times).
+        const obsDate = obs ? parsePhenomenonTime(obs.phenomenonTime) : null;
+        const metaLeft = obsDate
+            ? formatTimeSince((Date.now() - obsDate.getTime()) / 60000)
+            : 'Latest reading';
+
+        const displayName = formatDatastreamName(ds.name);
+        const dsItem = document.createElement('div');
+        dsItem.className = 'metadata-datastream-item';
+        dsItem.innerHTML = `
+            <div class="metadata-datastream-name">${displayName}</div>
+            <div class="metadata-datastream-meta">
+                <span>${metaLeft}</span>
+                <span class="ds-latest">${latestText}</span>
+            </div>
+        `;
+        dsItem.addEventListener('click', () => {
+            selectDatastream(ds['@iot.id'], displayName);
+        });
+        fragment.appendChild(dsItem);
     });
+
+    datastreamsDiv.appendChild(fragment);
+    updateDatastreamNavigation();
 }
 
 // Update datastream navigation button visibility
