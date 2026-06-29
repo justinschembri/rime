@@ -14,7 +14,9 @@ function initializeMap() {
         zoomAnimationThreshold: 4, // Animate zoom if difference is less than 4 levels
         fadeAnimation: true,
         markerZoomAnimation: true,
-        zoomControl: true,
+        // Disable the built-in top-left zoom control (the roster sits over it);
+        // custom +/- buttons live in the right-side .map-controls stack instead.
+        zoomControl: false,
         doubleClickZoom: true,
         scrollWheelZoom: true
     }).setView([52.00482, 4.37034], 13);
@@ -162,6 +164,11 @@ function initializeEventListeners() {
         });
     }
 
+    // Roster Things | Locations view toggle
+    document.querySelectorAll('.roster-toggle-btn').forEach(btn => {
+        btn.addEventListener('click', () => setRosterView(btn.dataset.view));
+    });
+
     // Chart panel toggle - only on header title area, not buttons
     const chartPanelTitle = document.querySelector('.chart-panel-title > div:not(.chart-panel-nav)');
     if (chartPanelTitle) {
@@ -191,6 +198,12 @@ function initializeEventListeners() {
             setChartLimit(limit);
         });
     });
+
+    // Zoom in / out buttons (custom replacements for Leaflet's built-in control)
+    const zoomInBtn = document.getElementById('zoomInBtn');
+    if (zoomInBtn) zoomInBtn.addEventListener('click', () => state.map && state.map.zoomIn());
+    const zoomOutBtn = document.getElementById('zoomOutBtn');
+    if (zoomOutBtn) zoomOutBtn.addEventListener('click', () => state.map && state.map.zoomOut());
 
     // Zoom extents button
     const zoomExtentsBtn = document.getElementById('zoomExtentsBtn');
@@ -479,6 +492,11 @@ function resetAndReload() {
 
     // Reset UI
     document.getElementById('thingsList').innerHTML = '';
+    const locationsListEl = document.getElementById('locationsList');
+    if (locationsListEl) locationsListEl.innerHTML = '';
+    setRosterView('things');
+    const dsPills = document.getElementById('chartDatastreamPills');
+    if (dsPills) { dsPills.hidden = true; dsPills.innerHTML = ''; }
     document.getElementById('chartPanelContent').innerHTML = `
         <div class="no-data-message">
             <div class="no-data-icon" aria-hidden="true">
@@ -487,10 +505,10 @@ function resetAndReload() {
                 </svg>
             </div>
             <h3>No signal locked</h3>
-            <p>Select a datastream from a node to trace its time series</p>
+            <p>Select a datastream from a Thing to trace its time series</p>
         </div>`;
     document.getElementById('chartTitle').textContent = 'No signal locked';
-    document.getElementById('chartSubtitle').textContent = 'Select a datastream from a node to trace it';
+    document.getElementById('chartSubtitle').textContent = 'Select a datastream from a Thing to trace it';
     document.getElementById('chartNextDatastreamBtn').style.display = 'none';
     document.getElementById('searchInput').value = '';
     document.querySelectorAll('.legend-chip').forEach(c => c.classList.remove('active'));
@@ -510,6 +528,38 @@ function updateStatus(message, type = '') {
     statusEl.className = `status-message ${type}`;
     statusEl.innerHTML = '<span class="status-dot"></span>';
     statusEl.appendChild(document.createTextNode(message));
+}
+
+// ── Prominent initial-load overlay ─────────────────────────────────────────
+// The bottom-left status pill is easy to miss; during the first node fetch we
+// show a centered card so a multi-second load never reads as a hang.
+let _loadingHideTimer = null;
+
+function showLoadingOverlay(title, subtitle) {
+    const overlay = document.getElementById('loadingOverlay');
+    if (!overlay) return;
+    if (_loadingHideTimer) { clearTimeout(_loadingHideTimer); _loadingHideTimer = null; }
+    if (title) document.getElementById('loadingTitle').textContent = title;
+    if (subtitle !== undefined) document.getElementById('loadingSubtitle').textContent = subtitle;
+    overlay.classList.remove('is-leaving');
+    overlay.hidden = false;
+}
+
+function updateLoadingOverlay(subtitle) {
+    const sub = document.getElementById('loadingSubtitle');
+    if (sub && subtitle !== undefined) sub.textContent = subtitle;
+}
+
+function hideLoadingOverlay() {
+    const overlay = document.getElementById('loadingOverlay');
+    if (!overlay || overlay.hidden) return;
+    // Fade out, then remove from layout once the transition finishes.
+    overlay.classList.add('is-leaving');
+    _loadingHideTimer = setTimeout(() => {
+        overlay.hidden = true;
+        overlay.classList.remove('is-leaving');
+        _loadingHideTimer = null;
+    }, 460);
 }
 
 // Non-health UI colours (health tier colours come from HEALTH_TIER_MAP).
@@ -747,7 +797,7 @@ async function runHealthCheck() {
     if (Object.keys(state.things).length === 0) return;
 
     setHealthCheckButtonState('checking');
-    updateStatus('Scanning node health…', '');
+    updateStatus('Scanning Thing health…', '');
     try {
         await fetchHealthData(state.fetchGeneration);
         setHealthCheckButtonState('done');
@@ -793,10 +843,13 @@ async function fetchThings() {
     const stale = () => state.fetchGeneration !== gen;
 
     setHealthCheckButtonState('disabled');
-    updateStatus('Fetching nodes…', '');
+    updateStatus('Fetching Things…', '');
+    showLoadingOverlay('Fetching Things…', 'Contacting the SensorThings Server');
 
     const allThings = [];
-    let nextUrl = `${state.frostRoot}/Things?$expand=Locations`;
+    // Large $top collapses dozens of sequential pages into one or two requests.
+    // The $top is carried forward by @iot.nextLink, so we only set it here.
+    let nextUrl = `${state.frostRoot}/Things?$expand=Locations&$top=${THINGS_PAGE_SIZE}`;
 
     try {
         while (nextUrl) {
@@ -837,7 +890,11 @@ async function fetchThings() {
                     if (li) fragment.appendChild(li);
                 }
                 thingsList.appendChild(fragment);
-                updateStatus(`Loading… ${allThings.length} nodes`, '');
+                updateStatus(`Loading… ${allThings.length} Things`, '');
+                updateLoadingOverlay(`${allThings.length} Things placed…`);
+                // Keep the top-bar total in sync as Things stream in, even
+                // before any health check has run.
+                updateStatusCounts();
             }
 
             nextUrl = data['@iot.nextLink'] || null;
@@ -846,7 +903,10 @@ async function fetchThings() {
 
         if (stale()) return;
 
-        if (allThings.length === 0) throw new Error('No Things found at this endpoint');
+        if (allThings.length === 0) {
+            hideLoadingOverlay();
+            throw new Error('No Things found at this endpoint');
+        }
 
         if (state.markerCluster.getLayers().length > 0) {
             state.markerCluster.refreshClusters();
@@ -855,7 +915,9 @@ async function fetchThings() {
             });
         }
 
-        updateStatus(`Loaded ${allThings.length} nodes · health on demand`, 'success');
+        updateStatus(`Loaded ${allThings.length} Things · health on demand`, 'success');
+        updateStatusCounts();
+        hideLoadingOverlay();
 
         // Health is no longer scanned automatically — it is a heavy, server-
         // taxing operation. The user triggers it explicitly via the
@@ -864,72 +926,137 @@ async function fetchThings() {
 
     } catch (error) {
         if (stale()) return;
+        hideLoadingOverlay();
         console.error('Error fetching things:', error);
         updateStatus(`Error: ${error.message}`, 'error');
     }
 }
 
 // ── Phase 2 (on-demand): grade every node's health ───────────────────────
-// Invoked only by runHealthCheck (the "Check health" button). Paginates the
-// Things set expanding Datastreams + their latest Observation, then grades each
-// node into a health tier. Each page schedules a DOM flush so markers turn from
-// grey to their tier colour page by page.
-async function fetchHealthData(gen) {
-    const stale = () => state.fetchGeneration !== gen;
-    let nextUrl = `${state.frostRoot}/Things?$expand=Datastreams($expand=Observations($top=1;$orderby=phenomenonTime%20desc))`;
+// Invoked only by runHealthCheck. Fetches a cheap count, then requests health
+// pages in parallel via $skip (fallback: sequential @iot.nextLink).
 
-    try {
-        while (nextUrl) {
-            if (stale()) return;
+const HEALTH_EXPAND =
+    'Datastreams($expand=Observations($top=1;$orderby=phenomenonTime%20desc))';
 
-            const response = await frostFetch(nextUrl);
-            if (stale()) return;
-            if (!response.ok) return; // silently stop; Phase 1 already succeeded
+function buildHealthPageUrl(skip) {
+    return `${state.frostRoot}/Things?$expand=${HEALTH_EXPAND}` +
+        `&$top=${HEALTH_PAGE_SIZE}&$skip=${skip}&$orderby=%40iot.id%20asc`;
+}
 
-            const data = await response.json();
-            if (stale()) return;
+// Apply health grades from one paginated Things response.
+function processHealthPageThings(things, gen) {
+    if (state.fetchGeneration !== gen) return false;
 
-            for (const thing of (data.value || [])) {
-                if (stale()) return;
-                const stored = state.things[thing['@iot.id']];
-                if (!stored) continue;
+    for (const thing of (things || [])) {
+        if (state.fetchGeneration !== gen) return false;
+        const stored = state.things[thing['@iot.id']];
+        if (!stored) continue;
 
-                const datastreams = thing.Datastreams || [];
-                stored.datastreams = datastreams;
+        const datastreams = thing.Datastreams || [];
+        stored.datastreams = datastreams;
 
-                // phenomenonTime may be an instant or an interval (start/end);
-                // parsePhenomenonTime returns the most-recent edge or null.
-                const times = datastreams
-                    .map(ds => parsePhenomenonTime(ds.Observations?.[0]?.phenomenonTime))
-                    .filter(Boolean);
+        const times = datastreams
+            .map(ds => parsePhenomenonTime(ds.Observations?.[0]?.phenomenonTime))
+            .filter(Boolean);
 
-                if (times.length > 0) {
-                    const mostRecent = Math.max(...times.map(t => t.getTime()));
-                    const mins   = (Date.now() - mostRecent) / 60000;
-                    const health = calculateThingHealthStatus(mins);
-                    stored.timeSinceLastObservation = mins;
-                    stored.healthStatus = health.status;
-                    stored.healthLabel  = health.label;
-                } else {
-                    stored.timeSinceLastObservation = null;
-                    stored.healthStatus = NODATA_TIER.key;
-                    stored.healthLabel  = NODATA_TIER.label;
-                }
-            }
+        if (times.length > 0) {
+            const mostRecent = Math.max(...times.map(t => t.getTime()));
+            const mins   = (Date.now() - mostRecent) / 60000;
+            const health = calculateThingHealthStatus(mins);
+            stored.timeSinceLastObservation = mins;
+            stored.healthStatus = health.status;
+            stored.healthLabel  = health.label;
+        } else {
+            stored.timeSinceLastObservation = null;
+            stored.healthStatus = NODATA_TIER.key;
+            stored.healthLabel  = NODATA_TIER.label;
+        }
+    }
+    return true;
+}
 
-            // Coalesce DOM updates for this page into one animation-frame flush
+async function fetchThingsCount(gen) {
+    const response = await frostFetch(`${state.frostRoot}/Things?$count=true&$top=0`);
+    if (state.fetchGeneration !== gen) return null;
+    if (!response.ok) return null;
+    const data = await response.json();
+    if (state.fetchGeneration !== gen) return null;
+    const count = data['@iot.count'];
+    return typeof count === 'number' ? count : null;
+}
+
+async function fetchHealthDataSequential(gen) {
+    let nextUrl = buildHealthPageUrl(0);
+
+    while (nextUrl) {
+        if (state.fetchGeneration !== gen) return;
+
+        const response = await frostFetch(nextUrl);
+        if (state.fetchGeneration !== gen) return;
+        if (!response.ok) return;
+
+        const data = await response.json();
+        if (state.fetchGeneration !== gen) return;
+
+        if (processHealthPageThings(data.value, gen)) {
             scheduleStatusUpdate();
-
-            nextUrl = data['@iot.nextLink'] || null;
-            if (nextUrl) nextUrl = nextUrl.replace(/^http:/, window.location.protocol);
         }
 
-        if (!stale()) {
-            updateStatus(`${Object.keys(state.things).length} nodes · health ready`, 'success');
+        nextUrl = data['@iot.nextLink'] || null;
+        if (nextUrl) nextUrl = nextUrl.replace(/^http:/, window.location.protocol);
+    }
+}
+
+async function fetchHealthDataParallel(gen, total) {
+    const pageCount = Math.ceil(total / HEALTH_PAGE_SIZE);
+    const skips = Array.from({ length: pageCount }, (_, i) => i * HEALTH_PAGE_SIZE);
+    let completed = 0;
+
+    const taskFns = skips.map(skip => async () => {
+        if (state.fetchGeneration !== gen) return;
+
+        const response = await frostFetch(buildHealthPageUrl(skip));
+        if (state.fetchGeneration !== gen) return;
+        if (!response.ok) {
+            throw new Error(`Health page failed (skip=${skip}): HTTP ${response.status}`);
         }
 
+        const data = await response.json();
+        if (state.fetchGeneration !== gen) return;
+
+        if (processHealthPageThings(data.value, gen)) {
+            completed += 1;
+            updateStatus(`Scanning Thing health… ${completed}/${pageCount}`, '');
+            scheduleStatusUpdate();
+        }
+    });
+
+    await runConcurrent(taskFns, HEALTH_PARALLEL_WORKERS);
+}
+
+async function fetchHealthData(gen) {
+    try {
+        const total = await fetchThingsCount(gen);
+        if (state.fetchGeneration !== gen) return;
+
+        if (total !== null) {
+            if (total > 0) {
+                await fetchHealthDataParallel(gen, total);
+            }
+        } else {
+            // Count unavailable on this server — fall back to nextLink paging.
+            await fetchHealthDataSequential(gen);
+        }
+
+        if (state.fetchGeneration === gen) {
+            updateStatus(`${Object.keys(state.things).length} Things · health ready`, 'success');
+        }
     } catch (err) {
-        if (!stale()) console.error('Error fetching health data:', err);
+        if (state.fetchGeneration === gen) {
+            console.error('Error fetching health data:', err);
+            throw err;
+        }
     }
 }
 
@@ -1235,6 +1362,96 @@ function applyFilters() {
         const matchesStatus = statusFilter === 'all' || status === statusFilter;
         item.style.display = matchesSearch && matchesStatus ? '' : 'none';
     });
+
+    // Locations list: filter by name only (status grading doesn't apply)
+    document.querySelectorAll('.location-item').forEach(item => {
+        const name = (item.dataset.locationName || '').toLowerCase();
+        item.style.display = name.includes(query) ? '' : 'none';
+    });
+}
+
+// Switch the roster between the Things list and the derived Locations list.
+function setRosterView(view) {
+    if (view !== 'things' && view !== 'locations') return;
+    state.rosterView = view;
+
+    document.querySelectorAll('.roster-toggle-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.view === view);
+    });
+
+    const thingsList = document.getElementById('thingsList');
+    const locationsList = document.getElementById('locationsList');
+
+    if (view === 'locations') {
+        buildLocationsList();          // rebuild from current Things
+        if (thingsList) thingsList.hidden = true;
+        if (locationsList) locationsList.hidden = false;
+    } else {
+        if (locationsList) locationsList.hidden = true;
+        if (thingsList) thingsList.hidden = false;
+    }
+
+    applyFilters();
+}
+
+// Derive a unique list of locations from the loaded Things and render it.
+// Things sharing the same coordinates are grouped into one location entry.
+function buildLocationsList() {
+    const locationsList = document.getElementById('locationsList');
+    if (!locationsList) return;
+
+    const groups = new Map();
+    Object.values(state.things).forEach(thing => {
+        if (!thing.coordinates) return;
+        const [lat, lng] = thing.coordinates;
+        const key = `${lat.toFixed(6)},${lng.toFixed(6)}`;
+        let group = groups.get(key);
+        if (!group) {
+            group = {
+                key,
+                coordinates: thing.coordinates,
+                description: thing.locationDescription || '',
+                thingNames: [],
+            };
+            groups.set(key, group);
+        }
+        group.thingNames.push(thing.name);
+        if (!group.description && thing.locationDescription) {
+            group.description = thing.locationDescription;
+        }
+    });
+
+    const locations = [...groups.values()].sort((a, b) =>
+        (a.description || a.key).localeCompare(b.description || b.key)
+    );
+
+    locationsList.innerHTML = '';
+    const fragment = document.createDocumentFragment();
+
+    locations.forEach(loc => {
+        const [lat, lng] = loc.coordinates;
+        const label = loc.description || `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+        const countText = loc.thingNames.length === 1
+            ? loc.thingNames[0]
+            : `${loc.thingNames.length} Things`;
+
+        const li = document.createElement('li');
+        li.className = 'thing-item location-item';
+        li.dataset.locationName = label;
+        li.innerHTML = `
+            <div class="thing-name"><span class="thing-name-text">${label}</span></div>
+            <div class="thing-description">${countText} · ${lat.toFixed(4)}, ${lng.toFixed(4)}</div>
+        `;
+        li.addEventListener('click', () => {
+            state.map.setView(loc.coordinates, 16, {
+                animate: true, duration: 0.8, easeLinearity: 0.25
+            });
+            mobileCollapseRoster();
+        });
+        fragment.appendChild(li);
+    });
+
+    locationsList.appendChild(fragment);
 }
 
 // Update the sidebar status counters (graded by health tier)
@@ -1258,7 +1475,7 @@ function updateStatusCounts() {
     set('countTotal', counts.total);
     [...HEALTH_TIERS, NODATA_TIER].forEach(t => set(`count-${t.key}`, counts[t.key]));
 
-    // Mobile roster badge: "N nodes · X fresh"
+    // Mobile roster badge: "N Things · X fresh"
     const mobileBadge = document.getElementById('rosterMobileCount');
     if (mobileBadge) {
         const parts = [`${counts.total}`];
@@ -1301,9 +1518,52 @@ async function selectDatastream(datastreamId, datastreamName) {
     
     // Update navigation arrows visibility
     updateDatastreamNavigation();
-    
+
+    // Render quick-switch pills for every datastream on this Thing
+    renderDatastreamPills(datastreamId);
+
     // Load chart data
     await loadChartData(datastreamId);
+}
+
+// Render a pill button for each datastream of the current Thing so the user can
+// jump straight to any series (complements the sequential Next button).
+function renderDatastreamPills(activeId) {
+    const container = document.getElementById('chartDatastreamPills');
+    if (!container) return;
+
+    const datastreams = state.currentThingDatastreams || [];
+
+    // Nothing useful to switch between with 0 or 1 datastream.
+    if (datastreams.length < 2) {
+        container.hidden = true;
+        container.innerHTML = '';
+        return;
+    }
+
+    container.innerHTML = '';
+    const fragment = document.createDocumentFragment();
+
+    datastreams.forEach(ds => {
+        const id = ds['@iot.id'];
+        const displayName = formatDatastreamName(ds.name);
+        const pill = document.createElement('button');
+        pill.type = 'button';
+        pill.className = 'chart-ds-pill' + (id === activeId ? ' active' : '');
+        pill.dataset.datastreamId = id;
+        pill.textContent = displayName;
+        pill.title = displayName;
+        pill.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (id !== state.currentDatastream) {
+                selectDatastream(id, displayName);
+            }
+        });
+        fragment.appendChild(pill);
+    });
+
+    container.appendChild(fragment);
+    container.hidden = false;
 }
 
 // Load chart data
