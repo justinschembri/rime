@@ -358,6 +358,20 @@ function initializeEndpointSwitcher() {
 
 // Clear all sensor state and re-fetch from the current state.frostRoot
 function resetAndReload() {
+    // Cancel any in-flight viewport health refresh
+    if (state.healthRefreshTimer) {
+        clearInterval(state.healthRefreshTimer);
+        state.healthRefreshTimer = null;
+    }
+    if (state._moveendHandler) {
+        state.map.off('moveend', state._moveendHandler);
+        state._moveendHandler = null;
+    }
+    if (_moveendDebounceTimer) {
+        clearTimeout(_moveendDebounceTimer);
+        _moveendDebounceTimer = null;
+    }
+
     // Close any open panels
     hideThingMetadata();
     const chartPanel = document.getElementById('chartPanel');
@@ -448,12 +462,15 @@ function makePinIcon(status, isSelected) {
 }
 
 // Calculate thing health status asynchronously
-async function calculateThingHealthStatusAsync(thingId, datastreams) {
+async function calculateThingHealthStatusAsync(thingId, datastreams, gen = state.fetchGeneration) {
+    if (state.fetchGeneration !== gen) return;
     const thing = state.things[thingId];
     if (!thing || !datastreams || datastreams.length === 0) {
-        thing.healthStatus = 'active';
-        thing.timeSinceLastObservation = null;
-        updateThingStatusTags();
+        if (thing) {
+            thing.healthStatus = 'active';
+            thing.timeSinceLastObservation = null;
+            updateThingStatusTags();
+        }
         return;
     }
     
@@ -477,6 +494,7 @@ async function calculateThingHealthStatusAsync(thingId, datastreams) {
     });
     
     const observationTimes = await Promise.all(observationPromises);
+    if (state.fetchGeneration !== gen) return;
     
     // Find the most recent observation
     const validTimes = observationTimes.filter(t => t !== null);
@@ -486,7 +504,6 @@ async function calculateThingHealthStatusAsync(thingId, datastreams) {
         mostRecentTime = new Date(Math.max(...validTimes.map(t => t.getTime())));
     }
     
-    // Calculate time since last observation
     if (mostRecentTime) {
         const now = new Date();
         const timeDiffMinutes = (now - mostRecentTime) / (1000 * 60);
@@ -495,14 +512,14 @@ async function calculateThingHealthStatusAsync(thingId, datastreams) {
         thing.healthStatus = healthInfo.status;
         thing.healthLabel = healthInfo.label;
     } else {
-        // No observations found
         thing.timeSinceLastObservation = null;
         thing.healthStatus = 'down';
         thing.healthLabel = 'No data';
     }
-    
-    // Update status tags
-    updateThingStatusTags();
+
+    // Coalesce DOM updates: many health checks can complete within the same
+    // animation frame; scheduleStatusUpdate batches them into one flush.
+    scheduleStatusUpdate();
 }
 
 // Calculate thing health status based on time since last observation
@@ -519,6 +536,131 @@ function calculateThingHealthStatus(timeSinceLastObservationMinutes) {
         return { status: 'down', label: '>120mins' };
     }
 }
+
+// ── Viewport-aware health refresh (Option B) ─────────────────────────────
+//
+// Health status is initially computed synchronously from inline $expand data.
+// These functions keep it current by re-fetching latest observations only for
+// Things currently visible in the map viewport, on a 5-minute timer and also
+// whenever the user pans to a new area.
+
+const HEALTH_REFRESH_INTERVAL_MS  = 5 * 60 * 1000; // 5 minutes
+const HEALTH_REFRESH_MOVEEND_MAX   = 150;            // skip pan-refresh if > N nodes visible
+const HEALTH_REFRESH_MOVEEND_DELAY = 1500;           // ms to wait after pan stops
+
+let _moveendDebounceTimer = null;
+
+// Return IDs of Things whose markers lie within the current map viewport.
+function getVisibleThingIds() {
+    const bounds = state.map.getBounds();
+    return Object.keys(state.things).filter(id => {
+        const coords = state.things[id]?.coordinates;
+        return coords && bounds.contains(L.latLng(coords[0], coords[1]));
+    });
+}
+
+// Re-fetch the latest observation for every datastream of a single Thing and
+// update its health status.  Uses the Observations navigation links that were
+// stored during the initial $expand load.
+async function refreshThingHealth(thingId) {
+    const thing = state.things[thingId];
+    if (!thing) return;
+
+    const datastreams = thing.datastreams || [];
+    if (datastreams.length === 0) return;
+
+    const currentProtocol = window.location.protocol;
+    const times = await Promise.all(datastreams.map(async ds => {
+        try {
+            const navLink = ds['Observations@iot.navigationLink'];
+            if (!navLink) return null;
+            const url = navLink.replace(/^http:/, currentProtocol) +
+                        '?$top=1&$orderby=phenomenonTime%20desc';
+            const res  = await frostFetch(url);
+            const data = await res.json();
+            const t = data.value?.[0]?.phenomenonTime;
+            return t ? new Date(t) : null;
+        } catch {
+            return null;
+        }
+    }));
+
+    const valid = times.filter(Boolean);
+    const mostRecent = valid.length
+        ? new Date(Math.max(...valid.map(t => t.getTime())))
+        : null;
+
+    if (mostRecent) {
+        const mins   = (Date.now() - mostRecent) / 60000;
+        const health = calculateThingHealthStatus(mins);
+        thing.timeSinceLastObservation = mins;
+        thing.healthStatus  = health.status;
+        thing.healthLabel   = health.label;
+    } else {
+        thing.timeSinceLastObservation = null;
+        thing.healthStatus  = 'down';
+        thing.healthLabel   = 'No data';
+    }
+    scheduleStatusUpdate();
+}
+
+// Refresh health for a given list of Thing IDs with bounded concurrency.
+async function refreshHealthForIds(ids, gen) {
+    await runConcurrent(
+        ids.map(id => () => {
+            if (state.fetchGeneration !== gen) return Promise.resolve();
+            return refreshThingHealth(id);
+        }),
+        5
+    );
+}
+
+// Kick off a refresh for all Things in the current viewport.
+function refreshViewportHealth(gen) {
+    if (state.fetchGeneration !== gen) return;
+    refreshHealthForIds(getVisibleThingIds(), gen);
+}
+
+// Start the periodic timer and moveend listener for viewport health refresh.
+// Called once after the initial load; cancelled by resetAndReload.
+function startViewportHealthRefresh(gen) {
+    // Clear any previous timer / listener
+    if (state.healthRefreshTimer) {
+        clearInterval(state.healthRefreshTimer);
+        state.healthRefreshTimer = null;
+    }
+    if (state._moveendHandler) {
+        state.map.off('moveend', state._moveendHandler);
+        state._moveendHandler = null;
+    }
+
+    // Periodic full-viewport refresh every 5 minutes
+    state.healthRefreshTimer = setInterval(() => {
+        if (state.fetchGeneration !== gen) {
+            clearInterval(state.healthRefreshTimer);
+            state.healthRefreshTimer = null;
+            return;
+        }
+        refreshViewportHealth(gen);
+    }, HEALTH_REFRESH_INTERVAL_MS);
+
+    // Pan-triggered refresh: fires 1.5 s after the user stops panning,
+    // but only when the viewport is small enough to be sensible.
+    state._moveendHandler = () => {
+        if (state.fetchGeneration !== gen) return;
+        if (_moveendDebounceTimer) clearTimeout(_moveendDebounceTimer);
+        _moveendDebounceTimer = setTimeout(() => {
+            _moveendDebounceTimer = null;
+            if (state.fetchGeneration !== gen) return;
+            const ids = getVisibleThingIds();
+            if (ids.length <= HEALTH_REFRESH_MOVEEND_MAX) {
+                refreshHealthForIds(ids, gen);
+            }
+        }, HEALTH_REFRESH_MOVEEND_DELAY);
+    };
+    state.map.on('moveend', state._moveendHandler);
+}
+// ─────────────────────────────────────────────────────────────────────────────
 
 // Format time since last observation
 function formatTimeSince(minutes) {
@@ -644,94 +786,171 @@ function updateMetadataSidebarStatus(status, label, timeSince = null) {
     content.insertBefore(statusSection, content.firstChild);
 }
 
-// Fetch things from FROST API
-async function fetchThings() {
-    updateStatus('Fetching things...', '');
-    
-    try {
-        const response = await frostFetch(`${state.frostRoot}/Things`);
-        
-        if (!response.ok) {
-            throw new Error(`HTTP error! Status: ${response.status}`);
+// Run an array of async task-functions with a bounded concurrency.
+// taskFns: array of () => Promise, limit: max simultaneous tasks.
+async function runConcurrent(taskFns, limit) {
+    let i = 0;
+    async function worker() {
+        while (i < taskFns.length) {
+            await taskFns[i++]();
         }
-        
-        const thingData = await response.json();
-        
-        if (thingData.value && thingData.value.length > 0) {
-            for (const thing of thingData.value) {
+    }
+    await Promise.all(
+        Array.from({ length: Math.min(limit, taskFns.length) }, worker)
+    );
+}
+
+// Debounced status tag update ─────────────────────────────────────────────
+// Health checks complete at ~5/batch; without batching, updateThingStatusTags
+// would be called thousands of times, each doing a full DOM scan. Instead,
+// we coalesce all calls within a single animation frame into one flush.
+let _statusUpdatePending = false;
+function scheduleStatusUpdate() {
+    if (_statusUpdatePending) return;
+    _statusUpdatePending = true;
+    requestAnimationFrame(() => {
+        _statusUpdatePending = false;
+        updateThingStatusTags();
+    });
+}
+
+// Fetch things from FROST API, following @iot.nextLink pagination.
+// Uses a generation counter so that switching endpoints while loading is in
+// progress cancels all pending work from the previous endpoint.
+async function fetchThings() {
+    // Claim this generation; any concurrent/previous call will see a mismatch and exit.
+    const gen = ++state.fetchGeneration;
+    const stale = () => state.fetchGeneration !== gen;
+
+    updateStatus('Fetching nodes…', '');
+
+    const allThings = [];
+    // Inline both Locations (coordinates) and each Datastream's latest Observation (health)
+    // so health status can be computed synchronously — no per-Thing background requests.
+    let nextUrl = `${state.frostRoot}/Things?$expand=Locations,Datastreams($expand=Observations($top=1;$orderby=phenomenonTime%20desc))`;
+
+    try {
+        while (nextUrl) {
+            const response = await frostFetch(nextUrl);
+            if (stale()) return;
+
+            if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+
+            const data = await response.json();
+            if (stale()) return;
+
+            const pageThings = data.value || [];
+            const pageAdded = [];
+            const pageMarkers = [];
+
+            for (const thing of pageThings) {
+                if (stale()) return;
                 try {
-                    await processThing(thing);
-                } catch (error) {
-                    console.error(`Error processing thing ${thing['@iot.id']}:`, error);
+                    const marker = await processThing(thing);
+                    if (stale()) return;
+                    if (marker) {
+                        pageMarkers.push(marker);
+                        pageAdded.push(thing);
+                        allThings.push(thing);
+                    }
+                } catch (err) {
+                    console.error(`Error processing thing ${thing['@iot.id']}:`, err);
                 }
             }
-            
-            // Adjust map view to show all markers using cluster group bounds
-            if (Object.keys(state.markers).length > 0 && state.markerCluster.getLayers().length > 0) {
-                // Recalculate max cluster size by checking all clusters
-                state.maxClusterSize = 1;
-                state.markerCluster.eachLayer(function(marker) {
-                    // This will trigger iconCreateFunction which updates maxClusterSize
-                });
-                // Refresh clusters to update colors with accurate max count
-                state.markerCluster.refreshClusters();
-                state.map.fitBounds(state.markerCluster.getBounds().pad(0.1), {
-                    animate: true,
-                    duration: 1.0, // 1 second smooth animation
-                    padding: [20, 20] // Padding in pixels
-                });
+
+            if (pageAdded.length > 0 && !stale()) {
+                // Add all markers for this page in one call — single smooth cluster animation
+                state.markerCluster.addLayers(pageMarkers);
+
+                // Batch all roster DOM inserts for this page into one DocumentFragment
+                const thingsList = document.getElementById('thingsList');
+                const fragment = document.createDocumentFragment();
+                for (const thing of pageAdded) {
+                    const li = buildThingListItem(thing);
+                    if (li) fragment.appendChild(li);
+                }
+                thingsList.appendChild(fragment);
+                updateStatus(`Loading… ${allThings.length} nodes`, '');
+
+                // Flush health colours for this page immediately — health was computed
+                // synchronously from inline data, so no requests needed.
+                scheduleStatusUpdate();
             }
-            
-            updateStatus(`Loaded ${Object.keys(state.things).length} things`, 'success');
-            populateThingsList(thingData.value);
-            
-            // Load datastreams for all things to calculate health status (in parallel)
-            const datastreamPromises = thingData.value.map(thing => loadDatastreamsForThing(thing['@iot.id']));
-            await Promise.all(datastreamPromises);
-        } else {
-            throw new Error('No things found in API response');
+
+            nextUrl = data['@iot.nextLink'] || null;
+            if (nextUrl) {
+                nextUrl = nextUrl.replace(/^http:/, window.location.protocol);
+            }
         }
+
+        if (stale()) return;
+
+        if (allThings.length === 0) {
+            throw new Error('No Things found at this endpoint');
+        }
+
+        if (state.markerCluster.getLayers().length > 0) {
+            state.markerCluster.refreshClusters();
+            state.map.fitBounds(state.markerCluster.getBounds().pad(0.1), {
+                animate: true,
+                duration: 1.0,
+                padding: [20, 20]
+            });
+        }
+
+        updateStatus(`Loaded ${allThings.length} nodes`, 'success');
+
+        // Health was already computed synchronously from inline $expand data — no background
+        // requests needed here.  Start the viewport-aware periodic refresh instead.
+        startViewportHealthRefresh(gen);
+
     } catch (error) {
-        console.error("Error fetching things:", error);
+        if (stale()) return; // ignore errors from a superseded load
+        console.error('Error fetching things:', error);
         updateStatus(`Error: ${error.message}`, 'error');
     }
 }
 
-// Process a single thing
+// Process a single thing.
+// Locations are expected to be inlined via $expand=Locations.
+// Falls back to a separate fetch via the navigation link if not present.
 async function processThing(thing) {
     const thingId = thing['@iot.id'];
-    const currentProtocol = window.location.protocol;
-    
-    // Fetch location
-    const locationUrl = thing['Locations@iot.navigationLink'];
-    const secureUrl = locationUrl.replace(/^http:/, currentProtocol);
-    const locationResponse = await frostFetch(secureUrl);
-    const locationData = await locationResponse.json();
-    
-    if (!locationData.value || locationData.value.length === 0) {
-        return;
+
+    let locationEntry;
+    if (thing.Locations && thing.Locations.length > 0) {
+        // Fast path: location was inlined by $expand
+        locationEntry = thing.Locations[0];
+    } else {
+        // Fallback: fetch from the navigation link
+        const locationUrl = thing['Locations@iot.navigationLink'];
+        const secureUrl = locationUrl.replace(/^http:/, window.location.protocol);
+        const locationResponse = await frostFetch(secureUrl);
+        const locationData = await locationResponse.json();
+        if (!locationData.value || locationData.value.length === 0) return;
+        locationEntry = locationData.value[0];
     }
-    
-    const coordinates = locationData.value[0].location.coordinates;
-    const locationDescription = locationData.value[0].description || '';
+
+    if (!locationEntry?.location?.coordinates) return;
+
+    const coordinates = locationEntry.location.coordinates;
+    const locationDescription = locationEntry.description || '';
     
     // Create custom icon for marker (status colour filled in once health is known)
     const defaultIcon = makePinIcon('unknown', false);
 
-    // Create marker (coordinates are [lat, lon] from FROST API)
-    const marker = L.marker([coordinates[0], coordinates[1]], {
+    // GeoJSON coordinates are [longitude, latitude]; Leaflet expects [latitude, longitude]
+    const latLng = [coordinates[1], coordinates[0]];
+    const marker = L.marker(latLng, {
         icon: defaultIcon
     });
-    
-    // Add marker to cluster group instead of directly to map
-    state.markerCluster.addLayer(marker);
     
     // Store thing data
     state.things[thingId] = {
         marker,
         name: thing.name,
         description: thing.description || '',
-        coordinates: [coordinates[0], coordinates[1]],
+        coordinates: latLng,
         locationDescription,
         thingId
     };
@@ -739,19 +958,49 @@ async function processThing(thing) {
     state.thingsByName[thing.name] = {
         marker,
         id: thingId,
-        coordinates: [coordinates[0], coordinates[1]],
+        coordinates: latLng,
         description: thing.description || '',
         locationDescription
     };
     
     state.markers[thingId] = marker;
-    
+
+    // --- Inline health from nested $expand -----------------------------------
+    // Store datastreams so the viewport refresher can use navigation links later.
+    const inlineDatastreams = thing.Datastreams || [];
+    state.things[thingId].datastreams = inlineDatastreams;
+
+    if (inlineDatastreams.length > 0) {
+        const times = inlineDatastreams
+            .map(ds => ds.Observations?.[0]?.phenomenonTime)
+            .filter(Boolean)
+            .map(t => new Date(t));
+
+        if (times.length > 0) {
+            const mostRecent = new Date(Math.max(...times.map(t => t.getTime())));
+            const mins = (Date.now() - mostRecent) / 60000;
+            const health = calculateThingHealthStatus(mins);
+            state.things[thingId].timeSinceLastObservation = mins;
+            state.things[thingId].healthStatus = health.status;
+            state.things[thingId].healthLabel = health.label;
+        } else {
+            // Datastreams exist but no observations yet
+            state.things[thingId].timeSinceLastObservation = null;
+            state.things[thingId].healthStatus = 'down';
+            state.things[thingId].healthLabel = 'No data';
+        }
+    }
+    // -------------------------------------------------------------------------
+
     // Handle marker click - no popup, just open sidebar
     marker.on('click', async () => {
         highlightThingInList(thing.name);
         showThingMetadata(thingId);
         await loadDatastreamsForThing(thingId);
     });
+
+    // Caller is responsible for adding to the cluster group (in bulk via addLayers)
+    return marker;
 }
 
 // Create popup content for marker
@@ -772,29 +1021,30 @@ function createPopupContent(thing) {
 }
 
 // Load datastreams for a thing
-async function loadDatastreamsForThing(thingId) {
+async function loadDatastreamsForThing(thingId, gen = state.fetchGeneration) {
+    if (state.fetchGeneration !== gen) return;
     const thing = state.things[thingId];
     if (!thing) return;
     
     try {
         const response = await frostFetch(`${state.frostRoot}/Things(${thingId})/Datastreams`);
+        if (state.fetchGeneration !== gen) return;
         
         if (!response.ok) {
             throw new Error(`HTTP error! Status: ${response.status}`);
         }
         
         const datastreamData = await response.json();
-        
-        // Store datastreams for navigation
-        state.currentThingDatastreams = datastreamData.value;
+        if (state.fetchGeneration !== gen) return;
         
         // Calculate time since last observation for this thing (async, don't block)
-        calculateThingHealthStatusAsync(thingId, datastreamData.value);
+        calculateThingHealthStatusAsync(thingId, datastreamData.value, gen);
         
         // Update metadata sidebar if open
         updateThingMetadataDatastreams(thingId, datastreamData.value);
         
     } catch (error) {
+        if (state.fetchGeneration !== gen) return;
         console.error(`Error fetching datastreams for thing ${thingId}:`, error);
         updateStatus(`Error loading datastreams: ${error.message}`, 'error');
     }
@@ -884,37 +1134,49 @@ async function updatePopupWithDatastreams(thingId, datastreams) {
 }
 
 
-// Populate things list in sidebar
+// Populate things list in sidebar (used by resetAndReload for a clean rebuild)
 function populateThingsList(things) {
     const thingsList = document.getElementById('thingsList');
     thingsList.innerHTML = '';
+    const fragment = document.createDocumentFragment();
+    for (const thing of things) {
+        const li = buildThingListItem(thing);
+        if (li) fragment.appendChild(li);
+    }
+    thingsList.appendChild(fragment);
+}
 
-    things.forEach(thing => {
-        const thingData = state.things[thing['@iot.id']];
-        if (!thingData) return;
-        
-        const li = document.createElement('li');
-        li.className = 'thing-item';
-        li.dataset.thingId = thing['@iot.id'];
-        li.dataset.thingName = thing.name;
-        
-        li.innerHTML = `
-            <div class="thing-name"><span class="thing-name-text">${thing.name}</span></div>
-        `;
-        
-        li.addEventListener('click', async () => {
-            state.map.setView(thingData.coordinates, 15, {
-                animate: true,
-                duration: 0.8, // 0.8 second smooth animation
-                easeLinearity: 0.25
-            });
-                highlightThingInList(thing.name);
-            showThingMetadata(thing['@iot.id']);
-            await loadDatastreamsForThing(thing['@iot.id']);
+// Build a roster <li> for a Thing without inserting it into the DOM.
+// Callers batch-insert via DocumentFragment for performance.
+function buildThingListItem(thing) {
+    const thingData = state.things[thing['@iot.id']];
+    if (!thingData) return null;
+
+    const li = document.createElement('li');
+    li.className = 'thing-item';
+    li.dataset.thingId = thing['@iot.id'];
+    li.dataset.thingName = thing.name;
+    li.innerHTML = `<div class="thing-name"><span class="thing-name-text">${thing.name}</span></div>`;
+
+    li.addEventListener('click', async () => {
+        state.map.setView(thingData.coordinates, 15, {
+            animate: true,
+            duration: 0.8,
+            easeLinearity: 0.25
         });
-        
-        thingsList.appendChild(li);
+        highlightThingInList(thing.name);
+        showThingMetadata(thing['@iot.id']);
+        await loadDatastreamsForThing(thing['@iot.id']);
     });
+
+    return li;
+}
+
+// Append a single Thing to the roster (convenience wrapper; use buildThingListItem
+// + DocumentFragment for bulk inserts).
+function appendThingToList(thing) {
+    const li = buildThingListItem(thing);
+    if (li) document.getElementById('thingsList').appendChild(li);
 }
 
 // Highlight thing in list
