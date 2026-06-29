@@ -559,31 +559,25 @@ body {
   flex: 1;
 }
 
-.health-link-btn {
-  display: flex;
-  align-items: center;
-  gap: 0.45rem;
-  padding: 0.5rem 0.9rem;
+/* Top-bar icon links (docs, GitHub source) */
+.bar-link-btn {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
   border: 1px solid var(--glass-line);
   border-radius: 999px;
   background: rgba(5, 9, 18, 0.4);
   color: var(--txt-dim);
-  font-size: 0.78rem;
-  font-weight: 600;
   text-decoration: none;
   transition: all 0.18s var(--ease);
-  flex-shrink: 0;
 }
 
-.health-link-btn:hover {
-  border-color: rgba(52, 211, 153, 0.5);
-  background: rgba(52, 211, 153, 0.12);
+.bar-link-btn:hover {
+  border-color: var(--glass-line-hi);
+  background: rgba(34, 211, 238, 0.1);
   color: #fff;
-}
-
-.health-link-btn svg {
-  width: 16px;
-  height: 16px;
 }
 
 /* On-demand health-check button */
@@ -668,13 +662,41 @@ body {
   border-bottom: 1px solid var(--glass-line);
 }
 
-.roster-title {
-  font-size: 0.72rem;
-  font-weight: 600;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: var(--txt-dim);
+/* Segmented Things | Locations toggle */
+.roster-toggle {
+  display: inline-flex;
+  background: rgba(5, 9, 18, 0.5);
+  border: 1px solid var(--glass-line);
+  border-radius: 999px;
+  padding: 3px;
+  gap: 2px;
 }
+
+.roster-toggle-btn {
+  padding: 0.32rem 0.7rem;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--txt-mute);
+  font-family: inherit;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.16s var(--ease);
+}
+
+.roster-toggle-btn:hover { color: var(--txt); }
+
+.roster-toggle-btn.active {
+  background: rgba(34, 211, 238, 0.16);
+  color: #67e8f9;
+}
+
+/* Location rows have no health status — drop the accent bar */
+.location-item::before { display: none; }
+.location-item { padding-left: 0.8rem; }
 
 .roster-collapse,
 .roster-reopen {
@@ -730,6 +752,8 @@ body {
   color: #fff;
   border-color: rgba(34, 211, 238, 0.5);
 }
+
+.things-list[hidden] { display: none; }
 
 .things-list {
   list-style: none;
@@ -1421,6 +1445,51 @@ body {
   color: #fff;
 }
 
+/* Datastream quick-switch pills (between header and chart body) */
+.chart-ds-pills {
+  display: flex;
+  gap: 0.4rem;
+  padding: 0.7rem 1.1rem;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--glass-line);
+  scrollbar-width: thin;
+  flex-shrink: 0;
+}
+
+.chart-ds-pills[hidden] { display: none; }
+
+.chart-ds-pills::-webkit-scrollbar { height: 6px; }
+.chart-ds-pills::-webkit-scrollbar-thumb {
+  background: rgba(140, 170, 210, 0.25);
+  border-radius: 999px;
+}
+
+.chart-ds-pill {
+  flex-shrink: 0;
+  padding: 0.34rem 0.75rem;
+  border: 1px solid var(--glass-line);
+  border-radius: 999px;
+  background: rgba(5, 9, 18, 0.4);
+  color: var(--txt-dim);
+  font-family: inherit;
+  font-size: 0.74rem;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all 0.15s var(--ease);
+}
+
+.chart-ds-pill:hover {
+  border-color: rgba(34, 211, 238, 0.45);
+  color: #fff;
+}
+
+.chart-ds-pill.active {
+  border-color: rgba(34, 211, 238, 0.6);
+  background: rgba(34, 211, 238, 0.16);
+  color: #67e8f9;
+}
+
 .chart-panel-controls {
   display: flex;
   gap: 0.55rem;
@@ -1659,6 +1728,138 @@ body {
 }
 
 /* ------------------------------------------------------------------ */
+/* Prominent initial-load overlay                                      */
+/* ------------------------------------------------------------------ */
+.loading-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  /* Non-blocking: let the user pan the map underneath while it loads */
+  pointer-events: none;
+  background: radial-gradient(60% 50% at 50% 45%, rgba(5, 9, 18, 0.55), transparent 75%);
+  opacity: 1;
+  transition: opacity 0.45s var(--ease);
+}
+
+.loading-overlay[hidden] {
+  display: grid;          /* keep it laid out so we can fade it out */
+  opacity: 0;
+  pointer-events: none;
+  visibility: hidden;
+}
+
+.loading-overlay.is-leaving {
+  opacity: 0;
+}
+
+.loading-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0.5rem;
+  padding: 2rem 2.4rem 1.8rem;
+  border-radius: var(--radius-xl);
+  background: var(--glass-2);
+  backdrop-filter: blur(26px) saturate(150%);
+  -webkit-backdrop-filter: blur(26px) saturate(150%);
+  border: 1px solid var(--glass-line-hi);
+  box-shadow: var(--shadow);
+  animation: loadingCardIn 0.5s var(--ease) both;
+}
+
+@keyframes loadingCardIn {
+  from { opacity: 0; transform: translateY(10px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Concentric pulsing orb */
+.loading-orb {
+  position: relative;
+  width: 64px;
+  height: 64px;
+  margin-bottom: 0.4rem;
+  display: grid;
+  place-items: center;
+}
+
+.loading-orb-core {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #67e8f9, var(--accent) 50%, #0e7490 100%);
+  box-shadow: 0 0 0 1px rgba(34, 211, 238, 0.5), 0 0 20px rgba(34, 211, 238, 0.7);
+}
+
+.loading-orb-ring {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1.5px solid var(--accent);
+  opacity: 0;
+  animation: loadingOrbPulse 2s var(--ease) infinite;
+}
+
+.loading-orb-ring:nth-child(2) { animation-delay: 1s; }
+
+@keyframes loadingOrbPulse {
+  0%   { transform: scale(0.7); opacity: 0.7; }
+  100% { transform: scale(2.9); opacity: 0; }
+}
+
+.loading-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: 0.01em;
+}
+
+.loading-subtitle {
+  font-size: 0.84rem;
+  color: var(--txt-dim);
+  font-family: "JetBrains Mono", monospace;
+  min-height: 1.1em;
+}
+
+/* Indeterminate progress track */
+.loading-track {
+  position: relative;
+  width: 220px;
+  max-width: 60vw;
+  height: 3px;
+  margin-top: 0.7rem;
+  border-radius: 999px;
+  background: rgba(140, 170, 210, 0.16);
+  overflow: hidden;
+}
+
+.loading-track-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 40%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, transparent, var(--accent), var(--accent-2), transparent);
+  animation: loadingTrack 1.3s var(--ease) infinite;
+}
+
+@keyframes loadingTrack {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(350%); }
+}
+
+@media (max-width: 640px) {
+  .loading-card { padding: 1.6rem 1.8rem; }
+  .loading-title { font-size: 1rem; }
+}
+
+/* ------------------------------------------------------------------ */
 /* Scrollbars                                                          */
 /* ------------------------------------------------------------------ */
 .things-list::-webkit-scrollbar,
@@ -1817,10 +2018,6 @@ body {
 
   /* Hide desktop status legend chips; they move to bottom sheet */
   .status-legend { display: none; }
-
-  /* Health link: icon-only pill */
-  .health-link-btn span { display: none; }
-  .health-link-btn { padding: 0.45rem 0.55rem; min-width: 36px; justify-content: center; }
 
   /* Health-check: icon-only pill */
   .health-check-btn #healthCheckLabel { display: none; }

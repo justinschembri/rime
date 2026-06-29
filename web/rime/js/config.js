@@ -1,5 +1,21 @@
 // Configuration and constants
 
+// ── Pagination ─────────────────────────────────────────────────────────────
+// FROST defaults to $top=100, forcing one round-trip per 100 entities. On a
+// dense network (e.g. iosb ~5600 nodes) that's ~57 sequential requests. We
+// request much larger pages instead; servers that enforce a lower maxTop simply
+// clamp the page and we follow @iot.nextLink for the remainder.
+//
+// Measured on iosb (5613 Things):
+//   Phase 1 (Locations, light):  $top=100 ≈ 30s over 57 reqs → $top=10000 ≈ 9.4s in 1 req.
+//   Phase 2 (Datastreams+Obs, heavy): server-bound; $top=100 ≈ 68s → $top=1000 ≈ 43s
+//     over 6 reqs. A single $top=10000 request is ~33s but blocks the UI and
+//     pulls ~34MB, so we keep Phase 2 chunked so health badges stream in.
+const THINGS_PAGE_SIZE = 10000; // Phase 1 — light payload, fetch in as few requests as possible
+const HEALTH_PAGE_SIZE = 1000;  // Phase 2 — heavy payload, chunk so the UI updates progressively
+// Parallel health pages: iosb benchmark showed 3 workers ≈ 16s vs 38s sequential; 4+ contends.
+const HEALTH_PARALLEL_WORKERS = 3;
+
 // ── Health tiers ───────────────────────────────────────────────────────────
 // Graded "time since last observation" buckets, ordered freshest → oldest.
 // Single source of truth for colours + labels used by markers, roster, legend
