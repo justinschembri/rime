@@ -1603,6 +1603,24 @@ body {
   font-family: "Space Grotesk", sans-serif;
 }
 
+/* Latest-observation timestamp pill — coloured inline via the health-tier
+   palette (background/border/text set on the element by renderChart). */
+.stat-timestamp {
+  margin-top: 0.5rem;
+  display: inline-block;
+  max-width: 100%;
+  padding: 0.18rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font-size: 0.66rem;
+  font-weight: 600;
+  font-family: "JetBrains Mono", monospace;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .chart-container {
   position: relative;
   height: 340px;
