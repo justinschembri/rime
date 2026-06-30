@@ -1658,6 +1658,15 @@ async function loadChartData(datastreamId) {
     updateStatus('Loading chart data...', '');
     
     const chartPanelContent = document.getElementById('chartPanelContent');
+
+    // Hold the current content height while we swap in the next datastream so
+    // the bottom-anchored panel doesn't shrink-to-spinner then grow-back (the
+    // jittery drop/raise). Released once the new chart is rendered.
+    const prevHeight = chartPanelContent.offsetHeight;
+    if (prevHeight > 0 && chartPanelContent.children.length > 0) {
+        chartPanelContent.style.minHeight = `${prevHeight}px`;
+    }
+
     chartPanelContent.innerHTML = '<div class="no-data-message"><div class="loading"></div> Loading data...</div>';
     
     try {
@@ -1709,51 +1718,70 @@ async function loadChartData(datastreamId) {
             </div>
         `;
         updateStatus(`Error: ${error.message}`, 'error');
+    } finally {
+        // New content is now in place — release the temporary height hold.
+        chartPanelContent.style.minHeight = '';
     }
 }
 
-// Process observations and detect gaps (original style with gap fillers)
+// Parse a phenomenonTime string into a {start, end} pair.
+// Handles both instants ("2026-01-01T00:00:00Z") and intervals
+// ("2026-01-01T00:00:00Z/2026-01-01T01:00:00Z").
+function parseTimeRange(value) {
+    if (!value) return null;
+    if (value.includes('/')) {
+        const [a, b] = value.split('/');
+        const start = new Date(a);
+        const end   = new Date(b);
+        if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return null;
+        return { start, end };
+    }
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return null;
+    return { start: d, end: d };
+}
+
+// Process observations and detect gaps.
+// For interval observations (e.g. hourly), consecutive records have
+// phenomenonTime like "09:00/10:00" then "10:00/11:00".  End-to-end that is
+// 1 hour apart, which would trigger false gaps.  We measure the gap as
+// prev.end → curr.start instead, which is 0 for perfectly adjacent intervals.
 function processObservations(observations) {
-    const gapThreshold = 15 * 60 * 1000; // 15 minutes
-    const fillerInterval = 5 * 60 * 1000; // 5 minutes
-    let formattedData = [];
-    let previousTime = null;
-    
-    // Sort by time (oldest first)
+    const gapThreshold   = 15 * 60 * 1000; // 15 min of actual emptiness
+    const fillerInterval =  5 * 60 * 1000; // spacing of null markers inside a gap
+    const formattedData  = [];
+    let previousEnd = null;
+
+    // Sort oldest-first so we can walk forward in time.
     const sorted = [...observations].sort((a, b) => {
-        return new Date(a.phenomenonTime) - new Date(b.phenomenonTime);
+        const ta = parsePhenomenonTime(a.phenomenonTime);
+        const tb = parsePhenomenonTime(b.phenomenonTime);
+        return (ta?.getTime() ?? 0) - (tb?.getTime() ?? 0);
     });
-    
-    sorted.forEach(entry => {
-        const timestamp = new Date(entry.phenomenonTime);
-        const value = entry.result;
-        
-        if (previousTime) {
-            const gap = timestamp - previousTime;
-            
-            // If gap is larger than threshold, insert a null break so the
-            // line visibly disconnects instead of dropping to zero
+
+    for (const entry of sorted) {
+        const range = parseTimeRange(entry.phenomenonTime);
+        if (!range) continue;
+
+        const { start, end } = range;
+
+        if (previousEnd !== null) {
+            // Gap = empty time between end of last observation and start of this one.
+            // Adjacent intervals (09:00/10:00 → 10:00/11:00) give gap = 0.
+            const gap = start.getTime() - previousEnd.getTime();
             if (gap > gapThreshold) {
-                let fillerTime = new Date(previousTime.getTime() + fillerInterval);
-                while (fillerTime < timestamp) {
-                    formattedData.push({ 
-                        x: fillerTime, 
-                        y: null, 
-                        gapFiller: true 
-                    });
-                    fillerTime = new Date(fillerTime.getTime() + fillerInterval);
+                let t = new Date(previousEnd.getTime() + fillerInterval);
+                while (t < start) {
+                    formattedData.push({ x: t, y: null, gapFiller: true });
+                    t = new Date(t.getTime() + fillerInterval);
                 }
             }
         }
-        
-        formattedData.push({ 
-            x: timestamp, 
-            y: value, 
-            gapFiller: false 
-        });
-        previousTime = timestamp;
-    });
-    
+
+        formattedData.push({ x: end, y: entry.result, gapFiller: false });
+        previousEnd = end;
+    }
+
     return formattedData;
 }
 
@@ -1767,7 +1795,8 @@ function calculateStats(data, unitSymbol) {
             min: 'N/A',
             max: 'N/A',
             avg: 'N/A',
-            unit: unitSymbol
+            unit: unitSymbol,
+            latestTime: null
         };
     }
     
@@ -1787,7 +1816,9 @@ function calculateStats(data, unitSymbol) {
         avg: avg.toFixed(2),
         unit: unitSymbol,
         gaps: gaps,
-        totalPoints: validData.length
+        totalPoints: validData.length,
+        // Timestamp of the most recent observation (Date) for the "Latest Value" card.
+        latestTime: validData[validData.length - 1].x || null
     };
 }
 
@@ -1800,12 +1831,34 @@ function renderChart(data, unitSymbol, datastreamName, stats) {
         state.currentChart.destroy();
     }
     
+    // Latest observation timestamp, coloured with the health-tier palette so
+    // the freshness reads at a glance (matches the roster/health pills).
+    let latestStampHTML = '';
+    if (stats.latestTime instanceof Date && !Number.isNaN(stats.latestTime.getTime())) {
+        const mins = (Date.now() - stats.latestTime.getTime()) / 60000;
+        const tier = getHealthTier(mins);
+        const absText = stats.latestTime.toLocaleString([], {
+            year: 'numeric', month: 'short', day: 'numeric',
+            hour: '2-digit', minute: '2-digit'
+        });
+        const relText = formatTimeSince(mins);
+        const bg = hexToRgba(tier.color, 0.14);
+        const bd = hexToRgba(tier.color, 0.34);
+        const fg = lightenHex(tier.color, 0.35);
+        latestStampHTML = `
+            <div class="stat-timestamp" title="${absText}"
+                 style="background:${bg};border-color:${bd};color:${fg};">
+                ${relText}
+            </div>`;
+    }
+
     // Create stats HTML
     const statsHTML = `
         <div class="chart-stats">
             <div class="stat-card">
-                <div class="stat-label">Current Value</div>
+                <div class="stat-label">Latest Value</div>
                 <div class="stat-value">${stats.current} <span class="stat-unit">${stats.unit}</span></div>
+                ${latestStampHTML}
             </div>
             <div class="stat-card">
                 <div class="stat-label">Minimum</div>
@@ -1856,6 +1909,13 @@ function renderChart(data, unitSymbol, datastreamName, stats) {
     }
 
     const ctx = document.getElementById('timeSeriesChart').getContext('2d');
+
+    // Bind the time axis to the data's own extent (earliest → latest
+    // observation) so old data that predates "now" still fills the chart.
+    const xTimes = data.map(d => (d.x instanceof Date ? d.x.getTime() : +new Date(d.x)))
+                       .filter(t => !Number.isNaN(t));
+    const xMin = xTimes.length ? Math.min(...xTimes) : undefined;
+    const xMax = xTimes.length ? Math.max(...xTimes) : undefined;
 
     // Neon cyan trace with a luminous gradient fill on the dark stage
     const gradient = ctx.createLinearGradient(0, 0, 0, 340);
@@ -1941,8 +2001,9 @@ function renderChart(data, unitSymbol, datastreamName, stats) {
             scales: {
                 x: {
                     type: 'time',
+                    min: xMin,
+                    max: xMax,
                     time: {
-                        unit: 'minute',
                         tooltipFormat: 'yyyy-MM-dd HH:mm',
                         displayFormats: {
                             minute: 'HH:mm',
