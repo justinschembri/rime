@@ -452,9 +452,9 @@ function initializeEndpointSwitcher() {
         syncLabel();
         closePopover();
 
-        if (prevRoot !== newRoot || authChanged) {
-            resetAndReload();
-        }
+        // Always reload if the user clicks apply/connect, even if the URL/auth didn't change,
+        // so that they can force a retry after an error.
+        resetAndReload();
     }
 
     applyBtn.addEventListener('click', applyEndpoint);
