@@ -3,7 +3,7 @@
 
 [project]
 name = "rime-dev"
-version = "0.0.0"
+version = "0.7.0"
 requires-python = ">=3.12"
 dependencies = [
     "rime-ingest",
