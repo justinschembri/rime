@@ -219,6 +219,12 @@ function initializeEventListeners() {
         });
     }
 
+    // Loading overlay error dismiss button
+    const loadingErrorBtn = document.getElementById('loadingErrorBtn');
+    if (loadingErrorBtn) {
+        loadingErrorBtn.addEventListener('click', () => hideLoadingOverlay(true));
+    }
+
     // Chart next datastream button
     const chartNextDatastreamBtn = document.getElementById('chartNextDatastreamBtn');
     if (chartNextDatastreamBtn) {
@@ -535,14 +541,29 @@ function updateStatus(message, type = '') {
 // show a centered card so a multi-second load never reads as a hang.
 let _loadingHideTimer = null;
 
-function showLoadingOverlay(title, subtitle) {
+function showLoadingOverlay(title, subtitle, type = 'loading') {
     const overlay = document.getElementById('loadingOverlay');
     if (!overlay) return;
     if (_loadingHideTimer) { clearTimeout(_loadingHideTimer); _loadingHideTimer = null; }
+    
+    // Always hide any existing error state when starting a new loading state
+    if (type === 'loading') {
+        overlay.classList.remove('status-error');
+    }
+    
     if (title) document.getElementById('loadingTitle').textContent = title;
     if (subtitle !== undefined) document.getElementById('loadingSubtitle').textContent = subtitle;
-    overlay.classList.remove('is-leaving');
+    
+    overlay.classList.remove('is-leaving', 'status-error');
+    if (type === 'error') {
+        overlay.classList.add('status-error');
+    }
+    
     overlay.hidden = false;
+}
+
+function showErrorOverlay(title, subtitle) {
+    showLoadingOverlay(title, subtitle, 'error');
 }
 
 function updateLoadingOverlay(subtitle) {
@@ -550,14 +571,20 @@ function updateLoadingOverlay(subtitle) {
     if (sub && subtitle !== undefined) sub.textContent = subtitle;
 }
 
-function hideLoadingOverlay() {
+function hideLoadingOverlay(force = false) {
     const overlay = document.getElementById('loadingOverlay');
     if (!overlay || overlay.hidden) return;
+    
+    // If it's an error state, don't auto-hide it unless forced (e.g. by new fetch starting)
+    if (!force && overlay.classList.contains('status-error')) {
+        return;
+    }
+    
     // Fade out, then remove from layout once the transition finishes.
     overlay.classList.add('is-leaving');
     _loadingHideTimer = setTimeout(() => {
         overlay.hidden = true;
-        overlay.classList.remove('is-leaving');
+        overlay.classList.remove('is-leaving', 'status-error');
         _loadingHideTimer = null;
     }, 460);
 }
@@ -805,6 +832,15 @@ async function runHealthCheck() {
         console.error('Health check failed:', err);
         updateStatus(`Health check failed: ${err.message}`, 'error');
         setHealthCheckButtonState('ready');
+        
+        if (!document.getElementById('loadingOverlay')?.classList.contains('status-error')) {
+            if (err instanceof TypeError || err.message.startsWith('HTTP error') || err.message.includes('Failed to fetch')) {
+                const msg = (err instanceof TypeError || err.message.includes('Failed to fetch')) 
+                    ? 'Network or CORS error. Check endpoint and credentials.' 
+                    : err.message;
+                showErrorOverlay('Health Check Failed', msg);
+            }
+        }
     }
 }
 
@@ -856,7 +892,12 @@ async function fetchThings() {
             const response = await frostFetch(nextUrl);
             if (stale()) return;
 
-            if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+            if (!response.ok) {
+                if (response.status === 401) {
+                    showErrorOverlay('Unauthorized', 'Invalid credentials for this server');
+                }
+                throw new Error(`HTTP error! Status: ${response.status}`);
+            }
 
             const data = await response.json();
             if (stale()) return;
@@ -926,7 +967,22 @@ async function fetchThings() {
 
     } catch (error) {
         if (stale()) return;
-        hideLoadingOverlay();
+        
+        // Show overlay for network/CORS errors which throw TypeErrors, or other HTTP errors
+        if (!document.getElementById('loadingOverlay')?.classList.contains('status-error')) {
+            if (error instanceof TypeError || error.message.startsWith('HTTP error') || error.message.includes('Failed to fetch')) {
+                const msg = (error instanceof TypeError || error.message.includes('Failed to fetch')) 
+                    ? 'Network or CORS error. Check endpoint and credentials.' 
+                    : error.message;
+                showErrorOverlay('Connection Failed', msg);
+            }
+        }
+
+        // Don't auto-hide if we just showed an error overlay
+        const overlay = document.getElementById('loadingOverlay');
+        if (!overlay || !overlay.classList.contains('status-error')) {
+            hideLoadingOverlay();
+        }
         console.error('Error fetching things:', error);
         updateStatus(`Error: ${error.message}`, 'error');
     }
@@ -979,7 +1035,12 @@ function processHealthPageThings(things, gen) {
 async function fetchThingsCount(gen) {
     const response = await frostFetch(`${state.frostRoot}/Things?$count=true&$top=0`);
     if (state.fetchGeneration !== gen) return null;
-    if (!response.ok) return null;
+    if (!response.ok) {
+        if (response.status === 401) {
+            showErrorOverlay('Unauthorized', 'Invalid credentials for health scan');
+        }
+        return null;
+    }
     const data = await response.json();
     if (state.fetchGeneration !== gen) return null;
     const count = data['@iot.count'];
@@ -994,7 +1055,12 @@ async function fetchHealthDataSequential(gen) {
 
         const response = await frostFetch(nextUrl);
         if (state.fetchGeneration !== gen) return;
-        if (!response.ok) return;
+        if (!response.ok) {
+            if (response.status === 401) {
+                showErrorOverlay('Unauthorized', 'Invalid credentials for health scan');
+            }
+            return;
+        }
 
         const data = await response.json();
         if (state.fetchGeneration !== gen) return;
@@ -1019,6 +1085,9 @@ async function fetchHealthDataParallel(gen, total) {
         const response = await frostFetch(buildHealthPageUrl(skip));
         if (state.fetchGeneration !== gen) return;
         if (!response.ok) {
+            if (response.status === 401) {
+                showErrorOverlay('Unauthorized', 'Invalid credentials for health scan');
+            }
             throw new Error(`Health page failed (skip=${skip}): HTTP ${response.status}`);
         }
 
