@@ -431,10 +431,26 @@ function initializeEndpointSwitcher() {
 
     // ---- apply ----
     function applyEndpoint() {
-        // Strip trailing slashes and any version suffix the user may have typed
+        // Strip trailing slashes
         let raw = input.value.trim().replace(/\/+$/, '');
-        // If they accidentally included a version suffix (/v1, /v1.1, /v2) strip it
-        raw = raw.replace(/\/(v\d+(\.\d+)?)$/i, '');
+
+        // If a version suffix was pasted (/v1, /v1.0, /v1.1, /v2, /v2.0), strip it
+        // from the base URL and set the version toggle to match.
+        const versionMatch = raw.match(/\/(v\d+(?:\.\d+)?)$/i);
+        if (versionMatch) {
+            let v = versionMatch[1].toLowerCase();
+            // Normalize bare majors to the canonical FROST paths.
+            if (v === 'v1') v = 'v1.0';
+            else if (v === 'v2') v = 'v2.0';
+
+            const known = ['v1.0', 'v1.1', 'v2.0'];
+            if (known.includes(v)) {
+                state.frostVersion = v;
+                syncVersionButtons();
+            }
+            raw = raw.replace(/\/(v\d+(?:\.\d+)?)$/i, '');
+        }
+
         if (!raw) { closePopover(); return; }
 
         const user = usernameInput.value.trim();
@@ -993,10 +1009,10 @@ async function fetchThings() {
 // pages in parallel via $skip (fallback: sequential @iot.nextLink).
 
 const HEALTH_EXPAND =
-    'Datastreams($expand=Observations($top=1;$orderby=phenomenonTime%20desc))';
+    'Datastreams($select=id;$expand=Observations($select=phenomenonTime;$top=1;$orderby=phenomenonTime%20desc))';
 
 function buildHealthPageUrl(skip) {
-    return `${state.frostRoot}/Things?$expand=${HEALTH_EXPAND}` +
+    return `${state.frostRoot}/Things?$select=id&$expand=${HEALTH_EXPAND}` +
         `&$top=${HEALTH_PAGE_SIZE}&$skip=${skip}&$orderby=%40iot.id%20asc`;
 }
 
@@ -1010,7 +1026,9 @@ function processHealthPageThings(things, gen) {
         if (!stored) continue;
 
         const datastreams = thing.Datastreams || [];
-        stored.datastreams = datastreams;
+        // NOTE: do NOT cache these into stored.datastreams — the health query
+        // uses $select to fetch only id + phenomenonTime (no name/unit/result),
+        // which would break the inspector's datastream rendering if reused.
 
         const times = datastreams
             .map(ds => parsePhenomenonTime(ds.Observations?.[0]?.phenomenonTime))
