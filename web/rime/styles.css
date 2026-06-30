@@ -1736,11 +1736,19 @@ body {
   z-index: 50;
   display: grid;
   place-items: center;
-  /* Non-blocking: let the user pan the map underneath while it loads */
+  /* Non-blocking by default: let the user pan the map underneath while it loads */
   pointer-events: none;
   background: radial-gradient(60% 50% at 50% 45%, rgba(5, 9, 18, 0.55), transparent 75%);
   opacity: 1;
-  transition: opacity 0.45s var(--ease);
+  transition: opacity 0.45s var(--ease), background 0.45s var(--ease), backdrop-filter 0.45s var(--ease);
+}
+
+/* Error state: light red screen tint, blocking interaction to force attention */
+.loading-overlay.status-error {
+  pointer-events: auto;
+  background: radial-gradient(70% 60% at 50% 45%, rgba(220, 38, 38, 0.25), rgba(127, 29, 29, 0.5) 85%);
+  backdrop-filter: blur(4px) saturate(80%);
+  -webkit-backdrop-filter: blur(4px) saturate(80%);
 }
 
 .loading-overlay[hidden] {
@@ -1768,6 +1776,12 @@ body {
   border: 1px solid var(--glass-line-hi);
   box-shadow: var(--shadow);
   animation: loadingCardIn 0.5s var(--ease) both;
+  transition: border-color 0.3s var(--ease);
+}
+
+.status-error .loading-card {
+  border-color: rgba(248, 113, 113, 0.4);
+  box-shadow: 0 0 40px rgba(239, 68, 68, 0.15), var(--shadow);
 }
 
 @keyframes loadingCardIn {
@@ -1791,6 +1805,12 @@ body {
   border-radius: 50%;
   background: radial-gradient(circle at 35% 30%, #67e8f9, var(--accent) 50%, #0e7490 100%);
   box-shadow: 0 0 0 1px rgba(34, 211, 238, 0.5), 0 0 20px rgba(34, 211, 238, 0.7);
+  transition: background 0.3s var(--ease), box-shadow 0.3s var(--ease);
+}
+
+.status-error .loading-orb-core {
+  background: radial-gradient(circle at 35% 30%, #fca5a5, #ef4444 50%, #7f1d1d 100%);
+  box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.5), 0 0 20px rgba(239, 68, 68, 0.7);
 }
 
 .loading-orb-ring {
@@ -1803,6 +1823,11 @@ body {
   border: 1.5px solid var(--accent);
   opacity: 0;
   animation: loadingOrbPulse 2s var(--ease) infinite;
+  transition: border-color 0.3s var(--ease);
+}
+
+.status-error .loading-orb-ring {
+  border-color: #ef4444;
 }
 
 .loading-orb-ring:nth-child(2) { animation-delay: 1s; }
@@ -1819,11 +1844,19 @@ body {
   letter-spacing: 0.01em;
 }
 
+.status-error .loading-title {
+  color: #fca5a5;
+}
+
 .loading-subtitle {
   font-size: 0.84rem;
   color: var(--txt-dim);
   font-family: "JetBrains Mono", monospace;
   min-height: 1.1em;
+}
+
+.status-error .loading-subtitle {
+  color: #f87171;
 }
 
 /* Indeterminate progress track */
@@ -1836,6 +1869,10 @@ body {
   border-radius: 999px;
   background: rgba(140, 170, 210, 0.16);
   overflow: hidden;
+}
+
+.status-error .loading-track {
+  display: none;
 }
 
 .loading-track-fill {
@@ -1852,6 +1889,32 @@ body {
 @keyframes loadingTrack {
   0%   { transform: translateX(-100%); }
   100% { transform: translateX(350%); }
+}
+
+/* Error dismiss button */
+.loading-error-btn {
+  display: none;
+  margin-top: 1.2rem;
+  padding: 0.55rem 1.2rem;
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  border-radius: var(--radius);
+  color: #fca5a5;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s var(--ease);
+}
+
+.status-error .loading-error-btn {
+  display: block;
+}
+
+.loading-error-btn:hover {
+  background: rgba(239, 68, 68, 0.25);
+  border-color: #ef4444;
+  color: #fff;
+  transform: translateY(-1px);
 }
 
 @media (max-width: 640px) {
