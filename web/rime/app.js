@@ -2069,14 +2069,6 @@ function toggleChartPanel() {
     } else {
         chartPanel.classList.add('expanded');
     }
-    
-    // Update toggle icon rotation
-    const toggleIcon = document.getElementById('chartPanelToggle').querySelector('svg');
-    if (chartPanel.classList.contains('expanded')) {
-        toggleIcon.style.transform = 'rotate(180deg)';
-    } else {
-        toggleIcon.style.transform = 'rotate(0deg)';
-    }
 }
 
 // Zoom to extents (fit all markers)

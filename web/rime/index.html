@@ -221,32 +221,41 @@
       </header>
 
       <!-- Sensor roster (floating glass rail / mobile bottom sheet) -->
-      <aside class="roster" id="roster">
-        <!-- Drag pill — visible only on mobile -->
-        <div class="sheet-handle" id="sheetHandle" aria-hidden="true"></div>
+      <div class="dock-column" id="dockColumn">
+        <aside class="roster" id="roster">
+          <!-- Drag pill — visible only on mobile -->
+          <div class="sheet-handle" id="sheetHandle" aria-hidden="true"></div>
 
-        <div class="roster-head">
-          <div class="roster-toggle" id="rosterToggle" role="tablist">
-            <button class="roster-toggle-btn active" data-view="things" role="tab" type="button">Things</button>
-            <button class="roster-toggle-btn" data-view="locations" role="tab" type="button">Locations</button>
+          <div class="roster-head">
+            <div class="roster-toggle" id="rosterToggle" role="tablist">
+              <button class="roster-toggle-btn active" data-view="things" role="tab" type="button">Things</button>
+              <button class="roster-toggle-btn" data-view="locations" role="tab" type="button">Locations</button>
+            </div>
+            <span class="roster-mobile-count" id="rosterMobileCount" aria-live="polite"></span>
+            <button class="roster-collapse" id="rosterCollapse" title="Collapse roster">
+              <svg width="18" height="18" viewBox="0 0 20 20" fill="currentColor">
+                <path d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" />
+              </svg>
+            </button>
           </div>
-          <span class="roster-mobile-count" id="rosterMobileCount" aria-live="polite"></span>
-          <button class="roster-collapse" id="rosterCollapse" title="Collapse roster">
-            <svg width="18" height="18" viewBox="0 0 20 20" fill="currentColor">
-              <path d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" />
-            </svg>
-          </button>
+          <ul
+            class="things-list"
+            id="thingsList"
+          ></ul>
+          <ul
+            class="things-list locations-list"
+            id="locationsList"
+            hidden
+          ></ul>
+        </aside>
+        <div class="roster-foot">
+          <div
+            class="status-message"
+            id="statusMessage"
+          ><span class="status-dot"></span>Initializing…</div>
+          <div id="statusDetails"></div>
         </div>
-        <ul
-          class="things-list"
-          id="thingsList"
-        ></ul>
-        <ul
-          class="things-list locations-list"
-          id="locationsList"
-          hidden
-        ></ul>
-      </aside>
+      </div>
 
       <button class="roster-reopen" id="rosterReopen" title="Show Things">
         <svg width="18" height="18" viewBox="0 0 20 20" fill="currentColor">
@@ -436,14 +445,6 @@
         </div>
       </div>
 
-      <!-- Status readout -->
-      <div class="status-bar">
-        <div
-          class="status-message"
-          id="statusMessage"
-        ><span class="status-dot"></span>Initializing…</div>
-        <div id="statusDetails"></div>
-      </div>
     </div>
 
     <!-- Application modules -->
