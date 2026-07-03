@@ -6,8 +6,8 @@
 # 4 - iot_links shall use entity NAMES to refer to other entities,
 Sensors:
   netatmo.nws03:
-    name: <SENSOR_ID>
-    description: Netatmo NWS03
+    name: <SENSOR_UUID>
+    description: Netatmo NWS03 Sensor Array
     metadata: none
     encodingType: text
     properties:
@@ -33,10 +33,11 @@ Sensors:
         - absolute_pressure
 
 Things:
-  <THING_NAME>:
-    name: <THING_NAME>
-    description: <THING_DESCRIPTION>
-    properties: null
+  Netatmo NWS03IN:
+    name: Netatmo NWS03IN
+    description: Netatmo Personal Weather Station
+    properties:
+      mac_address: <SENSOR_UUID>
     iot_links:
       Datastreams: *datastreams
       Locations:
@@ -178,37 +179,36 @@ Datastreams:
 ObservedProperties:
   indoor_temperature:
     name: indoor_temperature
-    definition: https://dbpedia.org/page/Temperature
+    definition: https://qudt.org/vocab/quantitykind/Temperature
     description: The temperature where the indoor module is placed.
     properties: null
 
   absolute_pressure:
     name: absolute_pressure
-    definition: https://en.wikipedia.org/wiki/Pressure_measurement#Absolute
+    definition: https://qudt.org/vocab/quantitykind/Pressure
     description: The absolute pressure where the indoor module is placed.
     properties: null
 
   gauge_pressure:
     name: gauge_pressure
-    definition: https://en.wikipedia.org/wiki/Pressure_measurement#Absolute
+    definition: https://qudt.org/vocab/quantitykind/GaugePressure
     description: The gauge pressure where the indoor module is placed.
     properties: null
 
   internal_noise_levels:
     name: internal_noise_levels
-    definition: https://en.wikipedia.org/wiki/Ambient_noise_level
+    definition: https://qudt.org/vocab/quantitykind/SoundPressureLevel
     description: The internal ambient noise level where the sensor is placed.
     properties: null
 
   co2_levels:
     name: co2_levels
-    definition: https://en.wikipedia.org/wiki/Indoor_air_quality#Carbon_dioxide
-    description: The C02 levels wherever the indoor module is placed.
+    definition: http://codes.wmo.int/wmdr/ObservedVariableAtmosphere/194
+    description: The CO2 levels wherever the indoor module is placed.
     properties: null
 
   internal_humidity:
     name: internal_humidity
-    definition: https://en.wikipedia.org/wiki/Humidity
+    definition: https://qudt.org/vocab/quantitykind/RelativeHumidity
     description: The internal humidity levels wherever the indoor sensor is placed.
     properties: null
-
