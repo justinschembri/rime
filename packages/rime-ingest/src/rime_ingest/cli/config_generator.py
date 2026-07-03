@@ -14,6 +14,9 @@ from ..transformers.types import SupportedSensors
 
 console = Console()
 
+_SENSOR_PLACEHOLDERS = frozenset({"<SENSOR_ID>", "<SENSOR_UUID>"})
+_THING_PLACEHOLDER = "<THING_NAME>"
+
 
 def _load_template(sensor_model: SupportedSensors) -> Dict[str, Any]:
     """Load template file for a sensor model."""
@@ -45,6 +48,12 @@ def _load_template(sensor_model: SupportedSensors) -> Dict[str, Any]:
     return template
 
 
+def _replace_sensor_placeholders(value: str, sensor_id: str) -> str:
+    for placeholder in _SENSOR_PLACEHOLDERS:
+        value = value.replace(placeholder, sensor_id)
+    return value
+
+
 def _replace_placeholders(
     data: Any,
     sensor_id: str,
@@ -61,9 +70,9 @@ def _replace_placeholders(
         for key, value in data.items():
             # Replace placeholder keys
             new_key = key
-            if key == "<SENSOR_ID>":
+            if key in _SENSOR_PLACEHOLDERS:
                 new_key = sensor_id
-            elif key == "<THING_NAME>":
+            elif key == _THING_PLACEHOLDER:
                 new_key = thing_name
             elif key == "<LOCATION_NAME>":
                 new_key = location_name
@@ -94,9 +103,8 @@ def _replace_placeholders(
                 ))
         return result
     elif isinstance(data, str):
-        # Replace placeholder values
-        data = data.replace("<SENSOR_ID>", sensor_id)
-        data = data.replace("<THING_NAME>", thing_name)
+        data = _replace_sensor_placeholders(data, sensor_id)
+        data = data.replace(_THING_PLACEHOLDER, thing_name)
         data = data.replace("<THING_DESCRIPTION>", thing_description)
         data = data.replace("<LOCATION_NAME>", location_name)
         data = data.replace("<LOCATION_DESCRIPTION>", location_description)
@@ -154,15 +162,30 @@ def generate_config_from_template(
                 elif not isinstance(coords, list) or len(coords) != 2:
                     loc_data["location"]["coordinates"] = [longitude, latitude]
     
-    # Also replace in datastream iot_links
+    # Replace placeholder-driven iot_links and Thing properties.
     if "Datastreams" in config:
-        for ds_name, ds_data in config["Datastreams"].items():
-            if "iot_links" in ds_data:
-                if "Sensors" in ds_data["iot_links"]:
-                    ds_data["iot_links"]["Sensors"] = [sensor_id]
-                if "Things" in ds_data["iot_links"]:
-                    ds_data["iot_links"]["Things"] = [thing_name]
-    
+        for ds_data in config["Datastreams"].values():
+            if "iot_links" not in ds_data:
+                continue
+            links = ds_data["iot_links"]
+            if "Sensors" in links and any(
+                sensor in _SENSOR_PLACEHOLDERS for sensor in links["Sensors"]
+            ):
+                links["Sensors"] = [sensor_id]
+            if "Things" in links and any(
+                thing == _THING_PLACEHOLDER for thing in links["Things"]
+            ):
+                links["Things"] = [thing_name]
+
+    if "Things" in config:
+        for thing_data in config["Things"].values():
+            props = thing_data.get("properties")
+            if not isinstance(props, dict):
+                continue
+            for key in ("dev_eui", "mac_address"):
+                if props.get(key) in _SENSOR_PLACEHOLDERS:
+                    props[key] = sensor_id
+
     # Update sensor name in sensors section
     if "Sensors" in config:
         sensor_key = sensor_model.value

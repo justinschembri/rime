@@ -1,0 +1,159 @@
+# TEMPLATE: Dragino LSN50v2-S31
+# This template contains all standard datastreams and observedProperties for Dragino LSN50v2-S31 sensors.
+# Use this template to generate sensor configuration files - you only need to provide:
+# - Sensor ID/name (device DevEUI or identifier)
+# - Thing name and description
+# - Location name, description, and coordinates
+#
+# Generate config using: rime generate-config dragino.lsn50v2-s31
+
+Sensors:
+  dragino.lsn50v2-s31:
+    name: <SENSOR_ID>  # Replace with device DevEUI (e.g., a840411d00123456)
+    description: Dragino LSN50v2-S31 LoRaWAN Temperature & Humidity Sensor
+    metadata: https://www.dropbox.com/scl/fo/7cxxx92u5wg0w5vusccuq/AAxrHpw-ADkgsb08oWZ9Wd4?dl=0&preview=Datasheet_LSN50v2-S31_LoRaWAN_Temperature_Humidity_Sensor.pdf&rlkey=qqkiahcudrqg0xsofg08ra9xb
+    encodingType: application/pdf
+    properties:
+      wireless_transmission:
+        technology: LoRaWAN
+        protocol: LoRaWAN 1.0.3 Class A
+        frequency: 862~1020 MHz
+        bands: CN470/EU433/KR920/US915/EU868/AS923/AU915/IN865
+        sensitivity: -148 dBm
+        work_mode: OTAA Class A
+      power:
+        battery: 8500mAh Li-SOCI2
+        supply_voltage: 2.5~3.6 V
+        sleep_current: 20 uA
+        transmit_current: 125 mA @ 20 dBm / 44 mA @ 14 dBm
+      probe:
+        type: External SHT31
+        cable_length: 3 m
+        casing: Waterproof anti-condensation
+      sensors:
+        temperature:
+          operating_principle: Sensirion SHT31 digital temperature sensor
+          range: -40°C ~ 80°C
+          accuracy: ±0.2°C @ 0-90°C
+          resolution: 0.01°C
+          long_term_shift: <0.03°C/yr
+        humidity:
+          operating_principle: Sensirion SHT31 digital humidity sensor
+          range: 0% ~ 99.9% RH
+          accuracy: ±2% RH (0~100% RH)
+          resolution: 0.01% RH
+          long_term_shift: <0.25% RH/yr
+      device:
+        operating_temperature: -40°C ~ 85°C
+        dimensions: 120 x 55 x 200 mm
+        weight: 370 g
+    iot_links:
+      Datastreams: &datastreams
+        - battery_voltage
+        - temperature_air
+        - humidity_air
+
+Things:
+  <THING_NAME>:  # Replace with thing name
+    name: <THING_NAME>  # Must match line above
+    description: <THING_DESCRIPTION>  # Replace with description
+    properties: null  # Replace with dict or null as needed
+    iot_links:
+      Datastreams: *datastreams
+      Locations:
+        - <LOCATION_NAME>  # Replace with location name
+
+Locations:
+  <LOCATION_NAME>:  # Replace with location name
+    name: <LOCATION_NAME>  # Must match line above
+    description: <LOCATION_DESCRIPTION>  # Replace with description
+    properties: null  # Replace with dict or null as needed
+    encodingType: application/geo+json
+    location:
+      type: Point  # Replace with Point, Polygon, etc. as needed
+      coordinates: [<LONGITUDE>, <LATITUDE>]  # Replace with [longitude, latitude]
+    iot_links:
+      Things:
+        - <THING_NAME>  # Replace with thing name
+
+Datastreams:
+  temperature_air:
+    name: temperature_air
+    description: Ambient air temperature measured by the external SHT31 probe.
+    observationType: instant
+    unitOfMeasurement: &temperature
+      name: degree Celsius
+      symbol: °C
+      definition: https://unitsofmeasure.org/ucum#para-30
+    observedArea: &observedArea
+      type: Polygon
+      coordinates: null
+    phenomenon_time: null
+    result_time: null
+    properties: null
+    iot_links:
+      ObservedProperties:
+        - air_temperature
+      Sensors:
+        - <SENSOR_ID>  # Replace with sensor name
+      Things:
+        - <THING_NAME>  # Replace with thing name
+
+  humidity_air:
+    name: humidity_air
+    description: Relative air humidity measured by the external SHT31 probe.
+    observationType: instant
+    unitOfMeasurement:
+      name: percent
+      symbol: "%"
+      definition: https://unitsofmeasure.org/ucum#para-29
+    observedArea: *observedArea
+    phenomenon_time: null
+    result_time: null
+    properties: null
+    iot_links:
+      ObservedProperties:
+        - air_humidity
+      Sensors:
+        - <SENSOR_ID>  # Replace with sensor name
+      Things:
+        - <THING_NAME>  # Replace with thing name
+
+  battery_voltage:
+    name: battery_voltage
+    description: Battery voltage of the sensor node.
+    observationType: instant
+    unitOfMeasurement:
+      name: volt
+      symbol: V
+      definition: https://unitsofmeasure.org/ucum#para-30
+    observedArea: *observedArea
+    phenomenon_time: null
+    result_time: null
+    properties: null
+    iot_links:
+      ObservedProperties:
+        - battery_voltage
+      Sensors:
+        - <SENSOR_ID>  # Replace with sensor name
+      Things:
+        - <THING_NAME>  # Replace with thing name
+
+ObservedProperties:
+  air_temperature:
+    name: air_temperature
+    definition: https://vocab.nerc.ac.uk/standard_name/air_temperature/
+    description: Ambient air temperature measured by the external SHT31 probe.
+    properties: null
+
+  air_humidity:
+    name: air_humidity
+    definition: https://vocab.nerc.ac.uk/standard_name/relative_humidity/
+    description: Relative air humidity measured by the external SHT31 probe.
+    properties: null
+
+  battery_voltage:
+    name: battery_voltage
+    definition: https://qudt.org/vocab/quantitykind/ElectricPotentialDifference
+    description: Supply voltage of the sensor node's Li-SOCI2 battery.
+    properties: null

@@ -6,7 +6,7 @@
 # 4 - iot_links shall use entity NAMES to refer to other entities,
 Sensors:
   milesight.am308l:
-    name: <SENSOR_ID>
+    name: <SENSOR_UUID>
     description: Milesight AM308L-LoRaWAN Indoor Air Quality Sensor (7 in 1)
     metadata: https://resource.milesight.com/milesight/iot/document/am30x-datasheet-en.pdf
     encodingType: application/pdf
@@ -69,13 +69,11 @@ Sensors:
         - total_volatile_organic_compounds
         
 Things:
-  <THING_NAME>:
-    name: <THING_NAME>
-    description: <THING_DESCRIPTION>
-    properties: 
-      orientation: south
-      floor: fourth
-      room_type: living_room
+  Milesight AM308L:
+    name: Milesight AM308L
+    description: Milesight AM308L-LoRaWAN Indoor Air Quality Sensor (7 in 1)
+    properties:
+      dev_eui: <SENSOR_UUID>
     iot_links:
       Datastreams: *datastreams
       Locations:
@@ -93,7 +91,7 @@ Locations:
       coordinates: [<LONGITUDE>, <LATITUDE>]
     iot_links:
       Things:
-        - <THING_NAME>
+        - Milesight AM308L
 
 Datastreams:
   temperature_indoor:
@@ -114,13 +112,13 @@ Datastreams:
       ObservedProperties:
         - temperature_indoor
       Sensors:
-        - <SENSOR_ID>
+        - <SENSOR_UUID>
       Things:
-        - <THING_NAME>
+        - Milesight AM308L
 
   humidity:
     name: humidity
-    description:  Datastream for observations of humidity levels in Acerra Apartment.
+    description:  Datastream for observations of humidity levels in Milesight AM308L.
     observationType: instant
     unitOfMeasurement:
       name: percent
@@ -134,13 +132,13 @@ Datastreams:
       ObservedProperties:
         - internal_humidity
       Sensors:
-        - <SENSOR_ID>
+        - <SENSOR_UUID>
       Things:
-        - <THING_NAME>
+        - Milesight AM308L
 
   co2:
     name: co2
-    description:  Datastream for observations of CO2 levels in Acerra Apartment.
+    description:  Datastream for observations of CO2 levels in Milesight AM308L.
     observationType: instant
     unitOfMeasurement:
       name: parts per million
@@ -154,13 +152,13 @@ Datastreams:
       ObservedProperties:
         - co2_levels
       Sensors:
-        - <SENSOR_ID>
+        - <SENSOR_UUID>
       Things:
-        - <THING_NAME>
+        - Milesight AM308L
 
   gauge_pressure:
     name: gauge_pressure
-    description:  Datastream for observations of pressure levels in Acerra Apartment.
+    description:  Datastream for observations of pressure levels in Milesight AM308L.
     observationType: instant
     unitOfMeasurement: &millibar
       name: millibar
@@ -174,9 +172,9 @@ Datastreams:
       ObservedProperties:
         - gauge_pressure
       Sensors:
-        - <SENSOR_ID>
+        - <SENSOR_UUID>
       Things:
-        - <THING_NAME>
+        - Milesight AM308L
 
   battery_level:
     name: battery_level
@@ -194,9 +192,9 @@ Datastreams:
       ObservedProperties:
         - battery_level
       Sensors:
-        - <SENSOR_ID>
+        - <SENSOR_UUID>
       Things:
-        - <THING_NAME>
+        - Milesight AM308L
 
   passive_infrared:
     name: passive_infrared
@@ -214,9 +212,9 @@ Datastreams:
       ObservedProperties:
         - motion 
       Sensors:
-        - <SENSOR_ID>
+        - <SENSOR_UUID>
       Things:
-        - <THING_NAME>
+        - Milesight AM308L
 
   particulate_matter_10:
     name: particulate_matter_10
@@ -234,9 +232,9 @@ Datastreams:
       ObservedProperties:
         - coarse_airborne_particles
       Sensors:
-        - <SENSOR_ID>
+        - <SENSOR_UUID>
       Things:
-        - <THING_NAME>
+        - Milesight AM308L
 
   particulate_matter_2_5:
     name: particulate_matter_2_5
@@ -251,9 +249,9 @@ Datastreams:
       ObservedProperties:
         - fine_airborne_particles
       Sensors:
-        - <SENSOR_ID>
+        - <SENSOR_UUID>
       Things:
-        - <THING_NAME>
+        - Milesight AM308L
 
   total_volatile_organic_compounds:
     name: total_volatile_organic_compounds
@@ -271,9 +269,9 @@ Datastreams:
       ObservedProperties:
         - tvoc
       Sensors:
-        - <SENSOR_ID>
+        - <SENSOR_UUID>
       Things:
-        - <THING_NAME>
+        - Milesight AM308L
 
   light_level:
     name: light_level
@@ -291,81 +289,80 @@ Datastreams:
       ObservedProperties:
         - light_level
       Sensors:
-        - <SENSOR_ID>
+        - <SENSOR_UUID>
       Things:
-        - <THING_NAME>
+        - Milesight AM308L
 
 ObservedProperties:
   temperature_indoor:
     name: temperature_indoor
-    definition: https://dbpedia.org/page/Temperature
+    definition: https://qudt.org/vocab/quantitykind/Temperature
     description: The temperature where the indoor module is placed.
     properties: null
 
   absolute_pressure:
     name: absolute_pressure
-    definition: https://en.wikipedia.org/wiki/Pressure_measurement#Absolute
+    definition: https://qudt.org/vocab/quantitykind/Pressure
     description: The absolute pressure where the indoor module is placed.
     properties: null
 
   gauge_pressure:
     name: gauge_pressure
-    definition: https://en.wikipedia.org/wiki/Pressure_measurement#Absolute
+    definition: https://qudt.org/vocab/quantitykind/GaugePressure
     description: The gauge pressure where the indoor module is placed.
     properties: null
 
   internal_noise_levels:
     name: internal_noise_levels
-    definition: https://en.wikipedia.org/wiki/Ambient_noise_level
+    definition: https://qudt.org/vocab/quantitykind/SoundPressureLevel
     description: The internal ambient noise level where the sensor is placed.
     properties: null
 
   co2_levels:
     name: co2_levels
-    definition: https://en.wikipedia.org/wiki/Indoor_air_quality#Carbon_dioxide
-    description: The C02 levels wherever the indoor module is placed.
+    definition: http://codes.wmo.int/wmdr/ObservedVariableAtmosphere/194
+    description: The CO2 levels wherever the indoor module is placed.
     properties: null
 
   internal_humidity:
     name: internal_humidity
-    definition: https://en.wikipedia.org/wiki/Humidity
+    definition: https://qudt.org/vocab/quantitykind/RelativeHumidity
     description: The internal humidity levels wherever the indoor sensor is placed.
     properties: null
 
   battery_level:
     name: battery_level
-    definition: ... 
-    description: ...
+    definition: https://qudt.org/vocab/quantitykind/DimensionlessRatio
+    description: Remaining charge of the sensor battery expressed as a percentage of full capacity.
     properties: null
 
   motion:
     name: motion
-    definition: ...
-    description: ...
+    definition: https://brickschema.org/schema/Brick#Occupancy_Sensor
+    description: Presence or occupancy detected by the passive infrared (PIR) sensor.
     properties: null
 
   coarse_airborne_particles:
     name: coarse_airborne_particles
-    definition: ...
-    description: ...
+    definition: http://codes.wmo.int/wmdr/ObservedVariableAtmosphere/364
+    description: Mass concentration of particulate matter with aerodynamic diameter less than or equal to 10 µm (PM10).
     properties: null
 
   fine_airborne_particles:
     name: fine_airborne_particles
-    definition: ...
-    description: ...
+    definition: http://codes.wmo.int/wmdr/ObservedVariableAtmosphere/366
+    description: Mass concentration of particulate matter with aerodynamic diameter less than or equal to 2.5 µm (PM2.5).
     properties: null
 
   tvoc:
     name: tvoc
-    definition: ...
-    description: ...
+    definition: https://www.iso.org/standard/73522.html
+    description: Total volatile organic compound level expressed as an indoor air quality (IAQ) index rating.
     properties: null
 
-
   light_level:
-    name: light_level # here names must match too (why?)
-    definition: The amount of light in a room, in lux. 
-    description: ...
+    name: light_level
+    definition: https://qudt.org/vocab/quantitykind/Illuminance
+    description: Ambient light level expressed as an illuminance band index (0–5) corresponding to lux ranges.
     properties: null
 
