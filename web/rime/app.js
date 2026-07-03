@@ -1170,6 +1170,7 @@ async function processThing(thing) {
     if (!locationEntry?.location?.coordinates) return;
 
     const coordinates = locationEntry.location.coordinates;
+    const locationName = locationEntry.name || '';
     const locationDescription = locationEntry.description || '';
     
     // Create custom icon for marker (status colour filled in once health is known)
@@ -1188,6 +1189,7 @@ async function processThing(thing) {
         name: thing.name,
         description: thing.description || '',
         coordinates: latLng,
+        locationName,
         locationDescription,
         thingId,
         healthStatus: 'unknown',
@@ -1442,18 +1444,20 @@ function applyFilters() {
     const query = state.searchQuery || '';
     const statusFilter = state.activeStatusFilter || 'all';
 
-    document.querySelectorAll('.thing-item').forEach(item => {
-        const name = item.dataset.thingName.toLowerCase();
+    document.querySelectorAll('.thing-item:not(.location-item)').forEach(item => {
+        const name = (item.dataset.thingName || '').toLowerCase();
         const status = item.dataset.status || 'unknown';
         const matchesSearch = name.includes(query);
         const matchesStatus = statusFilter === 'all' || status === statusFilter;
         item.style.display = matchesSearch && matchesStatus ? '' : 'none';
     });
 
-    // Locations list: filter by name only (status grading doesn't apply)
+    // Locations list: filter by name and coordinates (status grading doesn't apply)
     document.querySelectorAll('.location-item').forEach(item => {
         const name = (item.dataset.locationName || '').toLowerCase();
-        item.style.display = name.includes(query) ? '' : 'none';
+        const coords = (item.dataset.locationCoords || '').toLowerCase();
+        const matchesSearch = name.includes(query) || coords.includes(query);
+        item.style.display = matchesSearch ? '' : 'none';
     });
 }
 
@@ -1497,19 +1501,19 @@ function buildLocationsList() {
             group = {
                 key,
                 coordinates: thing.coordinates,
-                description: thing.locationDescription || '',
+                name: thing.locationName || '',
                 thingNames: [],
             };
             groups.set(key, group);
         }
         group.thingNames.push(thing.name);
-        if (!group.description && thing.locationDescription) {
-            group.description = thing.locationDescription;
+        if (!group.name && thing.locationName) {
+            group.name = thing.locationName;
         }
     });
 
     const locations = [...groups.values()].sort((a, b) =>
-        (a.description || a.key).localeCompare(b.description || b.key)
+        (a.name || a.key).localeCompare(b.name || b.key)
     );
 
     locationsList.innerHTML = '';
@@ -1517,17 +1521,15 @@ function buildLocationsList() {
 
     locations.forEach(loc => {
         const [lat, lng] = loc.coordinates;
-        const label = loc.description || `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
-        const countText = loc.thingNames.length === 1
-            ? loc.thingNames[0]
-            : `${loc.thingNames.length} Things`;
+        const label = loc.name || `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
 
         const li = document.createElement('li');
         li.className = 'thing-item location-item';
         li.dataset.locationName = label;
+        li.dataset.locationCoords = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
         li.innerHTML = `
             <div class="thing-name"><span class="thing-name-text">${label}</span></div>
-            <div class="thing-description">${countText} · ${lat.toFixed(4)}, ${lng.toFixed(4)}</div>
+            <div class="thing-description">${lat.toFixed(4)}, ${lng.toFixed(4)}</div>
         `;
         li.addEventListener('click', () => {
             state.map.setView(loc.coordinates, 16, {
