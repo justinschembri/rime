@@ -19,6 +19,8 @@ from dataclasses import dataclass, replace
 from typing import Type
 
 from rime_ingest.exceptions import UnregisteredSensorError
+from rime_ingest.transformers.normalizers.dragino import DraginoLSN50v2_S31Normalizer
+from rime_ingest.transformers.parsers.dragino import DraginoLSN50v2_S31Parser
 
 from .decoders.core import Decoder
 from .deserializers.core import Deserializer
@@ -38,12 +40,15 @@ from .types import SensorUUID, SupportedSensors
 
 @dataclass(frozen=True, slots=True)
 class IngestModelComponents:
+    """Components of model-level ingestion pipeline."""
     parser: Type[Parser]
     normalizer: Type[Normalizer]
     deserializer: Type[Deserializer] | None = None
     decoder: Type[Decoder] | None = None
 
-
+# TODO: it is possible that we have made some assumption on the decoding and 
+# dserialization steps that the provider would have applied when defining both
+# the functionality of parsers and the way the ingest component map is defined.
 INGEST_COMPONENT_MAP: dict[SupportedSensors, IngestModelComponents] = {
     SupportedSensors.MILESIGHT_AM103L: IngestModelComponents(
         parser=MilesightAm103lParser,
@@ -61,6 +66,10 @@ INGEST_COMPONENT_MAP: dict[SupportedSensors, IngestModelComponents] = {
         parser=KinemetricsEtna2Parser,
         normalizer=KinemetricsEtna2,
         decoder=KinemetricsEtna2Decoder,
+    ),
+    SupportedSensors.DRAGINO_LSN50V2_S31: IngestModelComponents(
+        parser=DraginoLSN50v2_S31Parser, 
+        normalizer=DraginoLSN50v2_S31Normalizer
     ),
 }
 

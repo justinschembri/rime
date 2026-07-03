@@ -22,9 +22,12 @@ class CanonicalDatastreams(Enum):
     """
     PHENOMENON_TIME = "phenomenon_time"
     BATTERY_LEVEL = "battery_level"
+    BATTERY_VOLTAGE = "battery_voltage"
     HUMIDITY_INDOOR = "humidity"
+    AIR_HUMIDITY = "humidity_air"
     CO2_INDOOR = "co2"
     TEMP_IN = "temperature_indoor"
+    AIR_TEMPERATURE = "temperature_air"
     LIGHT_LVL_IN = "light_level"
     PIR = "passive_infrared"
     PM10 = "particulate_matter_10"
@@ -42,6 +45,7 @@ class SupportedSensors(Enum):
     MILESIGHT_AM308L = "milesight.am308l"
     NETATMO_NWS03 = "netatmo.nws03"
     KINEMETRICS_ETNA2 = "kinemetrics.etna2"
+    DRAGINO_LSN50V2_S31 = "dragino.lsn50v2-s31" 
 
 class SupportedProviders(Enum):
     NETATMO = "netatmo"
