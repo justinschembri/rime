@@ -1,6 +1,6 @@
 [project]
 name = "rime-ingest"
-version = "0.7.0"
+version = "0.7.1"
 description = "RIME — ingest layer for Fraunhofer FROST Server (SensorThings)."
 readme = "README.md"
 requires-python = ">=3.12"
