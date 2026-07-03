@@ -1,15 +1,14 @@
 # TEMPLATE: Dragino LSN50v2-S31
 # This template contains all standard datastreams and observedProperties for Dragino LSN50v2-S31 sensors.
 # Use this template to generate sensor configuration files - you only need to provide:
-# - Sensor ID/name (device DevEUI or identifier)
-# - Thing name and description
+# - Sensor ID/name (device DevEUI)
 # - Location name, description, and coordinates
 #
 # Generate config using: rime generate-config dragino.lsn50v2-s31
 
 Sensors:
   dragino.lsn50v2-s31:
-    name: <SENSOR_ID>  # Replace with device DevEUI (e.g., a840411d00123456)
+    name: <SENSOR_UUID>  # Replace with device DevEUI (e.g., a840411d00123456)
     description: Dragino LSN50v2-S31 LoRaWAN Temperature & Humidity Sensor
     metadata: https://www.dropbox.com/scl/fo/7cxxx92u5wg0w5vusccuq/AAxrHpw-ADkgsb08oWZ9Wd4?dl=0&preview=Datasheet_LSN50v2-S31_LoRaWAN_Temperature_Humidity_Sensor.pdf&rlkey=qqkiahcudrqg0xsofg08ra9xb
     encodingType: application/pdf
@@ -54,10 +53,11 @@ Sensors:
         - humidity_air
 
 Things:
-  <THING_NAME>:  # Replace with thing name
-    name: <THING_NAME>  # Must match line above
-    description: <THING_DESCRIPTION>  # Replace with description
-    properties: null  # Replace with dict or null as needed
+  Dragino Lsn50v 2S31:
+    name: Dragino Lsn50v 2S31
+    description: Dragino LSN50v2-S31 LoRaWAN Temperature & Humidity Sensor
+    properties:
+      dev_eui: <SENSOR_UUID>
     iot_links:
       Datastreams: *datastreams
       Locations:
@@ -74,7 +74,7 @@ Locations:
       coordinates: [<LONGITUDE>, <LATITUDE>]  # Replace with [longitude, latitude]
     iot_links:
       Things:
-        - <THING_NAME>  # Replace with thing name
+        - Dragino Lsn50v 2S31
 
 Datastreams:
   temperature_air:
@@ -95,9 +95,9 @@ Datastreams:
       ObservedProperties:
         - air_temperature
       Sensors:
-        - <SENSOR_ID>  # Replace with sensor name
+        - <SENSOR_UUID>  # Replace with sensor name
       Things:
-        - <THING_NAME>  # Replace with thing name
+        - Dragino Lsn50v 2S31
 
   humidity_air:
     name: humidity_air
@@ -115,9 +115,9 @@ Datastreams:
       ObservedProperties:
         - air_humidity
       Sensors:
-        - <SENSOR_ID>  # Replace with sensor name
+        - <SENSOR_UUID>  # Replace with sensor name
       Things:
-        - <THING_NAME>  # Replace with thing name
+        - Dragino Lsn50v 2S31
 
   battery_voltage:
     name: battery_voltage
@@ -135,9 +135,9 @@ Datastreams:
       ObservedProperties:
         - battery_voltage
       Sensors:
-        - <SENSOR_ID>  # Replace with sensor name
+        - <SENSOR_UUID>  # Replace with sensor name
       Things:
-        - <THING_NAME>  # Replace with thing name
+        - Dragino Lsn50v 2S31
 
 ObservedProperties:
   air_temperature:
