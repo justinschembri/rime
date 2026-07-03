@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 
 class DraginoLSN50v2_S31Normalizer(Normalizer):
-    BatV: int
+    BatV: float
     TempC_SHT: float
     Hum_SHT: float
 
