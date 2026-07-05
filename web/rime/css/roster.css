@@ -1,0 +1,249 @@
+/* ------------------------------------------------------------------ */
+/* Dock column — roster + status foot, aligned with chart dock         */
+/* ------------------------------------------------------------------ */
+.dock-column {
+  position: absolute;
+  top: calc(var(--bar-h) + 26px);
+  left: var(--dock-inset);
+  bottom: var(--dock-inset);
+  width: var(--roster-w);
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  transition: top 0.4s var(--ease);
+}
+
+.app-shell.roster-collapsed .dock-column {
+  top: auto;
+  height: var(--dock-h);
+  box-shadow: var(--shadow-sm);
+}
+
+.app-shell.roster-collapsed .roster {
+  display: none;
+}
+
+.roster {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  border-radius: 0;
+  overflow: hidden;
+}
+
+.roster-foot {
+  flex-shrink: 0;
+  min-height: var(--dock-h);
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  padding: 0 1rem;
+  font-size: 0.74rem;
+  background: transparent;
+  border: none;
+  border-top: 1px solid var(--glass-line);
+  border-radius: 0;
+  box-shadow: none;
+}
+
+/* Collapsed: foot is a standalone dock pill matching the chart header */
+.app-shell.roster-collapsed .roster-foot {
+  border-top: none;
+}
+
+.roster-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.85rem 0.7rem 0.85rem 1.1rem;
+  border-bottom: 1px solid var(--glass-line);
+}
+
+/* Segmented Things | Locations toggle */
+.roster-toggle {
+  display: inline-flex;
+  background: rgba(5, 9, 18, 0.5);
+  border: 1px solid var(--glass-line);
+  border-radius: 999px;
+  padding: 3px;
+  gap: 2px;
+}
+
+.roster-toggle-btn {
+  padding: 0.32rem 0.7rem;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--txt-mute);
+  font-family: inherit;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.16s var(--ease);
+}
+
+.roster-toggle-btn:hover { color: var(--txt); }
+
+.roster-toggle-btn.active {
+  background: rgba(34, 211, 238, 0.16);
+  color: #67e8f9;
+}
+
+/* Location rows have no health status — drop the accent bar */
+.location-item::before { display: none; }
+.location-item { padding-left: 0.8rem; }
+
+.roster-collapse,
+.roster-reopen {
+  background: rgba(5, 9, 18, 0.4);
+  border: 1px solid var(--glass-line);
+  color: var(--txt-dim);
+  cursor: pointer;
+  border-radius: 9px;
+  display: grid;
+  place-items: center;
+  transition: all 0.18s var(--ease);
+}
+
+.roster-collapse {
+  width: 30px;
+  height: 30px;
+}
+
+.roster-collapse:hover {
+  color: #fff;
+  border-color: var(--glass-line-hi);
+}
+
+.roster-reopen {
+  position: absolute;
+  top: calc(var(--bar-h) + 26px);
+  left: var(--dock-inset);
+  z-index: 29;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.55rem 0.9rem;
+  border-radius: 999px;
+  box-shadow: var(--shadow-sm);
+  font-family: inherit;
+  font-size: 0.74rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0;
+  transform: translateX(-12px);
+  pointer-events: none;
+  transition: all 0.3s var(--ease);
+}
+
+.app-shell.roster-collapsed .roster-reopen {
+  opacity: 1;
+  transform: translateX(0);
+  pointer-events: auto;
+}
+
+.roster-reopen:hover {
+  color: #fff;
+  border-color: rgba(34, 211, 238, 0.5);
+}
+
+.things-list[hidden] { display: none; }
+
+.things-list {
+  list-style: none;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0.6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.thing-item {
+  position: relative;
+  padding: 0.7rem 0.8rem 0.7rem 0.95rem;
+  border: 1px solid var(--glass-line);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  background: rgba(5, 9, 18, 0.32);
+  transition: transform 0.16s var(--ease), border-color 0.16s var(--ease), background 0.16s var(--ease);
+}
+
+.thing-item::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 14%;
+  bottom: 14%;
+  width: 3px;
+  border-radius: 0 4px 4px 0;
+  /* Driven by the node's health tier colour (set inline as --status-color) */
+  background: var(--status-color, var(--txt-mute));
+  color: var(--status-color, var(--txt-mute));
+  box-shadow: 0 0 8px currentColor;
+  transition: all 0.16s var(--ease);
+}
+
+.thing-item:hover {
+  border-color: var(--glass-line-hi);
+  background: rgba(15, 25, 48, 0.55);
+  transform: translateX(2px);
+}
+
+.thing-item.active {
+  border-color: rgba(34, 211, 238, 0.55);
+  background: rgba(34, 211, 238, 0.1);
+  box-shadow: inset 0 0 0 1px rgba(34, 211, 238, 0.3);
+}
+
+.thing-name {
+  font-weight: 600;
+  font-size: 0.88rem;
+  color: var(--txt);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.thing-name-text {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.thing-status-tag {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.6rem;
+  padding: 0.16rem 0.42rem;
+  border-radius: 999px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  flex-shrink: 0;
+  border: 1px solid transparent;
+  /* background / color / border-color set inline from the health tier */
+}
+
+.thing-description {
+  font-size: 0.8rem;
+  color: var(--txt-dim);
+  margin-top: 0.35rem;
+}
+
