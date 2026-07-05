@@ -1292,6 +1292,33 @@ body {
 
 .download-thing-btn svg { color: #03121a; }
 
+.download-status {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 0.65rem 0.75rem;
+  margin-bottom: 0.75rem;
+  border-radius: var(--radius-sm);
+  background: rgba(34, 211, 238, 0.08);
+  border: 1px solid rgba(34, 211, 238, 0.2);
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: var(--accent);
+}
+
+.download-status[hidden] { display: none; }
+
+.download-status-spinner {
+  width: 14px;
+  height: 14px;
+  margin-top: 0.1rem;
+  border: 2px solid rgba(34, 211, 238, 0.25);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+  flex-shrink: 0;
+}
+
 .download-date-range {
   display: grid;
   grid-template-columns: 1fr 1fr;

@@ -2284,91 +2284,307 @@ function navigateToDatastream(direction) {
     selectDatastream(datastream['@iot.id'], displayName);
 }
 
-// Fetch all observations for a datastream (with pagination and date filtering)
-async function fetchAllObservations(observationsUrl, maxRetries = 5, delay = 50, startDate = null, endDate = null) {
-    const observations = [];
-    let nextUrl = observationsUrl;
-    let retries = 0;
-    const currentProtocol = window.location.protocol;
-    
-    // Build filter for date range
-    let dateFilter = '';
-    if (startDate || endDate) {
-        const filters = [];
-        if (startDate) {
-            const startISO = startDate.toISOString();
-            filters.push(`phenomenonTime ge ${startISO}`);
+// Build a simple phenomenonTime filter for FROST $filter.
+function buildPhenomenonTimeFilter(startDate, endDate) {
+    const filters = [];
+    if (startDate) filters.push(`phenomenonTime ge ${startDate.toISOString()}`);
+    if (endDate) filters.push(`phenomenonTime le ${endDate.toISOString()}`);
+    return filters.length > 0 ? filters.join(' and ') : null;
+}
+
+// CSV export via FROST $resultFormat=CSV. FROST defaults to $top=100 and CSV responses
+// cannot carry @iot.nextLink, so callers paginate with $skip until a short page is returned.
+function buildObservationsCsvUrl(datastreamId, startDate, endDate, skip = 0) {
+    const params = new URLSearchParams();
+    params.set('$select', 'phenomenonTime,resultTime,result');
+    params.set('$orderby', 'phenomenonTime asc,@iot.id asc');
+    params.set('$top', String(DOWNLOAD_PAGE_SIZE));
+    if (skip > 0) params.set('$skip', String(skip));
+    params.set('$resultFormat', 'CSV');
+    const filter = buildPhenomenonTimeFilter(startDate, endDate);
+    if (filter) params.set('$filter', filter);
+    return `${state.frostRoot}/Datastreams(${datastreamId})/Observations?${params.toString()}`;
+}
+
+function stripCsvBom(text) {
+    return text.charCodeAt(0) === 0xFEFF ? text.slice(1) : text;
+}
+
+function escapeCsvField(value) {
+    if (value === null || value === undefined) return '';
+    const stringValue = String(value);
+    if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
+        return `"${stringValue.replace(/"/g, '""')}"`;
+    }
+    return stringValue;
+}
+
+function splitFrostCsvPage(text) {
+    const trimmed = stripCsvBom(text).trim();
+    if (!trimmed) return { header: '', rows: [] };
+
+    const lines = trimmed.split(/\r?\n/);
+    return {
+        header: lines[0],
+        rows: lines.slice(1).filter(line => line.trim()),
+    };
+}
+
+async function fetchAllDatastreamsForThing(thingId) {
+    const datastreams = [];
+    let skip = 0;
+
+    while (true) {
+        const url = `${state.frostRoot}/Things(${thingId})/Datastreams`
+            + `?$top=${DOWNLOAD_PAGE_SIZE}&$skip=${skip}&$orderby=%40iot.id%20asc`;
+        const response = await frostFetch(url);
+        if (!response.ok) {
+            throw new Error(`HTTP error! Status: ${response.status}`);
         }
-        if (endDate) {
-            const endISO = endDate.toISOString();
-            filters.push(`phenomenonTime le ${endISO}`);
-        }
-        if (filters.length > 0) {
-            dateFilter = filters.join(' and ');
+
+        const page = (await response.json()).value || [];
+        if (page.length === 0) break;
+
+        datastreams.push(...page);
+        skip += page.length;
+    }
+
+    return datastreams;
+}
+
+async function fetchAllObservationsCsvRaw(datastreamId, startDate, endDate, onProgress = null) {
+    let header = '';
+    const rows = [];
+    let skip = 0;
+
+    while (true) {
+        const csvText = await fetchObservationsCsvPage(datastreamId, startDate, endDate, skip);
+        const page = splitFrostCsvPage(csvText);
+        if (page.rows.length === 0) break;
+
+        if (!header) header = page.header;
+        rows.push(...page.rows);
+        skip += page.rows.length;
+
+        if (onProgress) onProgress(rows.length);
+    }
+
+    return { header, rows };
+}
+
+const DOWNLOAD_META_HEADERS = [
+    'datastreamName',
+    'unitOfMeasurement',
+];
+
+function buildMergedCsv(sections) {
+    const active = sections.filter(section => section.rows.length > 0);
+    if (active.length === 0) return '';
+
+    const obsHeader = active[0].header;
+    const lines = [[...DOWNLOAD_META_HEADERS, obsHeader].join(',')];
+
+    for (const section of active) {
+        const prefix = DOWNLOAD_META_HEADERS
+            .map(header => escapeCsvField(section.meta[header]))
+            .join(',');
+        for (const row of section.rows) {
+            lines.push(`${prefix},${row}`);
         }
     }
-    
-    while (nextUrl) {
-        const secureUrl = nextUrl.replace(/^http:/, currentProtocol);
-        const params = new URLSearchParams({ '$select': 'phenomenonTime,resultTime,result' });
-        
-        // Add date filter if provided
-        if (dateFilter) {
-            params.append('$filter', dateFilter);
+
+    return lines.join('\n');
+}
+
+function buildDatastreamCsv(section) {
+    const lines = [[...DOWNLOAD_META_HEADERS, section.header].join(',')];
+    const prefix = DOWNLOAD_META_HEADERS
+        .map(header => escapeCsvField(section.meta[header]))
+        .join(',');
+
+    for (const row of section.rows) {
+        lines.push(`${prefix},${row}`);
+    }
+
+    return lines.join('\n');
+}
+
+function sanitizeDownloadFilename(name) {
+    return name.replace(/[^a-z0-9._-]+/gi, '_').replace(/_+/g, '_').replace(/^_|_$/g, '') || 'data';
+}
+
+function buildDownloadBaseName(thing) {
+    const parts = [thing.name, thing.locationName].filter(Boolean);
+    return sanitizeDownloadFilename(parts.join('_'));
+}
+
+function triggerFileDownload(content, filename, mimeType = 'text/csv;charset=utf-8;') {
+    const blob = content instanceof Blob ? content : new Blob([content], { type: mimeType });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', filename);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+}
+
+// Store-only ZIP for bundling one CSV per datastream (avoids browser multi-download blocking).
+const CRC32_TABLE = (() => {
+    const table = new Uint32Array(256);
+    for (let i = 0; i < 256; i++) {
+        let crc = i;
+        for (let j = 0; j < 8; j++) {
+            crc = (crc & 1) ? (0xEDB88320 ^ (crc >>> 1)) : (crc >>> 1);
         }
-        
-        const urlWithParams = secureUrl.includes('?') 
-            ? `${secureUrl}&${params.toString()}` 
-            : `${secureUrl}?${params.toString()}`;
-        
+        table[i] = crc >>> 0;
+    }
+    return table;
+})();
+
+function crc32(bytes) {
+    let crc = 0xFFFFFFFF;
+    for (let i = 0; i < bytes.length; i++) {
+        crc = CRC32_TABLE[(crc ^ bytes[i]) & 0xFF] ^ (crc >>> 8);
+    }
+    return (crc ^ 0xFFFFFFFF) >>> 0;
+}
+
+function writeUint32LE(view, offset, value) {
+    view.setUint32(offset, value, true);
+}
+
+function writeUint16LE(view, offset, value) {
+    view.setUint16(offset, value, true);
+}
+
+function createZipArchive(files) {
+    const encoder = new TextEncoder();
+    const parts = [];
+    const central = [];
+    let offset = 0;
+
+    for (const file of files) {
+        const nameBytes = encoder.encode(file.name);
+        const dataBytes = encoder.encode(file.content);
+        const checksum = crc32(dataBytes);
+
+        const localHeader = new Uint8Array(30 + nameBytes.length);
+        const localView = new DataView(localHeader.buffer);
+        writeUint32LE(localView, 0, 0x04034b50);
+        writeUint16LE(localView, 4, 20);
+        writeUint16LE(localView, 6, 0);
+        writeUint16LE(localView, 8, 0);
+        writeUint16LE(localView, 10, 0);
+        writeUint16LE(localView, 12, 0);
+        writeUint32LE(localView, 14, checksum);
+        writeUint32LE(localView, 18, dataBytes.length);
+        writeUint32LE(localView, 22, dataBytes.length);
+        writeUint16LE(localView, 26, nameBytes.length);
+        writeUint16LE(localView, 28, 0);
+        localHeader.set(nameBytes, 30);
+
+        parts.push(localHeader, dataBytes);
+
+        const centralHeader = new Uint8Array(46 + nameBytes.length);
+        const centralView = new DataView(centralHeader.buffer);
+        writeUint32LE(centralView, 0, 0x02014b50);
+        writeUint16LE(centralView, 4, 20);
+        writeUint16LE(centralView, 6, 20);
+        writeUint16LE(centralView, 8, 0);
+        writeUint16LE(centralView, 10, 0);
+        writeUint16LE(centralView, 12, 0);
+        writeUint16LE(centralView, 14, 0);
+        writeUint32LE(centralView, 16, checksum);
+        writeUint32LE(centralView, 20, dataBytes.length);
+        writeUint32LE(centralView, 24, dataBytes.length);
+        writeUint16LE(centralView, 28, nameBytes.length);
+        writeUint16LE(centralView, 30, 0);
+        writeUint16LE(centralView, 32, 0);
+        writeUint16LE(centralView, 34, 0);
+        writeUint16LE(centralView, 36, 0);
+        writeUint32LE(centralView, 38, 0);
+        writeUint32LE(centralView, 42, offset);
+        centralHeader.set(nameBytes, 46);
+        central.push(centralHeader);
+
+        offset += localHeader.length + dataBytes.length;
+    }
+
+    const centralSize = central.reduce((sum, part) => sum + part.length, 0);
+    const endRecord = new Uint8Array(22);
+    const endView = new DataView(endRecord.buffer);
+    writeUint32LE(endView, 0, 0x06054b50);
+    writeUint16LE(endView, 4, 0);
+    writeUint16LE(endView, 6, 0);
+    writeUint16LE(endView, 8, files.length);
+    writeUint16LE(endView, 10, files.length);
+    writeUint32LE(endView, 12, centralSize);
+    writeUint32LE(endView, 16, offset);
+    writeUint16LE(endView, 20, 0);
+
+    return new Blob([...parts, ...central, endRecord], { type: 'application/zip' });
+}
+
+async function fetchObservationsCsvPage(datastreamId, startDate, endDate, skip, maxRetries = 3) {
+    const url = buildObservationsCsvUrl(datastreamId, startDate, endDate, skip);
+    let lastError;
+
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
         try {
-            await new Promise(resolve => setTimeout(resolve, delay));
-            const response = await frostFetch(urlWithParams);
-            
+            const response = await frostFetch(url);
             if (!response.ok) {
                 throw new Error(`HTTP error! Status: ${response.status}`);
             }
-            
-            const data = await response.json();
-            
-            if (!data.value) {
-                throw new Error('No content found.');
-            }
-            
-            // Add observations
-            for (const obs of data.value) {
-                observations.push({
-                    phenomenonTime: obs.phenomenonTime,
-                    resultTime: obs.resultTime || obs.phenomenonTime,
-                    result: obs.result
-                });
-            }
-            
-            // Check for next page
-            if (data['@iot.nextLink']) {
-                nextUrl = data['@iot.nextLink'];
-                // Add filter to nextLink if it doesn't already have one
-                if (dateFilter && !nextUrl.includes('$filter')) {
-                    nextUrl += (nextUrl.includes('?') ? '&' : '?') + `$filter=${encodeURIComponent(dateFilter)}`;
-                }
-            } else {
-                nextUrl = null;
-            }
-            
+            return await response.text();
         } catch (error) {
-            if (retries >= maxRetries) {
-                throw error;
+            lastError = error;
+            if (attempt < maxRetries - 1) {
+                await new Promise(resolve => setTimeout(resolve, 1000));
             }
-            retries++;
-            await new Promise(resolve => setTimeout(resolve, 1000));
         }
     }
-    
-    return observations;
+
+    throw lastError;
+}
+
+function setDownloadProgress(message) {
+    const statusEl = document.getElementById('downloadStatus');
+    const textEl = document.getElementById('downloadStatusText');
+    if (!statusEl || !textEl) return;
+    statusEl.hidden = false;
+    textEl.textContent = message;
+}
+
+function clearDownloadProgress() {
+    const statusEl = document.getElementById('downloadStatus');
+    if (statusEl) statusEl.hidden = true;
+}
+
+function setDownloadBusy(busy, message = '') {
+    const downloadBtn = document.getElementById('downloadThingBtn');
+    const startDateInput = document.getElementById('downloadStartDate');
+    const endDateInput = document.getElementById('downloadEndDate');
+    const optionRadios = document.querySelectorAll('.download-option-radio');
+    const layoutRadios = document.querySelectorAll('.download-layout-radio');
+
+    if (downloadBtn) downloadBtn.disabled = busy;
+    if (startDateInput) startDateInput.disabled = busy;
+    if (endDateInput) endDateInput.disabled = busy;
+    optionRadios.forEach(radio => { radio.disabled = busy; });
+    layoutRadios.forEach(radio => { radio.disabled = busy; });
+
+    if (busy) {
+        setDownloadProgress(message);
+    } else {
+        clearDownloadProgress();
+    }
 }
 
 // Download all data for a Thing
-async function downloadThingData(thingId, startDate = null, endDate = null) {
+async function downloadThingData(thingId, startDate = null, endDate = null, layout = 'merged') {
     const thing = state.things[thingId];
     if (!thing) {
         updateStatus('Thing not found', 'error');
@@ -2381,123 +2597,109 @@ async function downloadThingData(thingId, startDate = null, endDate = null) {
         return;
     }
     
-    updateStatus('Preparing download...', '');
-    
+    setDownloadBusy(true, 'Preparing download from server…');
+    updateStatus('Preparing download from server…', '');
+
     try {
-        // Fetch all datastreams for the thing
-        const response = await frostFetch(`${state.frostRoot}/Things(${thingId})/Datastreams`);
-        if (!response.ok) {
-            throw new Error(`HTTP error! Status: ${response.status}`);
-        }
-        
-        const datastreamData = await response.json();
-        const datastreams = datastreamData.value || [];
-        
+        const datastreams = await fetchAllDatastreamsForThing(thingId);
+
         if (datastreams.length === 0) {
             updateStatus('No datastreams found for this thing', 'warning');
             return;
         }
-        
-        const dateRangeText = startDate && endDate 
+
+        const dateRangeText = startDate && endDate
             ? ` (${startDate.toISOString().split('T')[0]} to ${endDate.toISOString().split('T')[0]})`
             : '';
-        updateStatus(`Downloading data from ${datastreams.length} datastream(s)${dateRangeText}...`, '');
-        
-        // Fetch all observations for each datastream
-        const allData = [];
+        const sections = [];
         let totalObservations = 0;
-        
-        for (const ds of datastreams) {
+        let datastreamsWithData = 0;
+        const downloadBaseName = buildDownloadBaseName(thing);
+
+        for (let i = 0; i < datastreams.length; i++) {
+            const ds = datastreams[i];
             const dsName = formatDatastreamName(ds.name);
             const unitSymbol = ds.unitOfMeasurement?.symbol || '';
-            const currentProtocol = window.location.protocol;
-            const obsUrl = ds['Observations@iot.navigationLink'];
-            const secureObsUrl = obsUrl.replace(/^http:/, currentProtocol);
-            
+            const progress = `Preparing data (${i + 1}/${datastreams.length}): ${dsName}…`;
+
+            setDownloadProgress(`${progress} Large datasets may take a moment.`);
+            updateStatus(`${progress}${dateRangeText}`, '');
+
             try {
-                updateStatus(`Fetching ${dsName}...`, '');
-                const observations = await fetchAllObservations(secureObsUrl, 5, 50, startDate, endDate);
-                totalObservations += observations.length;
-                
-                // Add metadata to each observation
-                for (const obs of observations) {
-                    allData.push({
-                        thingName: thing.name,
-                        thingId: thingId,
+                const frostCsv = await fetchAllObservationsCsvRaw(
+                    ds['@iot.id'],
+                    startDate,
+                    endDate,
+                    (fetched) => {
+                        const detail = `${progress} ${fetched.toLocaleString()} observations fetched…`;
+                        setDownloadProgress(`${detail} Large datasets may take a moment.`);
+                        updateStatus(`${detail}${dateRangeText}`, '');
+                    },
+                );
+
+                if (frostCsv.rows.length === 0) continue;
+
+                totalObservations += frostCsv.rows.length;
+                datastreamsWithData += 1;
+                sections.push({
+                    header: frostCsv.header,
+                    rows: frostCsv.rows,
+                    meta: {
                         datastreamName: ds.name,
-                        datastreamDisplayName: dsName,
                         unitOfMeasurement: unitSymbol,
-                        phenomenonTime: obs.phenomenonTime,
-                        resultTime: obs.resultTime,
-                        result: obs.result
-                    });
-                }
-                
+                    },
+                });
             } catch (error) {
                 console.error(`Error fetching observations for ${dsName}:`, error);
                 updateStatus(`Error fetching ${dsName}: ${error.message}`, 'error');
             }
         }
-        
-        if (allData.length === 0) {
-            const rangeText = startDate && endDate 
+
+        if (sections.length === 0) {
+            const rangeText = startDate && endDate
                 ? ' for selected date range'
                 : '';
             updateStatus(`No observations found to download${rangeText}`, 'warning');
             return;
         }
-        
-        // Convert to CSV
-        updateStatus('Converting to CSV...', '');
-        const csv = convertToCSV(allData);
-        
-        // Trigger download
-        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-        const link = document.createElement('a');
-        const url = URL.createObjectURL(blob);
-        const dateSuffix = startDate && endDate 
+
+        const dateSuffix = startDate && endDate
             ? `_${startDate.toISOString().split('T')[0]}_to_${endDate.toISOString().split('T')[0]}`
             : '';
-        link.setAttribute('href', url);
-        link.setAttribute('download', `${thing.name.replace(/[^a-z0-9]/gi, '_')}_data${dateSuffix}.csv`);
-        link.style.visibility = 'hidden';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        
-        updateStatus(`Downloaded ${totalObservations.toLocaleString()} observations`, 'success');
-        
+
+        if (layout === 'separate') {
+            setDownloadProgress('Building ZIP archive…');
+            updateStatus('Building ZIP archive…', '');
+
+            const zipFiles = sections.map((section) => ({
+                name: `${downloadBaseName}_${sanitizeDownloadFilename(section.meta.datastreamName)}${dateSuffix}.csv`,
+                content: buildDatastreamCsv(section),
+            }));
+            const zipBlob = createZipArchive(zipFiles);
+            triggerFileDownload(
+                zipBlob,
+                `${downloadBaseName}_datastreams${dateSuffix}.zip`,
+                'application/zip',
+            );
+        } else {
+            setDownloadProgress('Building CSV file…');
+            updateStatus('Building CSV file…', '');
+
+            const csv = buildMergedCsv(sections);
+            triggerFileDownload(csv, `${downloadBaseName}_data${dateSuffix}.csv`);
+        }
+
+        updateStatus(
+            `Downloaded ${totalObservations.toLocaleString()} observations from ${datastreamsWithData} datastream(s)`,
+            'success',
+        );
+
     } catch (error) {
         console.error('Error downloading thing data:', error);
         updateStatus(`Download error: ${error.message}`, 'error');
+    } finally {
+        setDownloadBusy(false);
     }
-}
-
-// Convert data array to CSV format
-function convertToCSV(data) {
-    if (data.length === 0) return '';
-    
-    // Get headers
-    const headers = Object.keys(data[0]);
-    
-    // Create CSV rows
-    const rows = [headers.join(',')];
-    
-    for (const row of data) {
-        const values = headers.map(header => {
-            const value = row[header];
-            // Escape commas and quotes, wrap in quotes if needed
-            if (value === null || value === undefined) return '';
-            const stringValue = String(value);
-            if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
-                return `"${stringValue.replace(/"/g, '""')}"`;
-            }
-            return stringValue;
-        });
-        rows.push(values.join(','));
-    }
-    
-    return rows.join('\n');
 }
 
 // Add download button and date picker to metadata sidebar
@@ -2545,6 +2747,20 @@ function addDownloadButton(thingId) {
                     <label for="downloadEndDate">End Date</label>
                     <input type="date" id="downloadEndDate" value="${dateFormat(endDate)}" class="date-input">
                 </div>
+            </div>
+            <div class="download-option-group">
+                <label class="download-option-label">
+                    <input type="radio" name="downloadLayout" value="merged" checked class="download-layout-radio">
+                    <span>Single CSV</span>
+                </label>
+                <label class="download-option-label">
+                    <input type="radio" name="downloadLayout" value="separate" class="download-layout-radio">
+                    <span>ZIP per datastream</span>
+                </label>
+            </div>
+            <div class="download-status" id="downloadStatus" hidden>
+                <span class="download-status-spinner" aria-hidden="true"></span>
+                <span class="download-status-text" id="downloadStatusText"></span>
             </div>
             <button class="download-thing-btn" id="downloadThingBtn">
                 <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor" style="margin-right: 0.5rem;">
@@ -2604,14 +2820,15 @@ function addDownloadButton(thingId) {
     
     downloadBtn.addEventListener('click', async () => {
         const selectedOption = document.querySelector('.download-option-radio:checked').value;
-        
+        const layout = document.querySelector('.download-layout-radio:checked')?.value || 'merged';
+
         if (selectedOption === 'all') {
-            await downloadThingData(thingId, null, null);
+            await downloadThingData(thingId, null, null, layout);
         } else {
             const startDate = new Date(startDateInput.value);
             const endDate = new Date(endDateInput.value);
             endDate.setHours(23, 59, 59, 999); // Include full end date
-            await downloadThingData(thingId, startDate, endDate);
+            await downloadThingData(thingId, startDate, endDate, layout);
         }
     });
     
