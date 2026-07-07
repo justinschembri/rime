@@ -159,9 +159,23 @@ function initializeEventListeners() {
         });
     }
 
+    const virtualExitBtn = document.getElementById('virtualExitBtn');
+    if (virtualExitBtn) {
+        virtualExitBtn.addEventListener('click', () => setShowVirtualThings(false));
+    }
+
     document.querySelectorAll('.roster-toggle-btn').forEach(btn => {
         btn.addEventListener('click', () => setRosterView(btn.dataset.view));
     });
+
+    const virtualThingsCheckbox = document.getElementById('virtualThingsCheckbox');
+    if (virtualThingsCheckbox) {
+        virtualThingsCheckbox.addEventListener('change', () => {
+            setShowVirtualThings(virtualThingsCheckbox.checked);
+        });
+    }
+
+    syncVirtualModeChrome();
 
     const zoomInBtn = document.getElementById('zoomInBtn');
     if (zoomInBtn) zoomInBtn.addEventListener('click', () => state.map && state.map.zoomIn());
@@ -353,18 +367,77 @@ function updateMetadataSidebarStatus(status, label, timeSince = null) {
     content.insertBefore(statusSection, content.firstChild);
 }
 
-// Run an array of async task-functions with a bounded concurrency.
-// taskFns: array of () => Promise, limit: max simultaneous tasks.
-async function runConcurrent(taskFns, limit) {
-    let i = 0;
-    async function worker() {
-        while (i < taskFns.length) {
-            await taskFns[i++]();
+// ── Virtual layer — terminal nodes over the faded map ────────────────
+function buildVirtualNodeHtml(thingData) {
+    const health = thingData.healthStatus;
+    const statusLabel = (health && health !== 'unknown')
+        ? (HEALTH_TIER_MAP[health]?.label || health)
+        : 'no data';
+    const color = (health && health !== 'unknown')
+        ? (HEALTH_TIER_MAP[health]?.color || '#4ade80')
+        : '#4ade80';
+    return `
+        <div class="virtual-node-header">
+            <span class="virtual-node-prompt">&gt;</span>
+            <span class="virtual-node-name" title="${thingData.name}">${thingData.name}</span>
+        </div>
+        <div class="virtual-node-id">id:${thingData.thingId}</div>
+        <div class="virtual-node-footer">
+            <span class="virtual-node-dot" style="background:${color};box-shadow:0 0 6px ${color}80;"></span>
+            <span class="virtual-node-status">${statusLabel}</span>
+        </div>
+    `;
+}
+
+function renderVirtualLayer() {
+    const layer = document.getElementById('virtualLayer');
+    if (!layer) return;
+
+    layer.innerHTML = '';
+    const virtualThings = Object.values(state.things).filter(t => t.virtual);
+
+    virtualThings.forEach((thingData, i) => {
+        const node = document.createElement('div');
+        node.className = 'virtual-node';
+        node.dataset.thingId = thingData.thingId;
+        node.style.animationDelay = `${i * 35}ms`;
+        node.innerHTML = buildVirtualNodeHtml(thingData);
+
+        node.addEventListener('click', async () => {
+            document.querySelectorAll('.virtual-node').forEach(n => n.classList.remove('active'));
+            node.classList.add('active');
+            showThingMetadata(thingData.thingId);
+            await loadDatastreamsForThing(thingData.thingId);
+        });
+
+        layer.appendChild(node);
+    });
+}
+
+function updateVirtualLayerHealth() {
+    if (!state.showVirtualThings) return;
+    document.querySelectorAll('.virtual-node').forEach(node => {
+        const thingId = node.dataset.thingId;
+        const thingData = thingId ? state.things[thingId] : null;
+        if (!thingData) return;
+        node.innerHTML = buildVirtualNodeHtml(thingData);
+        if (state.selectedThingId === thingId) {
+            node.classList.add('active');
         }
-    }
-    await Promise.all(
-        Array.from({ length: Math.min(limit, taskFns.length) }, worker)
-    );
+        // Re-attach click handler
+        node.onclick = async (e) => {
+            e.stopPropagation();
+            document.querySelectorAll('.virtual-node').forEach(n => n.classList.remove('active'));
+            node.classList.add('active');
+            showThingMetadata(thingId);
+            await loadDatastreamsForThing(thingId);
+        };
+    });
+}
+
+function clearVirtualLayer() {
+    const layer = document.getElementById('virtualLayer');
+    if (layer) layer.innerHTML = '';
 }
 
 // Debounced status tag update ─────────────────────────────────────────────
@@ -378,13 +451,13 @@ function scheduleStatusUpdate() {
     requestAnimationFrame(() => {
         _statusUpdatePending = false;
         updateThingStatusTags();
+        updateVirtualLayerHealth();
     });
 }
 
 // ── Manual health check ──────────────────────────────────────────────────
-// The graded health scan (fetchHealthData) is heavy on the FROST server, so it
-// runs only when the user presses the "Check health" button — never on load,
-// never per click, never on a timer.
+// The health scan runs only when the user presses "Check health" — never on
+// load, never per click, never on a timer.
 function setHealthCheckButtonState(stateName) {
     const btn = document.getElementById('healthCheckBtn');
     const label = document.getElementById('healthCheckLabel');
@@ -539,9 +612,16 @@ async function fetchThings() {
 
         if (stale()) return;
 
-        if (allThings.length === 0) {
+        const totalThings = Object.keys(state.things).length;
+        const virtualCount = Object.values(state.things).filter(t => t.virtual).length;
+
+        if (totalThings === 0) {
             hideLoadingOverlay();
             throw new Error('No Things found at this endpoint');
+        }
+
+        if (state.showVirtualThings) {
+            rebuildThingsList();
         }
 
         if (state.markerCluster.getLayers().length > 0) {
@@ -551,7 +631,8 @@ async function fetchThings() {
             });
         }
 
-        updateStatus(`Loaded ${allThings.length} Things · health on demand`, 'success');
+        const virtualNote = virtualCount > 0 ? ` · ${virtualCount} virtual` : '';
+        updateStatus(`Loaded ${allThings.length} on map${virtualNote} · health on demand`, 'success');
         updateStatusCounts();
         hideLoadingOverlay();
 
@@ -584,136 +665,121 @@ async function fetchThings() {
 }
 
 // ── Phase 2 (on-demand): grade every node's health ───────────────────────
-// Invoked only by runHealthCheck. Fetches a cheap count, then requests health
-// pages in parallel via $skip (fallback: sequential @iot.nextLink).
+// Invoked only by runHealthCheck. Fetches Datastreams with phenomenonTime/end
+// (last observation edge) and paginates via @iot.nextLink.
 
-const HEALTH_EXPAND =
-    'Datastreams($select=id;$expand=Observations($select=phenomenonTime;$top=1;$orderby=phenomenonTime%20desc))';
+const HEALTH_DATASTREAMS_SELECT = 'phenomenonTime/end,@iot.id';
+const HEALTH_DATASTREAMS_EXPAND = 'Thing($select=@iot.id)';
 
-function buildHealthPageUrl(skip) {
-    return `${state.frostRoot}/Things?$select=id&$expand=${HEALTH_EXPAND}` +
-        `&$top=${HEALTH_PAGE_SIZE}&$skip=${skip}&$orderby=%40iot.id%20asc`;
+function buildHealthDatastreamsUrl() {
+    return `${state.frostRoot}/Datastreams?$select=${HEALTH_DATASTREAMS_SELECT}`
+        + `&$expand=${HEALTH_DATASTREAMS_EXPAND}&$top=${HEALTH_PAGE_SIZE}`;
 }
 
-// Apply health grades from one paginated Things response.
-function processHealthPageThings(things, gen) {
+function thingIdFromDatastream(datastream) {
+    if (datastream.Thing?.['@iot.id'] != null) {
+        return String(datastream.Thing['@iot.id']);
+    }
+    const link = datastream['Thing@iot.navigationLink'];
+    if (!link) return null;
+    const match = link.match(/Things\((\d+)\)/);
+    return match ? match[1] : null;
+}
+
+function lastObservationEndFromDatastream(datastream) {
+    const phenomenonTime = datastream.phenomenonTime;
+    let end = null;
+
+    if (phenomenonTime && typeof phenomenonTime === 'object') {
+        end = phenomenonTime.end ?? null;
+    } else if (typeof phenomenonTime === 'string') {
+        return parsePhenomenonTime(phenomenonTime);
+    }
+
+    if (!end) {
+        end = datastream['phenomenonTime/end'];
+    }
+    if (!end) return null;
+
+    const date = new Date(end);
+    return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function applyHealthFromMostRecent(stored, mostRecentMs) {
+    if (mostRecentMs == null) {
+        stored.timeSinceLastObservation = null;
+        stored.healthStatus = NODATA_TIER.key;
+        stored.healthLabel  = NODATA_TIER.label;
+        return;
+    }
+    const mins = (Date.now() - mostRecentMs) / 60000;
+    const health = calculateThingHealthStatus(mins);
+    stored.timeSinceLastObservation = mins;
+    stored.healthStatus = health.status;
+    stored.healthLabel  = health.label;
+}
+
+function mergeHealthPageDatastreams(datastreams, thingMostRecent, gen) {
     if (state.fetchGeneration !== gen) return false;
 
-    for (const thing of (things || [])) {
+    for (const ds of (datastreams || [])) {
         if (state.fetchGeneration !== gen) return false;
-        const stored = state.things[thing['@iot.id']];
-        if (!stored) continue;
+        const thingId = thingIdFromDatastream(ds);
+        if (!thingId || !state.things[thingId]) continue;
 
-        const datastreams = thing.Datastreams || [];
-        // NOTE: do NOT cache these into stored.datastreams — the health query
-        // uses $select to fetch only id + phenomenonTime (no name/unit/result),
-        // which would break the inspector's datastream rendering if reused.
+        const observed = lastObservationEndFromDatastream(ds);
+        if (!observed) continue;
 
-        const times = datastreams
-            .map(ds => parsePhenomenonTime(ds.Observations?.[0]?.phenomenonTime))
-            .filter(Boolean);
-
-        if (times.length > 0) {
-            const mostRecent = Math.max(...times.map(t => t.getTime()));
-            const mins   = (Date.now() - mostRecent) / 60000;
-            const health = calculateThingHealthStatus(mins);
-            stored.timeSinceLastObservation = mins;
-            stored.healthStatus = health.status;
-            stored.healthLabel  = health.label;
-        } else {
-            stored.timeSinceLastObservation = null;
-            stored.healthStatus = NODATA_TIER.key;
-            stored.healthLabel  = NODATA_TIER.label;
+        const ms = observed.getTime();
+        const prev = thingMostRecent.get(thingId);
+        if (prev == null || ms > prev) {
+            thingMostRecent.set(thingId, ms);
+            applyHealthFromMostRecent(state.things[thingId], ms);
         }
     }
     return true;
 }
 
-async function fetchThingsCount(gen) {
-    const response = await frostFetch(`${state.frostRoot}/Things?$count=true&$top=0`);
-    if (state.fetchGeneration !== gen) return null;
-    if (!response.ok) {
-        if (response.status === 401) {
-            showErrorOverlay('Unauthorized', 'Invalid credentials for health scan');
-        }
-        return null;
-    }
-    const data = await response.json();
-    if (state.fetchGeneration !== gen) return null;
-    const count = data['@iot.count'];
-    return typeof count === 'number' ? count : null;
-}
-
-async function fetchHealthDataSequential(gen) {
-    let nextUrl = buildHealthPageUrl(0);
-
-    while (nextUrl) {
-        if (state.fetchGeneration !== gen) return;
-
-        const response = await frostFetch(nextUrl);
-        if (state.fetchGeneration !== gen) return;
-        if (!response.ok) {
-            if (response.status === 401) {
-                showErrorOverlay('Unauthorized', 'Invalid credentials for health scan');
-            }
-            return;
-        }
-
-        const data = await response.json();
-        if (state.fetchGeneration !== gen) return;
-
-        if (processHealthPageThings(data.value, gen)) {
-            scheduleStatusUpdate();
-        }
-
-        nextUrl = data['@iot.nextLink'] || null;
-        if (nextUrl) nextUrl = nextUrl.replace(/^http:/, window.location.protocol);
-    }
-}
-
-async function fetchHealthDataParallel(gen, total) {
-    const pageCount = Math.ceil(total / HEALTH_PAGE_SIZE);
-    const skips = Array.from({ length: pageCount }, (_, i) => i * HEALTH_PAGE_SIZE);
-    let completed = 0;
-
-    const taskFns = skips.map(skip => async () => {
-        if (state.fetchGeneration !== gen) return;
-
-        const response = await frostFetch(buildHealthPageUrl(skip));
-        if (state.fetchGeneration !== gen) return;
-        if (!response.ok) {
-            if (response.status === 401) {
-                showErrorOverlay('Unauthorized', 'Invalid credentials for health scan');
-            }
-            throw new Error(`Health page failed (skip=${skip}): HTTP ${response.status}`);
-        }
-
-        const data = await response.json();
-        if (state.fetchGeneration !== gen) return;
-
-        if (processHealthPageThings(data.value, gen)) {
-            completed += 1;
-            updateStatus(`Scanning Thing health… ${completed}/${pageCount}`, '');
-            scheduleStatusUpdate();
-        }
-    });
-
-    await runConcurrent(taskFns, HEALTH_PARALLEL_WORKERS);
-}
-
 async function fetchHealthData(gen) {
+    const thingMostRecent = new Map();
+
     try {
-        const total = await fetchThingsCount(gen);
+        let nextUrl = buildHealthDatastreamsUrl();
+        let pageNum = 0;
+
+        while (nextUrl) {
+            if (state.fetchGeneration !== gen) return;
+
+            const response = await frostFetch(nextUrl);
+            if (state.fetchGeneration !== gen) return;
+            if (!response.ok) {
+                if (response.status === 401) {
+                    showErrorOverlay('Unauthorized', 'Invalid credentials for health scan');
+                }
+                throw new Error(`Health scan failed: HTTP ${response.status}`);
+            }
+
+            const data = await response.json();
+            if (state.fetchGeneration !== gen) return;
+
+            if (mergeHealthPageDatastreams(data.value, thingMostRecent, gen)) {
+                pageNum += 1;
+                updateStatus(`Scanning Thing health… page ${pageNum}`, '');
+                scheduleStatusUpdate();
+            }
+
+            nextUrl = data['@iot.nextLink'] || null;
+            if (nextUrl) nextUrl = nextUrl.replace(/^http:/, window.location.protocol);
+        }
+
         if (state.fetchGeneration !== gen) return;
 
-        if (total !== null) {
-            if (total > 0) {
-                await fetchHealthDataParallel(gen, total);
+        for (const [thingId, stored] of Object.entries(state.things)) {
+            if (!thingMostRecent.has(thingId)) {
+                applyHealthFromMostRecent(stored, null);
             }
-        } else {
-            // Count unavailable on this server — fall back to nextLink paging.
-            await fetchHealthDataSequential(gen);
         }
+        scheduleStatusUpdate();
 
         if (state.fetchGeneration === gen) {
             updateStatus(`${Object.keys(state.things).length} Things · health ready`, 'success');
@@ -726,9 +792,40 @@ async function fetchHealthData(gen) {
     }
 }
 
+// Register a Thing that has no usable Location (virtual Thing).
+function registerVirtualThing(thing) {
+    const thingId = thing['@iot.id'];
+    if (state.things[thingId]) return;
+
+    state.things[thingId] = {
+        marker: null,
+        virtual: true,
+        name: thing.name,
+        description: thing.description || '',
+        coordinates: null,
+        locationName: '',
+        locationDescription: '',
+        thingId,
+        healthStatus: 'unknown',
+        healthLabel: null,
+        timeSinceLastObservation: null,
+        datastreams: [],
+    };
+
+    state.thingsByName[thing.name] = {
+        marker: null,
+        id: thingId,
+        coordinates: null,
+        description: thing.description || '',
+        locationDescription: '',
+        virtual: true,
+    };
+}
+
 // Process a single thing.
 // Locations are expected to be inlined via $expand=Locations.
 // Falls back to a separate fetch via the navigation link if not present.
+// Things without a Location are registered as virtual (roster-only).
 async function processThing(thing) {
     const thingId = thing['@iot.id'];
 
@@ -737,16 +834,26 @@ async function processThing(thing) {
         // Fast path: location was inlined by $expand
         locationEntry = thing.Locations[0];
     } else {
-        // Fallback: fetch from the navigation link
         const locationUrl = thing['Locations@iot.navigationLink'];
+        if (!locationUrl) {
+            registerVirtualThing(thing);
+            return null;
+        }
+        // Fallback: fetch from the navigation link
         const secureUrl = locationUrl.replace(/^http:/, window.location.protocol);
         const locationResponse = await frostFetch(secureUrl);
         const locationData = await locationResponse.json();
-        if (!locationData.value || locationData.value.length === 0) return;
+        if (!locationData.value || locationData.value.length === 0) {
+            registerVirtualThing(thing);
+            return null;
+        }
         locationEntry = locationData.value[0];
     }
 
-    if (!locationEntry?.location?.coordinates) return;
+    if (!locationEntry?.location?.coordinates) {
+        registerVirtualThing(thing);
+        return null;
+    }
 
     const coordinates = locationEntry.location.coordinates;
     const locationName = locationEntry.name || '';
@@ -765,6 +872,7 @@ async function processThing(thing) {
     // || 'active' fallbacks elsewhere never fire before Phase 2 sets a real value.
     state.things[thingId] = {
         marker,
+        virtual: false,
         name: thing.name,
         description: thing.description || '',
         coordinates: latLng,
@@ -817,18 +925,13 @@ function createPopupContent(thing) {
 
 // Load datastreams (with their latest observation) for a thing.
 //
-// Two optimisations over the previous implementation:
-//   (2) Cache: if a prior health check already inlined Datastreams+Observations
-//       on this thing, render straight from cache — zero network calls.
-//   (3) Single expand: otherwise fetch datastreams AND their latest observation
-//       in ONE request, instead of 1 list call + N per-datastream observation
-//       calls (which previously also ran twice — see the duplicate-request bug).
+// Fetches datastreams AND their latest observation in ONE expand request.
 async function loadDatastreamsForThing(thingId, gen = state.fetchGeneration) {
     if (state.fetchGeneration !== gen) return;
     const thing = state.things[thingId];
     if (!thing) return;
 
-    // (2) Serve from cache when datastreams already carry inline Observations.
+    // Serve from cache when datastreams already carry inline Observations.
     const cached = thing.datastreams;
     if (Array.isArray(cached) && cached.length > 0 && cached.some(ds => ds.Observations)) {
         updateThingMetadataDatastreams(thingId, cached);
@@ -959,10 +1062,10 @@ function zoomToExtents() {
 
 function updateMarkerIcon(thingId, isSelected) {
     const marker = state.markers[thingId];
-    if (!marker) return;
-
     const thing = state.things[thingId];
-    const status = (thing && thing.healthStatus) || 'unknown';
+    if (!marker || !thing || thing.virtual) return;
+
+    const status = thing.healthStatus || 'unknown';
     marker.setIcon(makePinIcon(status, isSelected));
 }
 
@@ -976,21 +1079,26 @@ function refreshMarkerStatusColors() {
 function showThingMetadata(thingId) {
     const thing = state.things[thingId];
     if (!thing) return;
-    
-    // Update marker icons - deselect previous, select current
-    if (state.selectedThingId && state.selectedThingId !== thingId) {
+
+    if (!thing.virtual) {
+        // Update marker icons - deselect previous, select current
+        if (state.selectedThingId && state.selectedThingId !== thingId) {
+            updateMarkerIcon(state.selectedThingId, false);
+        }
+        state.selectedThingId = thingId;
+        updateMarkerIcon(thingId, true);
+    } else if (state.selectedThingId) {
         updateMarkerIcon(state.selectedThingId, false);
+        state.selectedThingId = null;
     }
-    state.selectedThingId = thingId;
-    updateMarkerIcon(thingId, true);
-    
+
     const sidebar = document.getElementById('thingMetadataSidebar');
     const title = document.getElementById('thingMetadataTitle');
     const content = document.getElementById('thingMetadataContent');
     const mainContent = document.querySelector('.main-content');
-    
+
     title.textContent = thing.name;
-    
+
     // Add class to main content to adjust chart panel
     if (mainContent) {
         mainContent.classList.add('has-metadata-sidebar');
@@ -998,8 +1106,15 @@ function showThingMetadata(thingId) {
     // On mobile, collapse the roster sheet so the inspector can fill the screen
     mobileCollapseRoster();
 
-    // Build metadata content (status will be added by updateMetadataSidebarStatus)
-    let metadataHTML = `
+    const locationSection = thing.virtual
+        ? `
+        <div class="metadata-section">
+            <h3>Location</h3>
+            <div class="metadata-item">
+                <div class="metadata-value" style="color: #fca5a5;">Virtual Thing — no map location</div>
+            </div>
+        </div>`
+        : `
         <div class="metadata-section">
             <h3>Location</h3>
             <div class="metadata-item">
@@ -1012,7 +1127,11 @@ function showThingMetadata(thingId) {
                 <div class="metadata-value">${thing.locationDescription}</div>
             </div>
             ` : ''}
-        </div>
+        </div>`;
+
+    // Build metadata content (status will be added by updateMetadataSidebarStatus)
+    let metadataHTML = `
+        ${locationSection}
         ${thing.description ? `
         <div class="metadata-section">
             <h3>Thing Details</h3>
@@ -1029,7 +1148,7 @@ function showThingMetadata(thingId) {
             </div>
         </div>
     `;
-    
+
     content.innerHTML = metadataHTML;
     sidebar.classList.add('open');
     
@@ -1047,9 +1166,10 @@ function showThingMetadata(thingId) {
 
 // Hide thing metadata sidebar
 function hideThingMetadata() {
-    // Deselect marker when sidebar is closed
+    // Deselect marker / virtual node when sidebar is closed
     if (state.selectedThingId) {
         updateMarkerIcon(state.selectedThingId, false);
+        document.querySelectorAll('.virtual-node.active').forEach(n => n.classList.remove('active'));
         state.selectedThingId = null;
     }
     
@@ -1066,8 +1186,8 @@ function hideThingMetadata() {
 
 // Render datastreams in the inspector sidebar.
 // Reads the latest reading straight from each datastream's inlined Observation
-// (provided by loadDatastreamsForThing's single expand query or the health
-// cache) — no per-datastream network calls.
+// (provided by loadDatastreamsForThing's expand query) — no per-datastream
+// network calls.
 function updateThingMetadataDatastreams(thingId, datastreams) {
     const datastreamsDiv = document.getElementById('thingMetadataDatastreams');
     if (!datastreamsDiv) return;
@@ -1124,22 +1244,24 @@ function buildPhenomenonTimeFilter(startDate, endDate) {
     return filters.length > 0 ? filters.join(' and ') : null;
 }
 
-// CSV export via FROST $resultFormat=CSV. FROST defaults to $top=100 and CSV responses
-// cannot carry @iot.nextLink, so callers paginate with $skip until a short page is returned.
-function buildObservationsCsvUrl(datastreamId, startDate, endDate, skip = 0) {
+function buildObservationsUrl(datastreamId, startDate, endDate) {
     const params = new URLSearchParams();
     params.set('$select', 'phenomenonTime,resultTime,result');
     params.set('$orderby', 'phenomenonTime asc,@iot.id asc');
     params.set('$top', String(DOWNLOAD_PAGE_SIZE));
-    if (skip > 0) params.set('$skip', String(skip));
-    params.set('$resultFormat', 'CSV');
     const filter = buildPhenomenonTimeFilter(startDate, endDate);
     if (filter) params.set('$filter', filter);
     return `${state.frostRoot}/Datastreams(${datastreamId})/Observations?${params.toString()}`;
 }
 
-function stripCsvBom(text) {
-    return text.charCodeAt(0) === 0xFEFF ? text.slice(1) : text;
+const OBSERVATIONS_CSV_HEADER = 'phenomenonTime,resultTime,result';
+
+function observationToCsvRow(obs) {
+    return [
+        escapeCsvField(obs.phenomenonTime),
+        escapeCsvField(obs.resultTime),
+        escapeCsvField(obs.result),
+    ].join(',');
 }
 
 function escapeCsvField(value) {
@@ -1151,57 +1273,65 @@ function escapeCsvField(value) {
     return stringValue;
 }
 
-function splitFrostCsvPage(text) {
-    const trimmed = stripCsvBom(text).trim();
-    if (!trimmed) return { header: '', rows: [] };
-
-    const lines = trimmed.split(/\r?\n/);
-    return {
-        header: lines[0],
-        rows: lines.slice(1).filter(line => line.trim()),
-    };
-}
-
 async function fetchAllDatastreamsForThing(thingId) {
     const datastreams = [];
-    let skip = 0;
+    let nextUrl = `${state.frostRoot}/Things(${thingId})/Datastreams?$top=${DOWNLOAD_PAGE_SIZE}`;
 
-    while (true) {
-        const url = `${state.frostRoot}/Things(${thingId})/Datastreams`
-            + `?$top=${DOWNLOAD_PAGE_SIZE}&$skip=${skip}&$orderby=%40iot.id%20asc`;
-        const response = await frostFetch(url);
+    while (nextUrl) {
+        const response = await frostFetch(nextUrl);
         if (!response.ok) {
             throw new Error(`HTTP error! Status: ${response.status}`);
         }
 
-        const page = (await response.json()).value || [];
+        const data = await response.json();
+        const page = data.value || [];
         if (page.length === 0) break;
 
         datastreams.push(...page);
-        skip += page.length;
+        nextUrl = data['@iot.nextLink'] || null;
+        if (nextUrl) nextUrl = nextUrl.replace(/^http:/, window.location.protocol);
     }
 
     return datastreams;
 }
 
 async function fetchAllObservationsCsvRaw(datastreamId, startDate, endDate, onProgress = null) {
-    let header = '';
     const rows = [];
-    let skip = 0;
+    let nextUrl = buildObservationsUrl(datastreamId, startDate, endDate);
+    const maxRetries = 3;
 
-    while (true) {
-        const csvText = await fetchObservationsCsvPage(datastreamId, startDate, endDate, skip);
-        const page = splitFrostCsvPage(csvText);
-        if (page.rows.length === 0) break;
+    while (nextUrl) {
+        let lastError;
+        let data = null;
 
-        if (!header) header = page.header;
-        rows.push(...page.rows);
-        skip += page.rows.length;
+        for (let attempt = 0; attempt < maxRetries; attempt++) {
+            try {
+                const response = await frostFetch(nextUrl);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! Status: ${response.status}`);
+                }
+                data = await response.json();
+                break;
+            } catch (error) {
+                lastError = error;
+                if (attempt < maxRetries - 1) {
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                }
+            }
+        }
 
+        if (!data) throw lastError;
+
+        for (const obs of data.value || []) {
+            rows.push(observationToCsvRow(obs));
+        }
         if (onProgress) onProgress(rows.length);
+
+        nextUrl = data['@iot.nextLink'] || null;
+        if (nextUrl) nextUrl = nextUrl.replace(/^http:/, window.location.protocol);
     }
 
-    return { header, rows };
+    return { header: OBSERVATIONS_CSV_HEADER, rows };
 }
 
 const DOWNLOAD_META_HEADERS = [
@@ -1358,28 +1488,6 @@ function createZipArchive(files) {
     writeUint16LE(endView, 20, 0);
 
     return new Blob([...parts, ...central, endRecord], { type: 'application/zip' });
-}
-
-async function fetchObservationsCsvPage(datastreamId, startDate, endDate, skip, maxRetries = 3) {
-    const url = buildObservationsCsvUrl(datastreamId, startDate, endDate, skip);
-    let lastError;
-
-    for (let attempt = 0; attempt < maxRetries; attempt++) {
-        try {
-            const response = await frostFetch(url);
-            if (!response.ok) {
-                throw new Error(`HTTP error! Status: ${response.status}`);
-            }
-            return await response.text();
-        } catch (error) {
-            lastError = error;
-            if (attempt < maxRetries - 1) {
-                await new Promise(resolve => setTimeout(resolve, 1000));
-            }
-        }
-    }
-
-    throw lastError;
 }
 
 function setDownloadProgress(message) {

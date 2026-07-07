@@ -8,16 +8,11 @@
 //
 // Measured on iosb (5613 Things):
 //   Phase 1 (Locations, light):  $top=100 ≈ 30s over 57 reqs → $top=10000 ≈ 9.4s in 1 req.
-//   Phase 2 (Datastreams+Obs, heavy): server-bound; $top=100 ≈ 68s → $top=1000 ≈ 43s
-//     over 6 reqs. A single $top=10000 request is ~33s but blocks the UI and
-//     pulls ~34MB, so we keep Phase 2 chunked so health badges stream in.
+//   Phase 2 (health, light):     Datastreams?$select=phenomenonTime/end,@iot.id — paginate
+//     via @iot.nextLink so badges stream in without heavy Observations expands.
 const THINGS_PAGE_SIZE = 10000; // Phase 1 — light payload, fetch in as few requests as possible
-const HEALTH_PAGE_SIZE = 1000;  // Phase 2 — heavy payload, chunk so the UI updates progressively
-// CSV downloads still honour FROST's default $top=100 unless overridden; paginate with $skip
-// because $resultFormat=CSV cannot expose @iot.nextLink for follow-up pages.
+const HEALTH_PAGE_SIZE = 10000; // Phase 2 — last-observation scan via Datastreams phenomenonTime/end
 const DOWNLOAD_PAGE_SIZE = 10000;
-// Parallel health pages: iosb benchmark showed 3 workers ≈ 16s vs 38s sequential; 4+ contends.
-const HEALTH_PARALLEL_WORKERS = 3;
 
 // ── Health tiers ───────────────────────────────────────────────────────────
 // Graded "time since last observation" buckets, ordered freshest → oldest.
