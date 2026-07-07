@@ -259,10 +259,16 @@ function resetAndReload() {
     state.maxClusterSize = 1;
     state.searchQuery = '';
     state.activeStatusFilter = 'all';
+    state.showVirtualThings = false;
 
     document.getElementById('thingsList').innerHTML = '';
     const locationsListEl = document.getElementById('locationsList');
     if (locationsListEl) locationsListEl.innerHTML = '';
+    const virtualCheckbox = document.getElementById('virtualThingsCheckbox');
+    if (virtualCheckbox) virtualCheckbox.checked = false;
+    document.querySelector('.app-shell')?.classList.remove('virtual-things-mode', 'roster-collapsed');
+    clearVirtualLayer();
+    syncVirtualModeChrome();
     setRosterView('things');
     resetChartPanel();
 

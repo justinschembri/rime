@@ -63,10 +63,18 @@
 
 .roster-head {
   display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 0;
+  border-bottom: 1px solid var(--glass-line);
+}
+
+.roster-head-row {
+  display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.85rem 0.7rem 0.85rem 1.1rem;
-  border-bottom: 1px solid var(--glass-line);
+  gap: 0.4rem;
+  padding: 0.75rem 0.7rem 0.75rem 1.1rem;
 }
 
 /* Segmented Things | Locations toggle */
@@ -99,6 +107,79 @@
 .roster-toggle-btn.active {
   background: rgba(34, 211, 238, 0.16);
   color: #67e8f9;
+}
+
+/* Virtual Things toggle — full-width sub-row below the tab bar */
+.virtual-things-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  cursor: pointer;
+  user-select: none;
+  padding: 0.52rem 1.1rem;
+  border-top: 1px solid rgba(74, 222, 128, 0.14);
+  background: rgba(74, 222, 128, 0.04);
+  transition: background 0.18s var(--ease);
+}
+
+.virtual-things-toggle[hidden] { display: none; }
+
+.virtual-things-toggle:hover {
+  background: rgba(74, 222, 128, 0.08);
+}
+
+.virtual-things-checkbox {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+.virtual-toggle-track {
+  position: relative;
+  width: 28px;
+  height: 16px;
+  border-radius: 999px;
+  background: rgba(74, 222, 128, 0.18);
+  border: 1px solid rgba(74, 222, 128, 0.35);
+  transition: background 0.2s var(--ease), border-color 0.2s var(--ease), box-shadow 0.2s var(--ease);
+}
+
+.virtual-toggle-thumb {
+  position: absolute;
+  top: 1px;
+  left: 1px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #86efac;
+  box-shadow: 0 0 8px rgba(74, 222, 128, 0.45);
+  transition: transform 0.2s var(--ease), background 0.2s var(--ease);
+}
+
+.virtual-toggle-label {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #86efac;
+  transition: color 0.18s var(--ease);
+}
+
+.virtual-things-checkbox:checked + .virtual-toggle-track {
+  background: rgba(74, 222, 128, 0.32);
+  border-color: rgba(74, 222, 128, 0.65);
+  box-shadow: 0 0 12px rgba(74, 222, 128, 0.28);
+}
+
+.virtual-things-checkbox:checked + .virtual-toggle-track .virtual-toggle-thumb {
+  transform: translateX(12px);
+  background: #4ade80;
+}
+
+.virtual-things-checkbox:checked ~ .virtual-toggle-label {
+  color: #4ade80;
 }
 
 /* Location rows have no health status — drop the accent bar */
@@ -245,5 +326,31 @@
   font-size: 0.8rem;
   color: var(--txt-dim);
   margin-top: 0.35rem;
+}
+
+.thing-item.virtual-thing::before {
+  background: #4ade80;
+  color: #4ade80;
+  box-shadow: 0 0 10px rgba(74, 222, 128, 0.55);
+}
+
+.thing-item.virtual-thing {
+  border-color: rgba(74, 222, 128, 0.22);
+  background: rgba(74, 222, 128, 0.05);
+}
+
+.thing-item.virtual-thing:hover {
+  border-color: rgba(74, 222, 128, 0.42);
+  background: rgba(74, 222, 128, 0.1);
+}
+
+.thing-virtual-badge {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #86efac;
+  flex-shrink: 0;
 }
 

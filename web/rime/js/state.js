@@ -15,6 +15,7 @@ const state = {
     searchQuery: '',
     activeStatusFilter: 'all',
     rosterView: 'things',  // 'things' | 'locations' — which list the roster shows
+    showVirtualThings: false, // roster toggle: include Things without a Location
     // FROST endpoint: base URL (no version) + version string.
     // frostRoot is always kept in sync as frostBase + '/' + frostVersion.
     frostBase: `${window.location.origin}/FROST-Server`,
