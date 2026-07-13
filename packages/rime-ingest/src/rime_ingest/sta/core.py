@@ -5,7 +5,7 @@ PyObject representations of the OGC SensorThings API (STA) information model.
 # standard
 from __future__ import annotations
 from datetime import datetime
-from typing import Optional, Any, Dict, List, Union, Self
+from typing import Optional, Any, Dict, List, Tuple, Union, Self
 from typing_extensions import Annotated
 # external
 from pydantic import (
@@ -87,7 +87,6 @@ def _partial_equals(a: "BaseModel", b: "BaseModel") -> bool:
         _normalise_dump(a.model_dump(include=fields))
         == _normalise_dump(b.model_dump(include=fields))
     )
-
 
 class SensorThingsObject(BaseModel):
     """
@@ -213,19 +212,33 @@ class ObservedProperty(SensorThingsObject):
 
 class Observation(BaseModel):
     id: Optional[int] = Field(None, description="Generally assigned by the server.")
-    result: Any
-    phenomenonTime: datetime | None
+    result: Any | list[Any]
+    phenomenonTime: datetime | str | None
+    phenomenonTime_interval: Tuple[datetime, datetime] | Tuple[str, str] | None
     iot_links: Dict[
         SensorThingsEntity | SensorThingsEntityGroups, FrostUrl | FrostEntityRef
     ] = Field(default_factory=dict)
     resultTime: datetime | None = None
     validTime: "TimePeriod | None" = None
 
+    
     @computed_field
     @property
     def entity_type(self) -> SensorThingsEntity:
         st_type = SensorThingsEntity(self.__class__.__name__)
         return st_type 
+
+    @computed_field
+    @property
+    def phenomenonTime_datetime(self) -> datetime:
+        """Return phenomenon Time as datetime."""
+        if not self.phenomenonTime:
+            raise ValueError("No phenomenonTime given.")
+
+        if isinstance(self.phenomenonTime, str):
+            return datetime.fromtimestamp(self.phenoemenonTime)
+        else:
+            return self.phenomenonTime
 
     @classmethod
     def from_frost_entity(cls, entity: dict[str, Any]) -> "Observation":
@@ -237,6 +250,8 @@ class Observation(BaseModel):
 
     def as_frost_entity(self) -> dict[str, Any]:
         """Dump observation fields for POST (excludes iot_links and server ids)."""
+        if self.phenomenonTime_interval:
+            self.phenomenonTime = f"{self.phenomenonTime_interval[0]}/{self.phenomenonTime_interval[1]}"
         include = set(SENSOR_THINGS_ENTITY_FIELDS[self.entity_type])
         return self.model_dump(include=include)
 

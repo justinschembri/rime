@@ -50,7 +50,9 @@ from typing import Any, Literal
 
 from rime_ingest.exceptions import FrostUploadFailure, UnexpectedProviderMessage, UnpackError, UnregisteredSensorError
 from rime_ingest.frost.post import frost_observation_upload
+from rime_ingest.registries import generate_buffer_registry
 
+from .buffers import ObservationBuffer
 from ..monitor import netmon
 from ..transformers.ingest_registry import (
     resolve_identified_payload,
@@ -61,12 +63,14 @@ from ..transformers.messages import (
     IdentifiedPayload,
     IdentifiedTimeSeriesPayload,
 )
-from ..transformers.types import SensorUUID, SupportedSensors
+from ..transformers.types import CanonicalDatastreams, SensorUUID, SupportedSensors
 
 main_logger = logging.getLogger("main")
 event_logger = logging.getLogger("events")
 debug_logger = logging.getLogger("debug")
 
+# RUNTIME OBJECTS
+RUNTIME_BUFFER_REGISTRY: dict[tuple[SupportedSensors, CanonicalDatastreams], ObservationBuffer] = {}
 
 class SensorTransport(ABC):
     """Abstract base for any managed link to an upstream sensor data source."""
@@ -74,6 +78,7 @@ class SensorTransport(ABC):
     def __init__(self, app_name: str, *, max_retries: int = 1):
         self.app_name = app_name
         self.max_retries = max_retries
+        self.buffer_registry = generate_buffer_registry()
         #TODO: sensor_registry as an attr is a codesmell
         self.sensor_registry: dict[SensorUUID, SupportedSensors] = {}
         self._thread: threading.Thread | None = None
@@ -248,6 +253,16 @@ class SensorTransport(ABC):
             for st_obs in st_observations:
                 try:
                     debug_logger.debug(f"{st_obs=} {sensor_uuid=}")
+                    # Buffer instantiation:
+                    if buffer_class:= self.buffer_registry.get(sensor_model):
+                        if not RUNTIME_BUFFER_REGISTRY.get((sensor_model, st_obs[1])):
+                            RUNTIME_BUFFER_REGISTRY[(sensor_model, st_obs[1])] = buffer_class(st_obs[1])
+                            RUNTIME_BUFFER_REGISTRY[(sensor_model, st_obs[1])].add_observation(st_obs[0])
+                        buffer = RUNTIME_BUFFER_REGISTRY.get((sensor_model, st_obs[1]))
+                        if buffer and buffer.full:
+                            st_obs = buffer.dump()
+                        else:
+                            continue
                     frost_observation_upload(sensor_uuid, st_obs)
                     event_logger.info(
                         f"Received and processed a wire message from {self.app_name} "
