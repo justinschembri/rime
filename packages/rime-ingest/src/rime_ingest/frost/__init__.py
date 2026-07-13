@@ -16,7 +16,7 @@ _EXPORTS: dict[str, tuple[str, str]] = {
     "FrostWriterError": (".errors", "FrostWriterError"),
     # types
     "FrostEntityRef": (".types", "FrostEntityRef"),
-    "FrostParams": (".types", "FrostParams"),
+    "ODataParams": (".odata", "ODataParams"),
     "FrostResultPageIterator": (".types", "FrostResultPageIterator"),
     "FrostUrl": (".types", "FrostUrl"),
     "FrostVersions": (".types", "FrostVersions"),

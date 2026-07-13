@@ -15,15 +15,23 @@ from rime_ingest.sta.schema import (
     SensorThingsEntityGroups,
 )
 from .errors import FrostRequestError
-from .sanitization import (
+from .odata import (
+    ODataParams,
     merge_filter,
     merge_order_by,
+    odata_eq,
+    odata_le,
+    odata_filter_name_eq,
+    odata_filter_phenomenon_time_eq,
+    odata_filter_phenomenon_time_ge,
+    odata_filter_phenomenon_time_le,
+)
+from .sanitization import (
     rewrite_to_internal,
     sanitize_get_request,
     sanitize_root_url,
-    to_odata_datetime,
 )
-from .types import FrostParams, FrostResultPageIterator, FrostUrl, FrostVersions
+from .types import FrostResultPageIterator, FrostUrl, FrostVersions
 
 
 def general_frost_get(
@@ -59,7 +67,7 @@ def frost_entity_lookup_pages(
         first_entity: str | SensorThingsEntityGroups | SensorThingsEntity,
         root_url: str = FROST_ROOT_DEFAULT,
         version: str | float | int | FrostVersions = FROST_VERSION_DEFAULT,
-        params: Optional[Mapping[str | FrostParams, Any]] = None,
+        params: Optional[Mapping[str | ODataParams, Any]] = None,
         *,
         first_entity_id: Optional[int | str] = "",
         second_entity: Optional[str | SensorThingsEntityGroups | SensorThingsEntity] = "",
@@ -78,7 +86,7 @@ def frost_entity_lookup_pages(
             ``Sensors``). Accepts singular, plural, or enum forms.
         root_url: FROST server root URL, without the version segment.
         version: API version (e.g. ``"1.1"``).
-        params: Optional OData query params; keys must be ``FrostParams`` values
+        params: Optional OData query params; keys must be ``ODataParams`` values
             or their string equivalents.
         first_entity_id: ID of the first entity when traversing a relationship
             (e.g. ``Things(42)/Locations`` requires ``first_entity_id=42``).
@@ -125,7 +133,7 @@ def frost_entity_lookup(
         first_entity: str | SensorThingsEntityGroups | SensorThingsEntity,
         root_url: str = FROST_ROOT_DEFAULT,
         version: str | float | int | FrostVersions = FROST_VERSION_DEFAULT,
-        params: Optional[Mapping[str | FrostParams, Any]] = None,
+        params: Optional[Mapping[str | ODataParams, Any]] = None,
         *,
         first_entity_id: Optional[int | str] = "",
         second_entity: Optional[str | SensorThingsEntityGroups | SensorThingsEntity] = "",
@@ -181,14 +189,12 @@ def frost_object_lookup_pages(
             raise ValueError(
                 "Cannot look up an Observation without a phenomenonTime."
             )
-        filter_string = (
-            f"phenomenonTime eq {to_odata_datetime(st_object.phenomenonTime)}"
-        )
+        filter_string = odata_filter_phenomenon_time_eq(st_object.phenomenonTime)
     else:
-        filter_string = f"name eq '{st_object.name}'"
+        filter_string = odata_filter_name_eq(st_object.name)
 
-    params: dict[str | FrostParams, Any] = {
-        FrostParams.FILTER: filter_string,
+    params: dict[ODataParams, Any] = {
+        ODataParams.FILTER: filter_string,
     }
 
     return frost_entity_lookup_pages(
@@ -268,21 +274,21 @@ def get_frost_datastream_observations(
         TypeError: If the underlying lookup returns an unexpected type.
     """
 
-    params_map: dict[str, Any] = {}
+    params_map: dict[ODataParams, Any] = {}
     if not verbose:
-        params_map["$select"] = "@iot.id,phenomenonTime,resultTime,result"
+        params_map[ODataParams.SELECT] = "@iot.id,phenomenonTime,resultTime,result"
 
     filter_clauses: list[str] = []
     if time_start is not None:
-        filter_clauses.append(f"phenomenonTime ge {to_odata_datetime(time_start)}")
+        filter_clauses.append(odata_filter_phenomenon_time_ge(time_start))
     if time_end is not None:
-        filter_clauses.append(f"phenomenonTime le {to_odata_datetime(time_end)}")
+        filter_clauses.append(odata_filter_phenomenon_time_le(time_end))
     if result_min is not None:
-        filter_clauses.append(f"result ge {result_min}")
+        filter_clauses.append(odata_eq("result", result_min))
     if result_max is not None:
-        filter_clauses.append(f"result le {result_max}")
+        filter_clauses.append(odata_le("result", result_max))
     if result_eq is not None:
-        filter_clauses.append(f"result eq {result_eq}")
+        filter_clauses.append(odata_eq("result", result_eq))
 
     if filter_clauses:
         params_map = merge_filter(params_map, " and ".join(filter_clauses))
@@ -294,7 +300,7 @@ def get_frost_datastream_observations(
         first_entity=SensorThingsEntityGroups.DATASTREAMS,
         first_entity_id=datastream_id,
         second_entity=SensorThingsEntityGroups.OBSERVATIONS,
-        params=cast(Mapping[str | FrostParams, Any], params_map),
+        params=cast(Mapping[str | ODataParams, Any], params_map),
         auth_headers=auth_headers,
     )
     if not lookup_result:
@@ -340,7 +346,7 @@ def find_datastream_observations_url(
         first_entity=SensorThingsEntity.SENSOR,
         root_url=root_url,
         version=version,
-        params={FrostParams.FILTER: f"name eq '{sensor_name}'"},
+        params={ODataParams.FILTER: odata_filter_name_eq(sensor_name)},
         auth_headers=auth_headers,
     )
     if not sensors:
@@ -356,7 +362,7 @@ def find_datastream_observations_url(
         second_entity=SensorThingsEntityGroups.DATASTREAMS,
         root_url=root_url,
         version=version,
-        params={FrostParams.FILTER: f"name eq '{datastream_name}'"},
+        params={ODataParams.FILTER: odata_filter_name_eq(datastream_name)},
         auth_headers=auth_headers,
     )
     if not datastreams:
@@ -373,4 +379,3 @@ def find_datastream_observations_url(
     norm_root, ver_str = sanitize_root_url(root_url, version)
     constructed = f"{norm_root}/v{ver_str}/Datastreams({ds_id})"
     return rewrite_to_internal(constructed, root_url)
-

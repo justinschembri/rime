@@ -213,8 +213,7 @@ class ObservedProperty(SensorThingsObject):
 class Observation(BaseModel):
     id: Optional[int] = Field(None, description="Generally assigned by the server.")
     result: Any | list[Any]
-    phenomenonTime: datetime | str | None
-    phenomenonTime_interval: Tuple[datetime, datetime] | Tuple[str, str] | None
+    phenomenonTime: PhenomenonTime | None
     iot_links: Dict[
         SensorThingsEntity | SensorThingsEntityGroups, FrostUrl | FrostEntityRef
     ] = Field(default_factory=dict)
@@ -231,14 +230,14 @@ class Observation(BaseModel):
     @computed_field
     @property
     def phenomenonTime_datetime(self) -> datetime:
-        """Return phenomenon Time as datetime."""
+        """Return phenomenonTime as a point-in-time datetime."""
         if not self.phenomenonTime:
             raise ValueError("No phenomenonTime given.")
-
+        if isinstance(self.phenomenonTime, tuple):
+            raise ValueError("phenomenonTime is an interval, not an instant.")
         if isinstance(self.phenomenonTime, str):
-            return datetime.fromtimestamp(self.phenoemenonTime)
-        else:
-            return self.phenomenonTime
+            return datetime.fromisoformat(self.phenomenonTime)
+        return self.phenomenonTime
 
     @classmethod
     def from_frost_entity(cls, entity: dict[str, Any]) -> "Observation":
@@ -250,10 +249,11 @@ class Observation(BaseModel):
 
     def as_frost_entity(self) -> dict[str, Any]:
         """Dump observation fields for POST (excludes iot_links and server ids)."""
-        if self.phenomenonTime_interval:
-            self.phenomenonTime = f"{self.phenomenonTime_interval[0]}/{self.phenomenonTime_interval[1]}"
         include = set(SENSOR_THINGS_ENTITY_FIELDS[self.entity_type])
-        return self.model_dump(include=include)
+        entity = self.model_dump(include=include)
+        if self.phenomenonTime is not None:
+            entity["phenomenonTime"] = format_phenomenon_time(self.phenomenonTime)
+        return entity
 
     def partial_eq(self, other: "Observation") -> bool:
         """Content-only equality for Observations.

@@ -78,5 +78,5 @@ class Normalizer(BaseModel):
                     or self.provider_phenomenon_time
                 ),
             )
-            observations.append((observation, datastream.value))
+            observations.append((observation, datastream))
         return observations

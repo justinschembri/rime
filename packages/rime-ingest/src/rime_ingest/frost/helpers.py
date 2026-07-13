@@ -8,7 +8,8 @@ from rime_ingest.frost.sanitization import sanitize_root_url
 from rime_ingest.sta.core import Datastream, Observation, SensorThingsObject, UnLinkedSensorThingsObjects
 from rime_ingest.sta.schema import SensorThingsEntity, SensorThingsEntityGroups
 #internal
-from .types import FrostEndpoints, FrostEntityRef, FrostParams
+from .odata import ODataParams, odata_filter_name_eq
+from .types import FrostEndpoints, FrostEntityRef
 #logging
 
 main_logger = logging.getLogger("main")
@@ -136,8 +137,8 @@ def _check_datastream_object_exists(
         root_url=root_url,
         version=version,
         params={
-            FrostParams.FILTER: f"name eq '{st_datastream.name}'",
-            FrostParams.EXPAND: expand_select,
+            ODataParams.FILTER: odata_filter_name_eq(st_datastream.name),
+            ODataParams.EXPAND: expand_select,
         },
         auth_headers=auth_headers,
     )

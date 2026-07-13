@@ -70,7 +70,9 @@ event_logger = logging.getLogger("events")
 debug_logger = logging.getLogger("debug")
 
 # RUNTIME OBJECTS
-RUNTIME_BUFFER_REGISTRY: dict[tuple[SupportedSensors, CanonicalDatastreams], ObservationBuffer] = {}
+BufferRegistryKey = tuple[SensorUUID, SupportedSensors, CanonicalDatastreams]
+RUNTIME_BUFFER_REGISTRY: dict[BufferRegistryKey, ObservationBuffer] = {}
+_REGISTRY_LOCK = threading.Lock()
 
 class SensorTransport(ABC):
     """Abstract base for any managed link to an upstream sensor data source."""
@@ -153,6 +155,7 @@ class SensorTransport(ABC):
 
     def stop(self) -> None:
         self._stop_event.set()
+        self._flush_sensor_buffers()
 
     def restart(self, join_timeout: int = 15) -> None:
         self._stop_event.set()
@@ -253,17 +256,27 @@ class SensorTransport(ABC):
             for st_obs in st_observations:
                 try:
                     debug_logger.debug(f"{st_obs=} {sensor_uuid=}")
-                    # Buffer instantiation:
-                    if buffer_class:= self.buffer_registry.get(sensor_model):
-                        if not RUNTIME_BUFFER_REGISTRY.get((sensor_model, st_obs[1])):
-                            RUNTIME_BUFFER_REGISTRY[(sensor_model, st_obs[1])] = buffer_class(st_obs[1])
-                            RUNTIME_BUFFER_REGISTRY[(sensor_model, st_obs[1])].add_observation(st_obs[0])
-                        buffer = RUNTIME_BUFFER_REGISTRY.get((sensor_model, st_obs[1]))
-                        if buffer and buffer.full:
-                            st_obs = buffer.dump()
-                        else:
+                    buffer_key: BufferRegistryKey | None = None
+                    if buffer_class := self.buffer_registry.get(sensor_model):
+                        buffer_key = (sensor_uuid, sensor_model, st_obs[1])
+                        with _REGISTRY_LOCK:
+                            buffer = RUNTIME_BUFFER_REGISTRY.get(buffer_key)
+                            if buffer is None:
+                                buffer = buffer_class(st_obs[1])
+                                RUNTIME_BUFFER_REGISTRY[buffer_key] = buffer
+
+                        if buffer.pending_flush:
+                            frost_observation_upload(sensor_uuid, buffer.dump())
+                            buffer.commit()
+
+                        buffer.add_observation(st_obs[0])
+                        if not buffer.full:
                             continue
+                        st_obs = buffer.dump()
+
                     frost_observation_upload(sensor_uuid, st_obs)
+                    if buffer_key is not None:
+                        RUNTIME_BUFFER_REGISTRY[buffer_key].commit()
                     event_logger.info(
                         f"Received and processed a wire message from {self.app_name} "
                         f"from a {sensor_model.value} sensor."
@@ -271,6 +284,25 @@ class SensorTransport(ABC):
                     netmon.add_named_count("push_success", f"{sensor_uuid}", 1)
                 except FrostUploadFailure as e:
                     self._exception_handler(e, sensor_id=sensor_uuid)
+
+    def _flush_sensor_buffers(self) -> None:
+        """Upload any in-flight or partial buffer contents for this transport's sensors."""
+        for key, buffer in list(RUNTIME_BUFFER_REGISTRY.items()):
+            sensor_uuid, sensor_model, _ = key
+            if sensor_uuid not in self.sensor_registry:
+                continue
+            try:
+                st_obs = buffer.flush_pending()
+                if st_obs is None:
+                    continue
+                frost_observation_upload(sensor_uuid, st_obs)
+                buffer.commit()
+                event_logger.info(
+                    f"Flushed buffered observations from {self.app_name} "
+                    f"for a {sensor_model.value} sensor on shutdown."
+                )
+            except FrostUploadFailure as e:
+                self._exception_handler(e, sensor_id=sensor_uuid)
 
     #TODO: reconsider exception handler as part of the class, should be a global concern
     def _exception_handler(self, e: Exception | None, **kwargs) -> Literal[0, 1]:

@@ -34,20 +34,6 @@ class FrostEndpoints(Enum):
     SENSORS = "/Sensors"
     THINGS = "/Things"
 
-class FrostParams(Enum):
-    """OData query parameter keys accepted by FROST.
-
-    Used to validate and normalise parameter dicts before they are sent as
-    query-string arguments.
-    """
-    TOP="$top"
-    SKIP="$skip"
-    COUNT="$count"
-    ORDER="$orderBy"
-    EXPAND="$expand"
-    SELECT="$select"
-    FILTER="$filter"
-
 FrostResultPageIterator = Iterator[list[dict[str, Any]]]
 
 
