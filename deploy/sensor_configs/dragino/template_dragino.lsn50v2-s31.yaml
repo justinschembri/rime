@@ -80,7 +80,7 @@ Datastreams:
   temperature_air:
     name: temperature_air
     description: Ambient air temperature measured by the external SHT31 probe.
-    observationType: instant
+    observationType: http://www.opengis.net/def/observationType/OGC-OM/2.0/OM_Measurement
     unitOfMeasurement: &temperature
       name: degree Celsius
       symbol: °C
@@ -102,7 +102,7 @@ Datastreams:
   humidity_air:
     name: humidity_air
     description: Relative air humidity measured by the external SHT31 probe.
-    observationType: instant
+    observationType: http://www.opengis.net/def/observationType/OGC-OM/2.0/OM_Measurement
     unitOfMeasurement:
       name: percent
       symbol: "%"
@@ -122,7 +122,7 @@ Datastreams:
   battery_voltage:
     name: battery_voltage
     description: Battery voltage of the sensor node.
-    observationType: instant
+    observationType: http://www.opengis.net/def/observationType/OGC-OM/2.0/OM_Measurement
     unitOfMeasurement:
       name: volt
       symbol: V

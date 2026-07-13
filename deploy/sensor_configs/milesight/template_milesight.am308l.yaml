@@ -97,7 +97,7 @@ Datastreams:
   temperature_indoor:
     name: temperature_indoor
     description: This datastream is measuring the internal room temperature.
-    observationType: instant
+    observationType: http://www.opengis.net/def/observationType/OGC-OM/2.0/OM_Measurement
     unitOfMeasurement: &temperature
       name: degree Celsius
       symbol: °C
@@ -119,7 +119,7 @@ Datastreams:
   humidity:
     name: humidity
     description:  Datastream for observations of humidity levels in Milesight AM308L.
-    observationType: instant
+    observationType: http://www.opengis.net/def/observationType/OGC-OM/2.0/OM_Measurement
     unitOfMeasurement:
       name: percent
       symbol: "%"
@@ -139,7 +139,7 @@ Datastreams:
   co2:
     name: co2
     description:  Datastream for observations of CO2 levels in Milesight AM308L.
-    observationType: instant
+    observationType: http://www.opengis.net/def/observationType/OGC-OM/2.0/OM_Measurement
     unitOfMeasurement:
       name: parts per million
       symbol: ppm
@@ -159,7 +159,7 @@ Datastreams:
   gauge_pressure:
     name: gauge_pressure
     description:  Datastream for observations of pressure levels in Milesight AM308L.
-    observationType: instant
+    observationType: http://www.opengis.net/def/observationType/OGC-OM/2.0/OM_Measurement
     unitOfMeasurement: &millibar
       name: millibar
       symbol: mbar
@@ -179,7 +179,7 @@ Datastreams:
   battery_level:
     name: battery_level
     description:  Battery level of the sensor.
-    observationType: instant
+    observationType: http://www.opengis.net/def/observationType/OGC-OM/2.0/OM_Measurement
     unitOfMeasurement: &percentage
       name: percentage
       symbol: percent
@@ -199,11 +199,11 @@ Datastreams:
   passive_infrared:
     name: passive_infrared
     description: PIR.
-    observationType: instant
+    observationType: http://www.opengis.net/def/observationType/OGC-OM/2.0/OM_TruthObservation
     unitOfMeasurement: &trigger
-      name: idle | active
-      symbol: null 
-      definition: boolean, active when motion was detected 
+      name: null
+      symbol: null
+      definition: null
     observedArea: *observedArea
     phenomenon_time: null
     properties: null
@@ -219,7 +219,7 @@ Datastreams:
   particulate_matter_10:
     name: particulate_matter_10
     description: ... 
-    observationType: instant
+    observationType: http://www.opengis.net/def/observationType/OGC-OM/2.0/OM_Measurement
     unitOfMeasurement: &nanograms_per_cubic_meter
       name: ... 
       symbol: μg/m3 
@@ -239,7 +239,7 @@ Datastreams:
   particulate_matter_2_5:
     name: particulate_matter_2_5
     description: ... 
-    observationType: instant
+    observationType: http://www.opengis.net/def/observationType/OGC-OM/2.0/OM_Measurement
     unitOfMeasurement: *nanograms_per_cubic_meter
     observedArea: *observedArea
     phenomenon_time: null
@@ -256,7 +256,7 @@ Datastreams:
   total_volatile_organic_compounds:
     name: total_volatile_organic_compounds
     description: ... 
-    observationType: instant
+    observationType: http://www.opengis.net/def/observationType/OGC-OM/2.0/OM_Measurement
     unitOfMeasurement: &IAQ_scale
       name: ... 
       symbol: null 
@@ -276,7 +276,7 @@ Datastreams:
   light_level:
     name: light_level
     description: ... 
-    observationType: instant
+    observationType: http://www.opengis.net/def/observationType/OGC-OM/2.0/OM_CountObservation
     unitOfMeasurement: &lux_scale
       name: lux_scale 
       symbol: int 

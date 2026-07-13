@@ -65,7 +65,7 @@ datastreams:
   <datastream_name>:  # Replace with datastream name (must match name in sensor iot_links)
     name: <datastream_name>  # Replace - must match line above
     description: <datastream_description>  # Replace with description
-    observationType: instant  # Typically "instant" for real-time sensors
+    observationType: http://www.opengis.net/def/observationType/OGC-OM/2.0/OM_Measurement
     unitOfMeasurement: &temperature  # Use anchor for reuse across datastreams
       name: <unit_name>  # Replace, e.g., "degree Celsius"
       symbol: <unit_symbol>  # Replace, e.g., "°C"

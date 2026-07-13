@@ -71,7 +71,7 @@ Datastreams:
   temperature_indoor:
     name: temperature_indoor
     description: This datastream is measuring the internal room temperature.
-    observationType: instant
+    observationType: http://www.opengis.net/def/observationType/OGC-OM/2.0/OM_Measurement
     unitOfMeasurement: &temperature
       name: degree Celsius
       symbol: °C
@@ -93,7 +93,7 @@ Datastreams:
   humidity:
     name: humidity
     description: Datastream for observations of humidity levels in Milesight AM103L.
-    observationType: instant
+    observationType: http://www.opengis.net/def/observationType/OGC-OM/2.0/OM_Measurement
     unitOfMeasurement:
       name: percent
       symbol: "%"
@@ -113,7 +113,7 @@ Datastreams:
   co2:
     name: co2
     description: Datastream for observations of CO2 levels in Milesight AM103L.
-    observationType: instant
+    observationType: http://www.opengis.net/def/observationType/OGC-OM/2.0/OM_Measurement
     unitOfMeasurement:
       name: parts per million
       symbol: ppm
@@ -133,7 +133,7 @@ Datastreams:
   battery_level:
     name: battery_level
     description: Battery level of the sensor.
-    observationType: instant
+    observationType: http://www.opengis.net/def/observationType/OGC-OM/2.0/OM_Measurement
     unitOfMeasurement: &percentage
       name: percentage
       symbol: percent

@@ -60,7 +60,7 @@ Datastreams:
   temperature_indoor:
     name: temperature_indoor
     description: This datastream is measuring the internal room temperature.
-    observationType: instant
+    observationType: http://www.opengis.net/def/observationType/OGC-OM/2.0/OM_Measurement
     unitOfMeasurement: &temperature
       name: degree Celsius
       symbol: °C
@@ -82,7 +82,7 @@ Datastreams:
   humidity:
     name: humidity
     description:  Datastream for observations of humidity levels in <THING_NAME>.
-    observationType: instant
+    observationType: http://www.opengis.net/def/observationType/OGC-OM/2.0/OM_Measurement
     unitOfMeasurement:
       name: percent
       symbol: "%"
@@ -102,7 +102,7 @@ Datastreams:
   co2:
     name: co2
     description:  Datastream for observations of CO2 levels in <THING_NAME>.
-    observationType: instant
+    observationType: http://www.opengis.net/def/observationType/OGC-OM/2.0/OM_Measurement
     unitOfMeasurement:
       name: parts per million
       symbol: ppm
@@ -122,7 +122,7 @@ Datastreams:
   gauge_pressure:
     name: gauge_pressure
     description:  Datastream for observations of pressure levels in <THING_NAME>.
-    observationType: instant
+    observationType: http://www.opengis.net/def/observationType/OGC-OM/2.0/OM_Measurement
     unitOfMeasurement: &millibar
       name: millibar
       symbol: mbar
@@ -142,7 +142,7 @@ Datastreams:
   absolute_pressure:
     name: absolute_pressure
     description: Datastream for observations of absolute pressure levels in <THING_NAME>.
-    observationType: instant
+    observationType: http://www.opengis.net/def/observationType/OGC-OM/2.0/OM_Measurement
     unitOfMeasurement: *millibar
     observedArea: *observedArea
     phenomenon_time: null
@@ -159,7 +159,7 @@ Datastreams:
   noise:
     name: noise
     description:  Datastream for observations of noise levels in <THING_NAME>.
-    observationType: instant
+    observationType: http://www.opengis.net/def/observationType/OGC-OM/2.0/OM_Measurement
     unitOfMeasurement:
       name: decibel
       symbol: db
