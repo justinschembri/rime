@@ -22,8 +22,8 @@ class ObservationBuffer:
     ):
         if all([max_size, max_time]):
             raise ValueError("Pass either max_size or max_time, not both.")
-        if (0 < sample_rate <= 1.0):
-            raise ValueError("Sample rate must between 0 and 1.")
+        if (0 >= sample_rate > 1.0):
+            raise ValueError(">0 sample_rate =<1")
         if not any([max_size, max_time]):
             raise ValueError("Pass either max_size or max_time.")
 
