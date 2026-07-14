@@ -101,5 +101,5 @@ class KinemetricsEtna2Buffer(ObservationBuffer):
         super().__init__(
                 datastream_name, 
                 max_time=timedelta(minutes=5), 
-                sample_rate=0.001
+                sample_rate=0.01
                 )
