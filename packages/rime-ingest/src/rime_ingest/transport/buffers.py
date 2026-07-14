@@ -80,7 +80,10 @@ class ObservationBuffer:
     def _dump_locked(self) -> Tuple[Observation, CanonicalDatastreams]:
         self.pending_flush = True
         # buffered observations can be large, so you may want to sample.
-        sample_step = ceil(len(self.observation_buffer) * self._sample_rate)
+        n = len(self.observation_buffer) 
+        target = max(1, round(n*self._sample_rate))
+        sample_step = max(1, round(n // target))
+
         results = [obs.result for obs in self.observation_buffer]
         observation = Observation(
             result=results[::sample_step],
