@@ -182,7 +182,7 @@ def generate_config_from_template(
             props = thing_data.get("properties")
             if not isinstance(props, dict):
                 continue
-            for key in ("dev_eui", "mac_address"):
+            for key in ("dev_eui", "mac_address", "network_station"):
                 if props.get(key) in _SENSOR_PLACEHOLDERS:
                     props[key] = sensor_id
 
