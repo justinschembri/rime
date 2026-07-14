@@ -67,9 +67,13 @@ def odata_filter_name_eq(name: str) -> str:
 
 
 def odata_filter_phenomenon_time_eq(phenomenon_time: PhenomenonTime) -> str:
-    return odata_eq(
-        "phenomenonTime",
-        to_odata_datetime(format_phenomenon_time(phenomenon_time)),
+    """Build an OData ``$filter`` clause for an exact ``phenomenonTime`` match.
+
+    Datetime literals must be unquoted (unlike string fields such as ``name``).
+    """
+    return (
+        "phenomenonTime eq "
+        f"{to_odata_datetime(format_phenomenon_time(phenomenon_time))}"
     )
 
 
