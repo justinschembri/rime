@@ -189,14 +189,8 @@ async function loadChartData(datastreamId) {
         const unitSymbol = dsData.unitOfMeasurement?.symbol || '';
         const datastreamName = formatDatastreamName(dsData.name || 'Unknown');
 
-        const obsUrl =
-            `${state.frostRoot}/Datastreams(${datastreamId})/Observations` +
-            `?$top=${state.currentLimit}&$orderby=phenomenonTime%20desc`;
-        const obsResponse = await frostFetch(obsUrl);
-        if (!obsResponse.ok) throw new Error(`HTTP error! Status: ${obsResponse.status}`);
-
-        const obsData = await obsResponse.json();
-        if (!obsData.value || obsData.value.length === 0) {
+        const points = await fetchChartPoints(datastreamId, state.currentLimit);
+        if (points.length === 0) {
             destroyChartInstance();
             document.getElementById('chartPanelContent').innerHTML = `
                 <div class="no-data-message">
@@ -204,18 +198,6 @@ async function loadChartData(datastreamId) {
                     <p>This datastream has no observation data available.</p>
                 </div>`;
             updateStatus('No data available', 'warning');
-            return;
-        }
-
-        const points = normalizeObservations(obsData.value);
-        if (points.length === 0) {
-            destroyChartInstance();
-            document.getElementById('chartPanelContent').innerHTML = `
-                <div class="no-data-message">
-                    <h3>No valid data points</h3>
-                    <p>Unable to render chart with available data.</p>
-                </div>`;
-            updateStatus('No valid data', 'warning');
             return;
         }
 
@@ -238,39 +220,41 @@ async function loadChartData(datastreamId) {
     }
 }
 
-function parseTimeRange(value) {
-    if (!value) return null;
-    if (value.includes('/')) {
-        const [a, b] = value.split('/');
-        const start = new Date(a);
-        const end = new Date(b);
-        if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return null;
-        return { start, end };
-    }
-    const d = new Date(value);
-    if (Number.isNaN(d.getTime())) return null;
-    return { start: d, end: d };
-}
+const CHART_OBSERVATIONS_PAGE_SIZE = 10;
 
-function coerceNumericResult(value) {
-    if (value === null || value === undefined) return null;
-    if (typeof value === 'number') return Number.isFinite(value) ? value : null;
-    const n = Number(value);
-    return Number.isFinite(n) ? n : null;
-}
+async function fetchChartPoints(datastreamId, pointLimit) {
+    let nextUrl =
+        `${state.frostRoot}/Datastreams(${datastreamId})/Observations` +
+        `?$top=${CHART_OBSERVATIONS_PAGE_SIZE}&$orderby=phenomenonTime%20desc`;
+    const collected = [];
 
-function normalizeObservations(observations) {
-    const points = [];
+    while (nextUrl) {
+        const obsResponse = await frostFetch(nextUrl);
+        if (!obsResponse.ok) throw new Error(`HTTP error! Status: ${obsResponse.status}`);
 
-    for (const entry of observations) {
-        const range = parseTimeRange(entry.phenomenonTime);
-        const y = coerceNumericResult(entry.result);
-        if (!range || y === null) continue;
-        points.push({ x: range.end, y });
+        const obsData = await obsResponse.json();
+        const page = obsData.value || [];
+        if (page.length === 0) break;
+
+        for (const obs of page) {
+            const remaining = pointLimit - collected.length;
+            collected.push(...expandObservationToPoints(obs, remaining > 0 ? remaining : null));
+            if (collected.length >= pointLimit) break;
+        }
+
+        if (collected.length >= pointLimit) break;
+
+        nextUrl = obsData['@iot.nextLink'] || null;
+        if (nextUrl) nextUrl = nextUrl.replace(/^http:/, window.location.protocol);
     }
 
-    points.sort((a, b) => a.x.getTime() - b.x.getTime());
-    return points;
+    if (collected.length === 0) return [];
+
+    collected.sort((a, b) => a.x.getTime() - b.x.getTime());
+    if (collected.length > pointLimit) {
+        return collected.slice(-pointLimit);
+    }
+    return collected;
 }
 
 function medianOf(sortedValues) {

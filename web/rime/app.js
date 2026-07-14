@@ -999,9 +999,10 @@ async function updatePopupWithDatastreams(thingId, datastreams) {
             const secureObsUrl = obsUrl.replace(/^http:/, currentProtocol);
             const obsResponse = await frostFetch(secureObsUrl);
             const obsData = await obsResponse.json();
-            return { 
-                ds, 
-                latestValue: obsData.value?.[0]?.result ?? '-', 
+            const latestResult = latestObservationResult(obsData.value?.[0]?.result);
+            return {
+                ds,
+                latestValue: latestResult ?? '-',
                 unitSymbol,
                 error: false
             };
@@ -1206,9 +1207,11 @@ function updateThingMetadataDatastreams(thingId, datastreams) {
     datastreams.forEach((ds) => {
         const unitSymbol = ds.unitOfMeasurement?.symbol || '';
         const obs = Array.isArray(ds.Observations) ? ds.Observations[0] : null;
-        const hasValue = obs && obs.result !== undefined && obs.result !== null;
-        const latestValue = hasValue ? obs.result : '-';
-        const latestText = `${latestValue}${hasValue && unitSymbol ? ' ' + unitSymbol : ''}`;
+        const latestResult = obs ? latestObservationResult(obs.result) : null;
+        const hasValue = latestResult !== null && latestResult !== undefined;
+        const latestText = hasValue
+            ? formatLatestObservationResult(obs.result, unitSymbol)
+            : '-';
 
         // Relative time of the latest observation (handles interval times).
         const obsDate = obs ? parsePhenomenonTime(obs.phenomenonTime) : null;
@@ -1255,14 +1258,6 @@ function buildObservationsUrl(datastreamId, startDate, endDate) {
 }
 
 const OBSERVATIONS_CSV_HEADER = 'phenomenonTime,resultTime,result';
-
-function observationToCsvRow(obs) {
-    return [
-        escapeCsvField(obs.phenomenonTime),
-        escapeCsvField(obs.resultTime),
-        escapeCsvField(obs.result),
-    ].join(',');
-}
 
 function escapeCsvField(value) {
     if (value === null || value === undefined) return '';
@@ -1323,7 +1318,7 @@ async function fetchAllObservationsCsvRaw(datastreamId, startDate, endDate, onPr
         if (!data) throw lastError;
 
         for (const obs of data.value || []) {
-            rows.push(observationToCsvRow(obs));
+            rows.push(...observationToCsvRows(obs));
         }
         if (onProgress) onProgress(rows.length);
 
