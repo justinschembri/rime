@@ -53,12 +53,14 @@ class SeedLinkTransport(SensorTransport):
         app_name: str,
         host: URL,
         streams: list[str],
+        port: int = 18000,
         *,
         max_retries: int = 3,
         timeout: int = 1200,
     ):
         super().__init__(app_name, max_retries=max_retries)
         self.host = host
+        self.port = str(port)
         self.streams = streams
         self.timeout = timeout
         self._payload_queue: queue.Queue = queue.Queue()
@@ -86,7 +88,7 @@ class SeedLinkTransport(SensorTransport):
             def on_data(self, trace:Trace) -> None:
                 payload_queue.put(trace)
 
-        self._seedlink_client = _Client(self.host, autoconnect=False)
+        self._seedlink_client = _Client(f"{self.host}:{self.port}", autoconnect=False)
 
         for stream in self.streams:
             parts = stream.split(".")

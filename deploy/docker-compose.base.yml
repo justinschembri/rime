@@ -2,7 +2,7 @@ services:
   frost:
     image: fraunhoferiosb/frost-server:2.6
     environment:
-      - serviceRootUrl=${FROST_URL:-http://localhost:8080/FROST-Server}
+      - serviceRootUrl=${FROST_URL:-http://localhost:${FROST_BIND_PORT:-8080}/FROST-Server}
       - plugins_multiDatastream.enable=false
       - http_cors_enable=true
       - http_cors_allowed_origins=*
