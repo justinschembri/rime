@@ -18,9 +18,12 @@ class ObservationBuffer:
         phenomenon_start: datetime | str | None = None,
         max_time: timedelta | None = timedelta(minutes=10),
         max_size: int | None = None,
+        sample_rate: float = 1.0
     ):
         if all([max_size, max_time]):
             raise ValueError("Pass either max_size or max_time, not both.")
+        if (0 < sample_rate <= 1.0):
+            raise ValueError("Sample rate must between 0 and 1.")
         if not any([max_size, max_time]):
             raise ValueError("Pass either max_size or max_time.")
 
@@ -34,7 +37,9 @@ class ObservationBuffer:
         self.full: bool = False
         self.pending_flush: bool = False
         self.observation_buffer: list[Observation] = []
+        self._sample_rate = sample_rate
         self._lock = threading.Lock()
+
 
     def add_observation(self, observation: Observation) -> None:
         with self._lock:
@@ -73,8 +78,11 @@ class ObservationBuffer:
 
     def _dump_locked(self) -> Tuple[Observation, CanonicalDatastreams]:
         self.pending_flush = True
+        # buffered observations can be large, so you may want to sample.
+        sample_step = len(self.observation_buffer) // self._sample_rate 
+        results = [obs.result for obs in self.observation_buffer]
         observation = Observation(
-            result=[obs.result for obs in self.observation_buffer],
+            result=results[::sample_step],
             phenomenonTime=(
                 self.phenomenon_start,
                 self.observation_buffer[-1].phenomenonTime_datetime,
@@ -84,6 +92,10 @@ class ObservationBuffer:
 
 
 class KinemetricsEtna2Buffer(ObservationBuffer):
-
+    """Default Kinemetrics ETNA2 Buffer with a low sampling rate."""
     def __init__(self, datastream_name: CanonicalDatastreams):
-        super().__init__(datastream_name, max_time=timedelta(minutes=5))
+        super().__init__(
+                datastream_name, 
+                max_time=timedelta(minutes=5), 
+                sample_rate=0.001
+                )
