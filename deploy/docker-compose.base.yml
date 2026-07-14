@@ -31,7 +31,7 @@ services:
       - frost
       - database
     environment:
-      - FROST_ENDPOINT=${FROST_ENDPOINT:-http://frost:8080/FROST-Server}
+      - FROST_ENDPOINT=${FROST_ENDPOINT:-http://frost:${FROST_BIND_PORT:-8080}/FROST-Server}
       - FROST_VERSION=${FROST_VERSION:-v1.1}
       - CONTAINER_ENVIRONMENT=true 
       # container environment should manage these paths, overriding them here is weird:
