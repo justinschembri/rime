@@ -17,6 +17,7 @@ from pydantic import (
 )
 
 from rime_ingest.frost.bridges import NAVIGATION_LINKS_TO_ENTITY
+from rime_ingest.frost.odata import PhenomenonTime, format_phenomenon_time
 from rime_ingest.frost.types import FrostUrl
 from rime_ingest.frost.types import FrostEntityRef
 # internal
