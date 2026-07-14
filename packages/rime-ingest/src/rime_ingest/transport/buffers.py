@@ -3,7 +3,8 @@
 import threading
 from datetime import timedelta, datetime
 from typing import Tuple
-
+from math import ceil
+# internal
 from rime_ingest.sta.core import Observation
 from rime_ingest.transformers.types import CanonicalDatastreams
 
@@ -79,7 +80,7 @@ class ObservationBuffer:
     def _dump_locked(self) -> Tuple[Observation, CanonicalDatastreams]:
         self.pending_flush = True
         # buffered observations can be large, so you may want to sample.
-        sample_step = len(self.observation_buffer) // self._sample_rate 
+        sample_step = ceil(len(self.observation_buffer) * self._sample_rate)
         results = [obs.result for obs in self.observation_buffer]
         observation = Observation(
             result=results[::sample_step],
