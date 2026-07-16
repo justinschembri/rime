@@ -25,6 +25,7 @@ services:
 
   rime-ingest:
     build:
+      image: rime-ingest
       context: ../packages/rime-ingest
       dockerfile: Dockerfile
     depends_on:
