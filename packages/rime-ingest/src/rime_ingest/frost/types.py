@@ -1,5 +1,6 @@
 """FROST server types."""
 #standard
+from __future__ import annotations
 from typing import Iterator, Any
 from enum import Enum
 from dataclasses import dataclass
@@ -16,8 +17,20 @@ FrostUrl = str
 class FrostVersions(Enum):
     """Supported FROST Server API versions."""
 
-    v1 = "1"
+    v1 = "1.0"
     v1_1 = "1.1"
+    v2_0 = "2.0"
+
+    @classmethod
+    def parse(cls, version: str | int | float | FrostVersions) -> FrostVersions:
+        """Normalize a version string/number/enum into a ``FrostVersions`` member.
+
+        Accepts values with or without a leading ``v`` (e.g. ``"v1.1"``,
+        ``"1.1"``, ``1.1``).
+        """
+        if isinstance(version, FrostVersions):
+            return version
+        return cls(str(version).lstrip("v"))
 
 class FrostEndpoints(Enum):
     """FROST Server entity collection endpoints.
@@ -91,7 +104,7 @@ class FrostEntityRef:
             raise ValueError(f"Unexpected FROST entity URL format: {url}")
 
         root_url, version, endpoint, iot_id = match.groups()
-        version = FrostVersions(version)
+        version = FrostVersions.parse(version)
         endpoint_name = endpoint.lstrip("/")
         try:
             entity_group = SensorThingsEntityGroups(endpoint_name)
