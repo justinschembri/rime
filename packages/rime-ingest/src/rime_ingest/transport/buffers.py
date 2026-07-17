@@ -1,9 +1,10 @@
 """Transport buffers."""
 # stdlib
 from collections import defaultdict
+from dataclasses import dataclass
 import threading
 from datetime import timedelta, datetime
-from typing import Any, DefaultDict, Tuple
+from typing import Any, DefaultDict, Iterable, Tuple
 from abc import ABC, abstractmethod
 # internal
 from rime_ingest.sta.core import Observation
@@ -173,9 +174,7 @@ class KinemetricsEtna2Buffer(TresholdBuffer):
 def _return_null_buffer() -> type[ObservationBuffer]:
     return NullBuffer
 
-BufferRegistryKey = tuple[SensorUUID, SupportedSensors, CanonicalDatastreams]
-RUNTIME_BUFFER_REGISTRY: dict[BufferRegistryKey, ObservationBuffer] = {}
-RUNTIME_BUFFER_REGISTRY_LOCK = threading.Lock()
+BufferStoreKey = tuple[SensorUUID, SupportedSensors, CanonicalDatastreams]
 
 BUFFER_TYPE_REGISTRY: DefaultDict[
         SupportedSensors,
@@ -186,24 +185,83 @@ BUFFER_TYPE_REGISTRY.update(
         )
 
 
-def resolve_buffer(
-        sensor_uuid:SensorUUID,
-        sensor_model:SupportedSensors,
-        sta_observations: Tuple[Observation, CanonicalDatastreams],
-        runtime_buffer_registry: dict[BufferRegistryKey, ObservationBuffer],
-        ) -> ObservationBuffer:
+@dataclass(frozen=True)
+class BufferedObservationFlush:
+    """A buffer snapshot ready for upload to FROST."""
 
-    """Update a buffer cache with a new observation."""
+    key: BufferStoreKey
+    sensor_uuid: SensorUUID
+    payload: Tuple[Observation, CanonicalDatastreams]
 
-    observation, datastream_name = sta_observations
-    buffer_key = (sensor_uuid, sensor_model, datastream_name)
-    buffer_type = BUFFER_TYPE_REGISTRY[sensor_model]
-    with RUNTIME_BUFFER_REGISTRY_LOCK:
-        buffer = runtime_buffer_registry.get(buffer_key)
-        if buffer is None:
-            buffer = buffer_type(datastream_name)
-            runtime_buffer_registry[buffer_key] = buffer
-        buffer.add_observation(observation)
 
-    return buffer
+class TransportBufferStore:
+    """Per-transport cache of in-flight observation buffers.
+
+    Owns buffer lookup, ingestion, and flush coordination under one lock so
+    add/check/dump/commit cannot race across worker threads.
+    """
+
+    def __init__(
+        self,
+        buffer_types: DefaultDict[SupportedSensors, type[ObservationBuffer]]
+        | dict[SupportedSensors, type[ObservationBuffer]]
+        | None = None,
+    ):
+        self._buffers: dict[BufferStoreKey, ObservationBuffer] = {}
+        self._lock = threading.Lock()
+        self._buffer_types = buffer_types or BUFFER_TYPE_REGISTRY
+
+    def record_observation(
+        self,
+        sensor_uuid: SensorUUID,
+        sensor_model: SupportedSensors,
+        sta_observation: Tuple[Observation, CanonicalDatastreams],
+    ) -> BufferedObservationFlush | None:
+        """Append an observation and return a flush payload when ready."""
+        with self._lock:
+            observation, datastream_name = sta_observation
+            key = (sensor_uuid, sensor_model, datastream_name)
+            buffer = self._buffers.get(key)
+            if buffer is None:
+                buffer = self._buffer_types[sensor_model](datastream_name)
+                self._buffers[key] = buffer
+            buffer.add_observation(observation)
+            if not buffer.pending_flush:
+                return None
+            return BufferedObservationFlush(
+                key=key,
+                sensor_uuid=sensor_uuid,
+                payload=buffer.dump(),
+            )
+
+    def commit_flush(self, key: BufferStoreKey) -> None:
+        """Clear a buffer after its flush payload has uploaded successfully."""
+        with self._lock:
+            buffer = self._buffers.get(key)
+            if buffer is not None:
+                buffer.commit()
+
+    def drain_pending_for_sensors(
+        self,
+        sensor_uuids: Iterable[SensorUUID],
+    ) -> list[BufferedObservationFlush]:
+        """Return flush payloads for any non-empty buffers owned by *sensor_uuids*."""
+        sensor_uuid_set = set(sensor_uuids)
+        flushes: list[BufferedObservationFlush] = []
+        with self._lock:
+            for key, buffer in list(self._buffers.items()):
+                sensor_uuid, _, _ = key
+                if sensor_uuid not in sensor_uuid_set:
+                    continue
+                payload = buffer.flush_pending()
+                if payload is None:
+                    continue
+                flushes.append(
+                    BufferedObservationFlush(
+                        key=key,
+                        sensor_uuid=sensor_uuid,
+                        payload=payload,
+                    )
+                )
+        return flushes
 

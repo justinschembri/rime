@@ -49,7 +49,7 @@ from abc import ABC, abstractmethod
 from typing import Any, Literal
 #internal
 
-from .buffers import RUNTIME_BUFFER_REGISTRY, resolve_buffer
+from .buffers import BufferedObservationFlush, TransportBufferStore
 from ..frost.post import frost_observation_upload
 from ..monitor import netmon
 from ..transformers.ingest_registry import resolve_identified_payload
@@ -75,9 +75,16 @@ debug_logger = logging.getLogger("debug")
 class SensorTransport(ABC):
     """Abstract base for any managed link to an upstream sensor data source."""
 
-    def __init__(self, app_name: str, *, max_retries: int = 1):
+    def __init__(
+        self,
+        app_name: str,
+        *,
+        max_retries: int = 1,
+        buffer_store: TransportBufferStore | None = None,
+    ):
         self.app_name = app_name
         self.max_retries = max_retries
+        self._buffer_store = buffer_store or TransportBufferStore()
         #TODO: sensor_registry as an attr is a codesmell
         self.sensor_registry: dict[SensorUUID, SupportedSensors] = {}
         self._thread: threading.Thread | None = None
@@ -253,38 +260,38 @@ class SensorTransport(ABC):
             for st_obs in st_observations:
                 try:
                     debug_logger.debug(f"{st_obs=} {sensor_uuid=}")
-                    buffer = resolve_buffer(
-                            sensor_uuid,
-                            sensor_model,
-                            st_obs,
-                            RUNTIME_BUFFER_REGISTRY,
-                            )
-                    if not buffer.pending_flush:
+                    flush = self._buffer_store.record_observation(
+                        sensor_uuid,
+                        sensor_model,
+                        st_obs,
+                    )
+                    if flush is None:
                         continue
 
-                    frost_observation_upload(sensor_uuid, buffer.dump())
-                    buffer.commit()
-
-                    event_logger.info(
-                        f"Received and processed a wire message from {self.app_name} "
-                        f"from a {sensor_model.value} sensor."
-                    )
-                    netmon.add_named_count("push_success", f"{sensor_uuid}", 1)
+                    self._upload_buffered_observation(flush, sensor_model)
                 except FrostUploadFailure as e:
                     self._exception_handler(e, sensor_id=sensor_uuid)
 
+    def _upload_buffered_observation(
+        self,
+        flush: BufferedObservationFlush,
+        sensor_model: SupportedSensors,
+    ) -> None:
+        frost_observation_upload(flush.sensor_uuid, flush.payload)
+        self._buffer_store.commit_flush(flush.key)
+        event_logger.info(
+            f"Received and processed a wire message from {self.app_name} "
+            f"from a {sensor_model.value} sensor."
+        )
+        netmon.add_named_count("push_success", f"{flush.sensor_uuid}", 1)
+
     def _flush_sensor_buffers(self) -> None:
         """Upload any in-flight or partial buffer contents for this transport's sensors."""
-        for key, buffer in list(RUNTIME_BUFFER_REGISTRY.items()):
-            sensor_uuid, sensor_model, _ = key
-            if sensor_uuid not in self.sensor_registry:
-                continue
+        for flush in self._buffer_store.drain_pending_for_sensors(self.sensor_registry):
+            sensor_uuid, sensor_model, _ = flush.key
             try:
-                st_obs = buffer.flush_pending()
-                if st_obs is None:
-                    continue
-                frost_observation_upload(sensor_uuid, st_obs)
-                buffer.commit()
+                frost_observation_upload(flush.sensor_uuid, flush.payload)
+                self._buffer_store.commit_flush(flush.key)
                 event_logger.info(
                     f"Flushed buffered observations from {self.app_name} "
                     f"for a {sensor_model.value} sensor on shutdown."
