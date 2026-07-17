@@ -1,45 +1,46 @@
 """Transport buffers."""
 # stdlib
+from collections import defaultdict
 import threading
 from datetime import timedelta, datetime
-from typing import Tuple
-from math import ceil
+from typing import Any, DefaultDict, Tuple
+from abc import ABC, abstractmethod
 # internal
+from .base import RUNTIME_BUFFER_REGISTRY_LOCK
 from rime_ingest.sta.core import Observation
-from rime_ingest.transformers.types import CanonicalDatastreams
+from rime_ingest.transformers.types import (
+        CanonicalDatastreams,
+        SensorUUID,
+        SupportedSensors
+        )
 
 
-class ObservationBuffer:
-    """Intermediate buffer for storing Observations before pushing to FROST."""
+class ObservationBuffer(ABC):
+    """
+    Buffer observations before pushing them to a STA service.
+
+    Handles thread lock, adding observations. Implement _check_trigger() and 
+    _dump_locked().
+    """
 
     def __init__(
         self,
         datastream_name: CanonicalDatastreams,
-        *,
-        phenomenon_start: datetime | str | None = None,
-        max_time: timedelta | None = timedelta(minutes=10),
-        max_size: int | None = None,
-        sample_rate: float = 1.0
+        sample_rate: float = 1.0,
     ):
-        if all([max_size, max_time]):
-            raise ValueError("Pass either max_size or max_time, not both.")
-        if (0 >= sample_rate > 1.0):
-            raise ValueError(">0 sample_rate =<1")
-        if not any([max_size, max_time]):
-            raise ValueError("Pass either max_size or max_time.")
-
-        if isinstance(phenomenon_start, str):
-            self.phenomenon_start = datetime.fromisoformat(phenomenon_start)
-        else:
-            self.phenomenon_start = phenomenon_start
         self.datastream_name = datastream_name
-        self.max_size = max_size
-        self.max_time = max_time
-        self.full: bool = False
         self.pending_flush: bool = False
         self.observation_buffer: list[Observation] = []
+        self._phenomenon_start: datetime | None = None
+        self._phenomenon_end: datetime | None = None
         self._sample_rate = sample_rate
         self._lock = threading.Lock()
+
+
+    @abstractmethod
+    def _check_trigger(self, observation:Observation) -> bool:
+        """Check the flush condition of the buffer."""
+        pass
 
 
     def add_observation(self, observation: Observation) -> None:
@@ -47,18 +48,26 @@ class ObservationBuffer:
             if self.pending_flush:
                 raise RuntimeError("Cannot add observations while a flush is pending.")
 
-            if not self.phenomenon_start:
-                self.phenomenon_start = observation.phenomenonTime_datetime
+            if not self._phenomenon_start:
+                self._phenomenon_start = observation.phenomenonTime_datetime
 
             self.observation_buffer.append(observation)
-            if self.max_size and len(self.observation_buffer) == self.max_size:
-                self.full = True
-            elif (
-                self.max_time
-                and (observation.phenomenonTime_datetime - self.phenomenon_start)
-                > self.max_time
-            ):
-                self.full = True
+            if self._check_trigger(observation):
+                self.pending_flush = True
+            else:
+                self.pending_flush = False
+
+    def sample_results(self) -> list[Any]:
+        """Sample result buffer result, return full buffer size if sample_rate==1."""
+        results = [obs.result for obs in self.observation_buffer]
+        if self._sample_rate == 1:
+            return results
+        else:
+            n = len(self.observation_buffer) 
+            target = max(1, round(n*self._sample_rate))
+            sample_step = max(1, round(n // target))
+            return results[::sample_step]
+
 
     def dump(self) -> Tuple[Observation, CanonicalDatastreams]:
         with self._lock:
@@ -73,29 +82,86 @@ class ObservationBuffer:
     def commit(self) -> None:
         with self._lock:
             self.observation_buffer.clear()
-            self.phenomenon_start = None
-            self.full = False
+            self._phenomenon_start = None
             self.pending_flush = False
 
+    @abstractmethod
     def _dump_locked(self) -> Tuple[Observation, CanonicalDatastreams]:
-        self.pending_flush = True
-        # buffered observations can be large, so you may want to sample.
-        n = len(self.observation_buffer) 
-        target = max(1, round(n*self._sample_rate))
-        sample_step = max(1, round(n // target))
+        pass
 
-        results = [obs.result for obs in self.observation_buffer]
+class NullBuffer(ObservationBuffer):
+    """A no-op buffer which immediately flushes any data passed to it."""
+    def __init__(
+            self,
+            datastream_name: CanonicalDatastreams,
+            ):
+        super().__init__(datastream_name)
+
+    def _check_trigger(self, observation: Observation) -> bool:
+        """The buffer is always pending a flush."""
+        return True 
+
+    def _dump_locked(self) -> Tuple[Observation, CanonicalDatastreams]:
+        """There should only be observation in this buffer."""
+        return (self.observation_buffer[0], self.datastream_name)
+
+
+class TresholdBuffer(ObservationBuffer):
+    """Buffer with a size of time-gap treshold."""
+
+    def __init__(
+        self,
+        datastream_name: CanonicalDatastreams,
+        *,
+        max_time: timedelta | None = timedelta(minutes=10),
+        max_size: int | None = None,
+        sample_rate: float = 1.0
+    ):
+        super().__init__(
+                datastream_name,
+                sample_rate=sample_rate
+                )
+
+        if all([max_size, max_time]):
+            raise ValueError("Pass either max_size or max_time, not both.")
+        if (0 >= sample_rate > 1.0):
+            raise ValueError(">0 sample_rate =<1")
+        if not any([max_size, max_time]):
+            raise ValueError("Pass either max_size or max_time.")
+
+        self.max_size = max_size
+        self.max_time = max_time
+
+
+    def _check_trigger(self, observation: Observation) -> bool:
+
+        if self.max_size and len(self.observation_buffer) == self.max_size:
+            return True
+        elif (
+            self.max_time
+            and self._phenomenon_start
+            and (observation.phenomenonTime_datetime - self._phenomenon_start)
+            > self.max_time
+        ):
+            return True
+
+        return False
+
+
+    def _dump_locked(self) -> Tuple[Observation, CanonicalDatastreams]:
+
         observation = Observation(
-            result=results[::sample_step],
+            result=self.sample_results(),
             phenomenonTime=(
-                self.phenomenon_start,
+                self._phenomenon_start,
                 self.observation_buffer[-1].phenomenonTime_datetime,
             ),
         )
+
         return (observation, self.datastream_name)
 
 
-class KinemetricsEtna2Buffer(ObservationBuffer):
+class KinemetricsEtna2Buffer(TresholdBuffer):
     """Default Kinemetrics ETNA2 Buffer with a low sampling rate."""
     def __init__(self, datastream_name: CanonicalDatastreams):
         super().__init__(
@@ -103,3 +169,41 @@ class KinemetricsEtna2Buffer(ObservationBuffer):
                 max_time=timedelta(minutes=5), 
                 sample_rate=0.01
                 )
+
+# Buffers kept in this registry:
+def _return_null_buffer() -> type[ObservationBuffer]:
+    return NullBuffer
+
+BufferRegistryKey = tuple[SensorUUID, SupportedSensors, CanonicalDatastreams]
+BUFFER_TYPE_REGISTRY: DefaultDict[
+        SupportedSensors,
+        type[ObservationBuffer]
+        ] = defaultdict(_return_null_buffer)
+BUFFER_TYPE_REGISTRY.update(
+        {SupportedSensors.KINEMETRICS_ETNA2:KinemetricsEtna2Buffer}
+        )
+
+
+def resolve_buffer(
+        sensor_uuid:SensorUUID,
+        sensor_model:SupportedSensors,
+        sta_observations: Tuple[Observation, CanonicalDatastreams],
+        runtime_buffer_registry: dict[BufferRegistryKey, ObservationBuffer],
+        ) -> Tuple[dict[BufferRegistryKey, ObservationBuffer], ObservationBuffer]:
+
+    """Update a buffer cache with a new observation."""
+
+    observation, datastream_name = sta_observations
+    buffer_key = (sensor_uuid, sensor_model, datastream_name)
+    buffer_type = BUFFER_TYPE_REGISTRY[sensor_model]
+    with RUNTIME_BUFFER_REGISTRY_LOCK:
+        buffer = runtime_buffer_registry.get(buffer_key)
+        # instantiate a buffer if it has not been created
+        if buffer is None:
+            buffer = buffer_type(datastream_name)
+            runtime_buffer_registry.update({buffer_key:buffer})
+        else:
+            buffer.add_observation(observation)
+        
+    return (runtime_buffer_registry, buffer)
+

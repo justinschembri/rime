@@ -39,7 +39,7 @@ keys, TLS certs, no auth at all) that pinning a shape here would force every
 provider to adapt to the lowest common denominator. Providers handle their
 own auth in whatever method they need.
 """
-
+#stdlib
 import inspect
 import logging
 import queue
@@ -47,32 +47,34 @@ import threading
 import traceback
 from abc import ABC, abstractmethod
 from typing import Any, Literal
+#internal
 
-from rime_ingest.exceptions import FrostUploadFailure, UnexpectedProviderMessage, UnpackError, UnregisteredSensorError
-from rime_ingest.frost.post import frost_observation_upload
-from rime_ingest.registries import generate_buffer_registry
-
-from .buffers import ObservationBuffer
+from .buffers import ObservationBuffer, BufferRegistryKey, resolve_buffer
+from ..frost.post import frost_observation_upload
 from ..monitor import netmon
-from ..transformers.ingest_registry import (
-    resolve_identified_payload,
-)
+from ..transformers.ingest_registry import resolve_identified_payload
 from ..transformers.messages import (
     DecapsulatedMessage,
     EnvelopeMetadata,
     IdentifiedPayload,
     IdentifiedTimeSeriesPayload,
 )
-from ..transformers.types import CanonicalDatastreams, SensorUUID, SupportedSensors
+from ..exceptions import (
+        FrostUploadFailure, 
+        UnexpectedProviderMessage,
+        UnpackError,
+        UnregisteredSensorError
+        )
+
+from ..transformers.types import SensorUUID, SupportedSensors
 
 main_logger = logging.getLogger("main")
 event_logger = logging.getLogger("events")
 debug_logger = logging.getLogger("debug")
 
 # RUNTIME OBJECTS
-BufferRegistryKey = tuple[SensorUUID, SupportedSensors, CanonicalDatastreams]
 RUNTIME_BUFFER_REGISTRY: dict[BufferRegistryKey, ObservationBuffer] = {}
-_REGISTRY_LOCK = threading.Lock()
+RUNTIME_BUFFER_REGISTRY_LOCK = threading.Lock()
 
 class SensorTransport(ABC):
     """Abstract base for any managed link to an upstream sensor data source."""
@@ -80,7 +82,6 @@ class SensorTransport(ABC):
     def __init__(self, app_name: str, *, max_retries: int = 1):
         self.app_name = app_name
         self.max_retries = max_retries
-        self.buffer_registry = generate_buffer_registry()
         #TODO: sensor_registry as an attr is a codesmell
         self.sensor_registry: dict[SensorUUID, SupportedSensors] = {}
         self._thread: threading.Thread | None = None
@@ -256,27 +257,19 @@ class SensorTransport(ABC):
             for st_obs in st_observations:
                 try:
                     debug_logger.debug(f"{st_obs=} {sensor_uuid=}")
-                    buffer_key: BufferRegistryKey | None = None
-                    if buffer_class := self.buffer_registry.get(sensor_model):
-                        buffer_key = (sensor_uuid, sensor_model, st_obs[1])
-                        with _REGISTRY_LOCK:
-                            buffer = RUNTIME_BUFFER_REGISTRY.get(buffer_key)
-                            if buffer is None:
-                                buffer = buffer_class(st_obs[1])
-                                RUNTIME_BUFFER_REGISTRY[buffer_key] = buffer
-
-                        if buffer.pending_flush:
-                            frost_observation_upload(sensor_uuid, buffer.dump())
-                            buffer.commit()
-
+                    RUNTIME_BUFFER_REGISTRY, buffer = resolve_buffer(
+                            sensor_uuid,
+                            sensor_model,
+                            st_obs, 
+                            RUNTIME_BUFFER_REGISTRY
+                            ) # defaults to NullBuffer, which is always pending_flush
+                    if buffer.pending_flush:
+                        frost_observation_upload(sensor_uuid, buffer.dump())
+                        buffer.commit()
+                    else:
                         buffer.add_observation(st_obs[0])
-                        if not buffer.full:
-                            continue
-                        st_obs = buffer.dump()
+                        continue
 
-                    frost_observation_upload(sensor_uuid, st_obs)
-                    if buffer_key is not None:
-                        RUNTIME_BUFFER_REGISTRY[buffer_key].commit()
                     event_logger.info(
                         f"Received and processed a wire message from {self.app_name} "
                         f"from a {sensor_model.value} sensor."
