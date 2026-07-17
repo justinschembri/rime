@@ -6,7 +6,6 @@ from datetime import timedelta, datetime
 from typing import Any, DefaultDict, Tuple
 from abc import ABC, abstractmethod
 # internal
-from .base import RUNTIME_BUFFER_REGISTRY_LOCK
 from rime_ingest.sta.core import Observation
 from rime_ingest.transformers.types import (
         CanonicalDatastreams,
@@ -124,8 +123,8 @@ class TresholdBuffer(ObservationBuffer):
 
         if all([max_size, max_time]):
             raise ValueError("Pass either max_size or max_time, not both.")
-        if (0 >= sample_rate > 1.0):
-            raise ValueError(">0 sample_rate =<1")
+        if not (0 < sample_rate <= 1.0):
+            raise ValueError("sample_rate must be >0 and <=1")
         if not any([max_size, max_time]):
             raise ValueError("Pass either max_size or max_time.")
 
@@ -175,6 +174,9 @@ def _return_null_buffer() -> type[ObservationBuffer]:
     return NullBuffer
 
 BufferRegistryKey = tuple[SensorUUID, SupportedSensors, CanonicalDatastreams]
+RUNTIME_BUFFER_REGISTRY: dict[BufferRegistryKey, ObservationBuffer] = {}
+RUNTIME_BUFFER_REGISTRY_LOCK = threading.Lock()
+
 BUFFER_TYPE_REGISTRY: DefaultDict[
         SupportedSensors,
         type[ObservationBuffer]
@@ -198,12 +200,10 @@ def resolve_buffer(
     buffer_type = BUFFER_TYPE_REGISTRY[sensor_model]
     with RUNTIME_BUFFER_REGISTRY_LOCK:
         buffer = runtime_buffer_registry.get(buffer_key)
-        # instantiate a buffer if it has not been created
         if buffer is None:
             buffer = buffer_type(datastream_name)
-            runtime_buffer_registry.update({buffer_key:buffer})
-        else:
-            buffer.add_observation(observation)
-        
+            runtime_buffer_registry[buffer_key] = buffer
+        buffer.add_observation(observation)
+
     return (runtime_buffer_registry, buffer)
 

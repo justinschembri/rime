@@ -49,7 +49,7 @@ from abc import ABC, abstractmethod
 from typing import Any, Literal
 #internal
 
-from .buffers import ObservationBuffer, BufferRegistryKey, resolve_buffer
+from .buffers import RUNTIME_BUFFER_REGISTRY, resolve_buffer
 from ..frost.post import frost_observation_upload
 from ..monitor import netmon
 from ..transformers.ingest_registry import resolve_identified_payload
@@ -71,10 +71,6 @@ from ..transformers.types import SensorUUID, SupportedSensors
 main_logger = logging.getLogger("main")
 event_logger = logging.getLogger("events")
 debug_logger = logging.getLogger("debug")
-
-# RUNTIME OBJECTS
-RUNTIME_BUFFER_REGISTRY: dict[BufferRegistryKey, ObservationBuffer] = {}
-RUNTIME_BUFFER_REGISTRY_LOCK = threading.Lock()
 
 class SensorTransport(ABC):
     """Abstract base for any managed link to an upstream sensor data source."""
@@ -260,15 +256,14 @@ class SensorTransport(ABC):
                     RUNTIME_BUFFER_REGISTRY, buffer = resolve_buffer(
                             sensor_uuid,
                             sensor_model,
-                            st_obs, 
-                            RUNTIME_BUFFER_REGISTRY
-                            ) # defaults to NullBuffer, which is always pending_flush
-                    if buffer.pending_flush:
-                        frost_observation_upload(sensor_uuid, buffer.dump())
-                        buffer.commit()
-                    else:
-                        buffer.add_observation(st_obs[0])
+                            st_obs,
+                            RUNTIME_BUFFER_REGISTRY,
+                            )
+                    if not buffer.pending_flush:
                         continue
+
+                    frost_observation_upload(sensor_uuid, buffer.dump())
+                    buffer.commit()
 
                     event_logger.info(
                         f"Received and processed a wire message from {self.app_name} "
