@@ -253,7 +253,7 @@ class SensorTransport(ABC):
             for st_obs in st_observations:
                 try:
                     debug_logger.debug(f"{st_obs=} {sensor_uuid=}")
-                    RUNTIME_BUFFER_REGISTRY, buffer = resolve_buffer(
+                    buffer = resolve_buffer(
                             sensor_uuid,
                             sensor_model,
                             st_obs,

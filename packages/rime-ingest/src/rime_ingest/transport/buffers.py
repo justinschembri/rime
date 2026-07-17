@@ -191,7 +191,7 @@ def resolve_buffer(
         sensor_model:SupportedSensors,
         sta_observations: Tuple[Observation, CanonicalDatastreams],
         runtime_buffer_registry: dict[BufferRegistryKey, ObservationBuffer],
-        ) -> Tuple[dict[BufferRegistryKey, ObservationBuffer], ObservationBuffer]:
+        ) -> ObservationBuffer:
 
     """Update a buffer cache with a new observation."""
 
@@ -205,5 +205,5 @@ def resolve_buffer(
             runtime_buffer_registry[buffer_key] = buffer
         buffer.add_observation(observation)
 
-    return (runtime_buffer_registry, buffer)
+    return buffer
 
