@@ -10,7 +10,6 @@ from rime_ingest.sta.schema import SensorThingsEntity, SensorThingsEntityGroups
 #internal
 from .odata import ODataParams, odata_filter_name_eq
 from .types import FrostEndpoints, FrostEntityRef, FrostVersions
-from .types import FrostEndpoints, FrostEntityRef, FrostParams, FrostVersions
 #logging
 
 main_logger = logging.getLogger("main")
