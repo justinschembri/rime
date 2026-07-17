@@ -5,7 +5,7 @@ PyObject representations of the OGC SensorThings API (STA) information model.
 # standard
 from __future__ import annotations
 from datetime import datetime
-from typing import Optional, Any, Dict, List, Union, Self
+from typing import Optional, Any, Dict, List, Tuple, Union, Self
 from typing_extensions import Annotated
 # external
 from pydantic import (
@@ -17,6 +17,7 @@ from pydantic import (
 )
 # internal
 from rime_ingest.frost.bridges import NAVIGATION_LINKS_TO_ENTITY
+from rime_ingest.frost.odata import PhenomenonTime, format_phenomenon_time
 from rime_ingest.frost.types import FrostUrl
 from rime_ingest.frost.types import FrostEntityRef
 from ..config import FROST_VERSION
@@ -87,7 +88,6 @@ def _partial_equals(a: "BaseModel", b: "BaseModel") -> bool:
         _normalise_dump(a.model_dump(include=fields))
         == _normalise_dump(b.model_dump(include=fields))
     )
-
 
 class SensorThingsObject(BaseModel):
     """
@@ -233,19 +233,32 @@ class ObservedProperty(SensorThingsObject):
 
 class Observation(BaseModel):
     id: Optional[int] = Field(None, description="Generally assigned by the server.")
-    result: Any
-    phenomenonTime: datetime | None
+    result: Any | list[Any]
+    phenomenonTime: PhenomenonTime | None
     iot_links: Dict[
         SensorThingsEntity | SensorThingsEntityGroups, FrostUrl | FrostEntityRef
     ] = Field(default_factory=dict)
     resultTime: datetime | None = None
     validTime: "TimePeriod | None" = None
 
+    
     @computed_field
     @property
     def entity_type(self) -> SensorThingsEntity:
         st_type = SensorThingsEntity(self.__class__.__name__)
         return st_type 
+
+    @computed_field
+    @property
+    def phenomenonTime_datetime(self) -> datetime:
+        """Return phenomenonTime as a point-in-time datetime."""
+        if not self.phenomenonTime:
+            raise ValueError("No phenomenonTime given.")
+        if isinstance(self.phenomenonTime, tuple):
+            raise ValueError("phenomenonTime is an interval, not an instant.")
+        if isinstance(self.phenomenonTime, str):
+            return datetime.fromisoformat(self.phenomenonTime)
+        return self.phenomenonTime
 
     @classmethod
     def from_frost_entity(cls, entity: dict[str, Any]) -> "Observation":
@@ -258,7 +271,10 @@ class Observation(BaseModel):
     def as_frost_entity(self) -> dict[str, Any]:
         """Dump observation fields for POST (excludes iot_links and server ids)."""
         include = set(SENSOR_THINGS_ENTITY_FIELDS[self.entity_type])
-        return self.model_dump(include=include)
+        entity = self.model_dump(include=include)
+        if self.phenomenonTime is not None:
+            entity["phenomenonTime"] = format_phenomenon_time(self.phenomenonTime)
+        return entity
 
     def partial_eq(self, other: "Observation") -> bool:
         """Content-only equality for Observations.

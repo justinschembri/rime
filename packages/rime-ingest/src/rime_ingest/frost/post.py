@@ -13,7 +13,7 @@ from rime_ingest.frost.helpers import check_object_existence
 from rime_ingest.frost.sanitization import rewrite_to_internal, sanitize_root_url
 from rime_ingest.frost.types import FrostEntityRef, FrostUrl, FrostVersions
 from rime_ingest.sta.core import Observation, SensorThingsObject
-from rime_ingest.transformers.types import SensorUUID
+from rime_ingest.transformers.types import CanonicalDatastreams, SensorUUID
 
 # internal
 from .errors import FrostRequestError
@@ -141,7 +141,7 @@ def make_frost_entity(
 
 def frost_observation_upload(
         sensor_name: SensorUUID,
-        observation_set: tuple[Observation, str],
+        observation_set: tuple[Observation, CanonicalDatastreams | str],
         root_url: str | None = None,
         version: str | None = None,
         read_auth_headers: Optional[str] = None,
@@ -179,7 +179,10 @@ def frost_observation_upload(
     write_auth = write_auth_headers or get_frost_auth_header("write")
     read_auth = read_auth_headers or get_frost_auth_header("read")
 
-    observation, datastream_name = observation_set
+    observation, datastream = observation_set
+    datastream_name = (
+        datastream.value if isinstance(datastream, CanonicalDatastreams) else datastream
+    )
     datastream_url = find_datastream_observations_url(
         sensor_name, datastream_name, root_url, version, auth_headers=read_auth
     )

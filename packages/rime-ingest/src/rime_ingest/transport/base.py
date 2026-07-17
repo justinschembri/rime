@@ -39,7 +39,7 @@ keys, TLS certs, no auth at all) that pinning a shape here would force every
 provider to adapt to the lowest common denominator. Providers handle their
 own auth in whatever method they need.
 """
-
+#stdlib
 import inspect
 import logging
 import queue
@@ -47,26 +47,30 @@ import threading
 import traceback
 from abc import ABC, abstractmethod
 from typing import Any, Literal
+#internal
 
-from rime_ingest.exceptions import FrostUploadFailure, UnexpectedProviderMessage, UnpackError, UnregisteredSensorError
-from rime_ingest.frost.post import frost_observation_upload
-
+from .buffers import RUNTIME_BUFFER_REGISTRY, resolve_buffer
+from ..frost.post import frost_observation_upload
 from ..monitor import netmon
-from ..transformers.ingest_registry import (
-    resolve_identified_payload,
-)
+from ..transformers.ingest_registry import resolve_identified_payload
 from ..transformers.messages import (
     DecapsulatedMessage,
     EnvelopeMetadata,
     IdentifiedPayload,
     IdentifiedTimeSeriesPayload,
 )
+from ..exceptions import (
+        FrostUploadFailure, 
+        UnexpectedProviderMessage,
+        UnpackError,
+        UnregisteredSensorError
+        )
+
 from ..transformers.types import SensorUUID, SupportedSensors
 
 main_logger = logging.getLogger("main")
 event_logger = logging.getLogger("events")
 debug_logger = logging.getLogger("debug")
-
 
 class SensorTransport(ABC):
     """Abstract base for any managed link to an upstream sensor data source."""
@@ -148,6 +152,7 @@ class SensorTransport(ABC):
 
     def stop(self) -> None:
         self._stop_event.set()
+        self._flush_sensor_buffers()
 
     def restart(self, join_timeout: int = 15) -> None:
         self._stop_event.set()
@@ -248,7 +253,18 @@ class SensorTransport(ABC):
             for st_obs in st_observations:
                 try:
                     debug_logger.debug(f"{st_obs=} {sensor_uuid=}")
-                    frost_observation_upload(sensor_uuid, st_obs)
+                    RUNTIME_BUFFER_REGISTRY, buffer = resolve_buffer(
+                            sensor_uuid,
+                            sensor_model,
+                            st_obs,
+                            RUNTIME_BUFFER_REGISTRY,
+                            )
+                    if not buffer.pending_flush:
+                        continue
+
+                    frost_observation_upload(sensor_uuid, buffer.dump())
+                    buffer.commit()
+
                     event_logger.info(
                         f"Received and processed a wire message from {self.app_name} "
                         f"from a {sensor_model.value} sensor."
@@ -256,6 +272,25 @@ class SensorTransport(ABC):
                     netmon.add_named_count("push_success", f"{sensor_uuid}", 1)
                 except FrostUploadFailure as e:
                     self._exception_handler(e, sensor_id=sensor_uuid)
+
+    def _flush_sensor_buffers(self) -> None:
+        """Upload any in-flight or partial buffer contents for this transport's sensors."""
+        for key, buffer in list(RUNTIME_BUFFER_REGISTRY.items()):
+            sensor_uuid, sensor_model, _ = key
+            if sensor_uuid not in self.sensor_registry:
+                continue
+            try:
+                st_obs = buffer.flush_pending()
+                if st_obs is None:
+                    continue
+                frost_observation_upload(sensor_uuid, st_obs)
+                buffer.commit()
+                event_logger.info(
+                    f"Flushed buffered observations from {self.app_name} "
+                    f"for a {sensor_model.value} sensor on shutdown."
+                )
+            except FrostUploadFailure as e:
+                self._exception_handler(e, sensor_id=sensor_uuid)
 
     #TODO: reconsider exception handler as part of the class, should be a global concern
     def _exception_handler(self, e: Exception | None, **kwargs) -> Literal[0, 1]:

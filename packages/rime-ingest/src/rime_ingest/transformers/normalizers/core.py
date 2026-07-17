@@ -61,7 +61,7 @@ class Normalizer(BaseModel):
             transformed_results[canonical_datastream_name] = getattr(self, model_datastream_name)
         return transformed_results
 
-    def to_stObservations(self) -> list[Tuple[Observation, str]]:
+    def to_stObservations(self) -> list[Tuple[Observation, CanonicalDatastreams]]:
         """Return a tuple of observations and corresponding datastream."""
         transformed_results = self._transform()
         observations = []
@@ -78,5 +78,5 @@ class Normalizer(BaseModel):
                     or self.provider_phenomenon_time
                 ),
             )
-            observations.append((observation, datastream.value))
+            observations.append((observation, datastream))
         return observations

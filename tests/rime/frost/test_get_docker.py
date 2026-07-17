@@ -30,7 +30,7 @@ from rime_ingest.frost.get import (
     get_frost_datastream_observations,
 )
 from rime_ingest.frost.helpers import check_object_existence
-from rime_ingest.frost.types import FrostParams
+from rime_ingest.frost.odata import ODataParams
 from rime_ingest.sta.core import (
     Datastream,
     Location,
@@ -58,7 +58,7 @@ def _datastream_id(frost: DockerFrost) -> int:
         SensorThingsEntityGroups.DATASTREAMS,
         root_url=frost.root_url,
         version=frost.version,
-        params={FrostParams.FILTER: "name eq 'TEST-DS'"},
+        params={ODataParams.FILTER: "name eq 'TEST-DS'"},
     )
     assert data, "Seed datastream not found"
     return int(data[0]["@iot.id"])
@@ -106,7 +106,7 @@ class TestFrostEntityLookupPages:
                 version=docker_frost.version,
                 first_entity_id=datastream_id,
                 second_entity=SensorThingsEntityGroups.OBSERVATIONS,
-                params={FrostParams.TOP: 3},
+                params={ODataParams.TOP: 3},
             )
         )
 
@@ -125,7 +125,7 @@ class TestFrostEntityLookupPages:
             SensorThingsEntityGroups.THINGS,
             root_url=docker_frost.root_url,
             version=docker_frost.version,
-            params={FrostParams.FILTER: "name eq '__nope__'"},
+            params={ODataParams.FILTER: "name eq '__nope__'"},
         )
 
         assert list(pages) == []
@@ -141,7 +141,7 @@ class TestFrostEntityLookup:
             version=docker_frost.version,
             first_entity_id=datastream_id,
             second_entity=SensorThingsEntityGroups.OBSERVATIONS,
-            params={FrostParams.TOP: 3},
+            params={ODataParams.TOP: 3},
         )
 
         assert data is not None
@@ -153,7 +153,7 @@ class TestFrostEntityLookup:
             SensorThingsEntityGroups.THINGS,
             root_url=docker_frost.root_url,
             version=docker_frost.version,
-            params={FrostParams.FILTER: "name eq '__nope__'"},
+            params={ODataParams.FILTER: "name eq '__nope__'"},
         )
 
         assert data is None

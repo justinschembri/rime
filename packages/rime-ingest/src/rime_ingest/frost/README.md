@@ -11,16 +11,18 @@ file writer, and a one-shot provisioning orchestrator.
 
 ```
 frost/
-├── types.py          # Enums (FrostVersions, FrostEndpoints, FrostParams)
+├── types.py          # Enums (FrostVersions, FrostEndpoints)
 │                     # and the FrostEntityRef dataclass
+├── odata.py          # OData param enum, datetime/format helpers, and
+│                     # $filter expression builders
 ├── errors.py         # Exception hierarchy
 │                     # (FrostConnectionError → FrostRequestError,
 │                     #  FrostNoResultsError, FrostWriterError)
 ├── bridges.py        # Lookup tables between the domain model and the FROST
 │                     # wire protocol (navigation-link keys, endpoint paths)
-├── sanitization.py   # URL/param normalisation helpers and OData builders
+├── sanitization.py   # URL normalisation helpers
 │                     # (sanitize_get_request, sanitize_root_url,
-│                     #  merge_filter, merge_order_by, rewrite_to_internal)
+│                     #  rewrite_to_internal)
 ├── get.py            # GET layer — paginated entity lookups, object lookups,
 │                     # datastream observation queries, navigation-link
 │                     # resolution

@@ -1,39 +1,22 @@
-"""Sanitization and query-building helpers for FROST requests."""
+"""Sanitization helpers for FROST request URLs."""
 #standard
-from datetime import datetime
 from urllib.parse import urlparse
 #internal
 from typing import Optional, Mapping, Any
 
-from .types import FrostParams, FrostVersions
+from .odata import ODataParams, normalize_odata_params
+from .types import FrostVersions
 from rime_ingest.sta.schema import (
     ENTITIES_TO_ENTITY_GROUPS,
     SensorThingsEntity,
     SensorThingsEntityGroups,
 )
 
-def to_odata_datetime(value: datetime | str) -> str:
-    """Convert a datetime or string into an OData-compatible datetime string.
-
-    ``datetime`` objects are converted via ``isoformat()``; strings are passed
-    through unchanged so that callers can supply pre-formatted values directly.
-
-    Args:
-        value: A ``datetime`` instance or an already-formatted string.
-
-    Returns:
-        ISO 8601 string suitable for use in OData ``$filter`` expressions.
-    """
-
-    if isinstance(value, datetime):
-        return value.isoformat()
-    return str(value)
-
 def sanitize_get_request(
     root_url: str,
     version: str | float | int | FrostVersions ,
     first_entity: str | SensorThingsEntityGroups | SensorThingsEntity,
-    params: Optional[Mapping[str | FrostParams, Any]] = None,
+    params: Optional[Mapping[str | ODataParams, Any]] = None,
     *,
     first_entity_id: Optional[int | str] = "",
     second_entity: Optional[str | SensorThingsEntityGroups | SensorThingsEntity] = "",
@@ -49,7 +32,7 @@ def sanitize_get_request(
         root_url: FROST server root URL, without the version segment.
         version: API version (e.g. ``1``, ``1.1``, ``"v1.1"``).
         first_entity: Primary entity collection to query.
-        params: Optional OData query params; keys must be ``FrostParams``
+        params: Optional OData query params; keys must be ``ODataParams``
             values or their string equivalents.
         first_entity_id: ID of the first entity for relationship traversal.
         second_entity: Child entity collection to retrieve.
@@ -83,7 +66,7 @@ def sanitize_get_request(
 
     normalized_params: dict[str, Any] | None = None
     if params:
-        normalized_params = {FrostParams(key).value: value for key, value in params.items()}
+        normalized_params = normalize_odata_params(params)
     
     sanitized_root, sanitized_version = sanitize_root_url(root_url, version)
     url = (
@@ -113,52 +96,6 @@ def sanitize_root_url(
     normalized_root = str(root_url.rstrip("/"))
     normalized_version = FrostVersions.parse(version).value
     return (normalized_root, normalized_version)
-
-def merge_filter(params: dict[str, Any], extra_filter: str) -> dict[str, Any]:
-    """Merge an additional OData filter clause into an existing params dict.
-
-    When a ``$filter`` key is already present, both clauses are wrapped in
-    parentheses and joined with ``and``. Otherwise the new filter is inserted
-    directly.
-
-    Args:
-        params: Existing OData params dict (mutated in place).
-        extra_filter: OData filter expression to add.
-
-    Returns:
-        The updated ``params`` dict.
-    """
-
-    existing_filter = params.get(FrostParams.FILTER.value)
-    if existing_filter:
-        params[FrostParams.FILTER.value] = f"({existing_filter}) and ({extra_filter})"
-    else:
-        params[FrostParams.FILTER.value] = extra_filter
-    return params
-
-def merge_order_by(
-    params: dict[str, Any],
-    order_by: Optional[str],
-    descending: bool,
-) -> dict[str, Any]:
-    """Set the ``$orderBy`` clause in an OData params dict.
-
-    Args:
-        params: Existing OData params dict (mutated in place).
-        order_by: Field name to sort by. When ``None`` or empty the params dict
-            is returned unchanged.
-        descending: ``True`` for ``desc``, ``False`` for ``asc``.
-
-    Returns:
-        The updated ``params`` dict.
-    """
-
-    if not order_by:
-        return params
-    direction = "desc" if descending else "asc"
-    params[FrostParams.ORDER.value] = f"{order_by} {direction}"
-    return params
-
 
 def rewrite_to_internal(nav_url: str, internal_root: str) -> str:
     """Rewrite a FROST navigation link to use the internal root URL.

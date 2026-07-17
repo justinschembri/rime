@@ -19,8 +19,8 @@ class FrostVersions(Enum):
 
     v1 = "1.0"
     v1_1 = "1.1"
-    v2_0 = "2.0"
-
+    v2 = "2.0"
+    
     @classmethod
     def parse(cls, version: str | int | float | FrostVersions) -> FrostVersions:
         """Normalize a version string/number/enum into a ``FrostVersions`` member.
@@ -46,20 +46,6 @@ class FrostEndpoints(Enum):
     OBSERVEDPROPERTIES = "/ObservedProperties"
     SENSORS = "/Sensors"
     THINGS = "/Things"
-
-class FrostParams(Enum):
-    """OData query parameter keys accepted by FROST.
-
-    Used to validate and normalise parameter dicts before they are sent as
-    query-string arguments.
-    """
-    TOP="$top"
-    SKIP="$skip"
-    COUNT="$count"
-    ORDER="$orderBy"
-    EXPAND="$expand"
-    SELECT="$select"
-    FILTER="$filter"
 
 FrostResultPageIterator = Iterator[list[dict[str, Any]]]
 

@@ -22,7 +22,7 @@ from rime_ingest.frost.get import (
     get_frost_datastream_observations,
 )
 from rime_ingest.frost.helpers import check_object_existence
-from rime_ingest.frost.types import FrostParams
+from rime_ingest.frost.odata import ODataParams
 from rime_ingest.sta.core import Thing
 from rime_ingest.sta.schema import SensorThingsEntityGroups
 
@@ -55,7 +55,7 @@ class TestFrostEntityLookupPages:
         pages = frost_entity_lookup_pages(
             SensorThingsEntityGroups.THINGS,
             root_url=multicare_root_url,
-            params={FrostParams.TOP: 1},
+            params={ODataParams.TOP: 1},
         )
 
         first = next(pages)
@@ -69,7 +69,7 @@ class TestFrostEntityLookupPages:
         pages = frost_entity_lookup_pages(
             SensorThingsEntityGroups.THINGS,
             root_url=multicare_root_url,
-            params={FrostParams.FILTER: "name eq '__does_not_exist__'"},
+            params={ODataParams.FILTER: "name eq '__does_not_exist__'"},
         )
 
         assert list(pages) == []
@@ -82,8 +82,8 @@ class TestFrostEntityLookupPages:
             SensorThingsEntityGroups.OBSERVATIONS,
             root_url=multicare_root_url,
             params={
-                FrostParams.TOP: 2,
-                FrostParams.SELECT: "@iot.id",
+                ODataParams.TOP: 2,
+                ODataParams.SELECT: "@iot.id",
             },
         )
 
@@ -105,7 +105,7 @@ class TestFrostEntityLookup:
         data = frost_entity_lookup(
             SensorThingsEntityGroups.THINGS,
             root_url=multicare_root_url,
-            params={FrostParams.TOP: 2},
+            params={ODataParams.TOP: 2},
         )
 
         assert isinstance(data, list)
@@ -131,7 +131,7 @@ class TestFrostEntityLookup:
         data = frost_entity_lookup(
             SensorThingsEntityGroups.THINGS,
             root_url=multicare_root_url,
-            params={FrostParams.FILTER: "name eq '__does_not_exist__'"},
+            params={ODataParams.FILTER: "name eq '__does_not_exist__'"},
         )
 
         assert data is None
