@@ -16,8 +16,9 @@ FrostUrl = str
 class FrostVersions(Enum):
     """Supported FROST Server API versions."""
 
-    v1 = "1"
+    v1 = "1.0"
     v1_1 = "1.1"
+    v2 = "2.0"
 
 class FrostEndpoints(Enum):
     """FROST Server entity collection endpoints.
