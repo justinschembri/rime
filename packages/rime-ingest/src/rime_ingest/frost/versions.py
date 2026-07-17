@@ -23,7 +23,7 @@ class FrostVersions(StrEnum):
     v2 = "2.0"
 
     @classmethod
-    def parse(cls, version: str | int | float | FrostVersions) -> FrostVersions:
+    def safe_parse(cls, version: str | int | float | FrostVersions) -> FrostVersions:
         """Normalize a version string/number/enum into a ``FrostVersions`` member.
 
         Accepts values with or without a leading ``v`` (e.g. ``"v1.1"``,
@@ -50,7 +50,7 @@ def odata_fields_for(
 ) -> FrostODataFields:
     """Return OData field names for ``version`` (default: active ``FROST_VERSION``)."""
     resolved = (
-        FrostVersions.parse(version)
+        FrostVersions.safe_parse(version)
         if version is not None
         else FROST_VERSION
     )
@@ -93,7 +93,7 @@ def configure_frost_version(
     global FROST_VERSION, FROST_ID_FIELD, FROST_SELF_LINK_FIELD
     global FROST_NEXT_LINK_FIELD, FROST_COUNT_FIELD, FROST_NAV_LINK_SUFFIX
 
-    FROST_VERSION = FrostVersions.parse(
+    FROST_VERSION = FrostVersions.safe_parse(
         version if version is not None else os.getenv("FROST_VERSION", "v1.1")
     )
     fields = odata_fields_for(FROST_VERSION)
