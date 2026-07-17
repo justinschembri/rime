@@ -7,6 +7,8 @@ URL path segments / navigation-link keys used by FROST Server responses.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 from rime_ingest.sta.schema import (
     SensorThingsEntity,
     SensorThingsEntityGroups,
@@ -14,6 +16,8 @@ from rime_ingest.sta.schema import (
 
 from .types import FrostEndpoints
 from . import versions as frost_versions
+from .versions import FrostVersions
+
 
 # Entity / group name as it appears before the navigation-link annotation
 # suffix (``@iot.navigationLink`` in STA 1.x, ``@navigationLink`` in STA 2.0).
@@ -80,3 +84,49 @@ ENTITY_TO_FROST_ENDPOINT: dict[SensorThingsEntity, FrostEndpoints] = {
     SensorThingsEntity.OBSERVEDPROPERTY: FrostEndpoints.OBSERVEDPROPERTIES,
     SensorThingsEntity.FEATUREOFINTEREST: FrostEndpoints.FEATURESOFINTEREST,
 }
+
+
+@dataclass(frozen=True, slots=True)
+class DatastreamLinkBinding:
+    """How a Datastream relationship is expressed in a create/update JSON body.
+
+    Attributes:
+        field: Navigation property name on the Datastream payload.
+        as_collection: When true, the linked ref is wrapped in a JSON array
+            (many-to-many / collection navigation, e.g. STA 2.x
+            ``ObservedProperties``).
+    """
+
+    field: str
+    as_collection: bool = False
+
+
+_DATASTREAM_LINK_BINDINGS_V1: dict[SensorThingsEntityGroups, DatastreamLinkBinding] = {
+    SensorThingsEntityGroups.SENSORS: DatastreamLinkBinding("Sensor"),
+    SensorThingsEntityGroups.THINGS: DatastreamLinkBinding("Thing"),
+    SensorThingsEntityGroups.OBSERVEDPROPERTIES: DatastreamLinkBinding(
+        "ObservedProperty"
+    ),
+}
+
+_DATASTREAM_LINK_BINDINGS_V2: dict[SensorThingsEntityGroups, DatastreamLinkBinding] = {
+    SensorThingsEntityGroups.SENSORS: DatastreamLinkBinding("Sensor"),
+    SensorThingsEntityGroups.THINGS: DatastreamLinkBinding("Thing"),
+    SensorThingsEntityGroups.OBSERVEDPROPERTIES: DatastreamLinkBinding(
+        "ObservedProperties", as_collection=True
+    ),
+}
+
+
+def datastream_link_bindings(
+    version: str | int | float | FrostVersions | None = None,
+) -> dict[SensorThingsEntityGroups, DatastreamLinkBinding]:
+    """Return Datastream→related-entity wire bindings for ``version``."""
+    resolved = (
+        FrostVersions.safe_parse(version)
+        if version is not None
+        else frost_versions.FROST_VERSION
+    )
+    if resolved == FrostVersions.v2:
+        return _DATASTREAM_LINK_BINDINGS_V2
+    return _DATASTREAM_LINK_BINDINGS_V1

@@ -16,7 +16,7 @@ from pydantic import (
     computed_field,
 )
 # internal
-from rime_ingest.frost.bridges import navigation_link_to_entity
+from rime_ingest.frost.bridges import datastream_link_bindings, navigation_link_to_entity
 from rime_ingest.frost.odata import PhenomenonTime, format_phenomenon_time
 from rime_ingest.frost.types import FrostUrl
 from rime_ingest.frost.types import FrostEntityRef
@@ -228,18 +228,16 @@ class Datastream(SensorThingsObject):
     def as_frost_entity(self) -> dict[str, Any]:
         payload = super().as_frost_entity()
         links = self.iot_links or {}
-        link_map = {
-            SensorThingsEntityGroups.SENSORS: "Sensor",
-            SensorThingsEntityGroups.THINGS: "Thing",
-            SensorThingsEntityGroups.OBSERVEDPROPERTIES: "ObservedProperty",
-        }
-        for group, field in link_map.items():
+        for group, binding in datastream_link_bindings().items():
             refs = links.get(group)
             if not refs:
                 continue
             ref = refs[0]
-            if isinstance(ref, FrostEntityRef):
-                payload[field] = ref.iot_ref
+            if not isinstance(ref, FrostEntityRef):
+                continue
+            payload[binding.field] = (
+                [ref.iot_ref] if binding.as_collection else ref.iot_ref
+            )
         return payload
 
 
