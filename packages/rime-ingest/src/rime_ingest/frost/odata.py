@@ -1,7 +1,7 @@
 """OData query helpers and SensorThings value formatters for FROST GET requests."""
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Mapping, Optional, Tuple
 
@@ -23,19 +23,21 @@ class ODataParams(Enum):
 def to_odata_datetime(value: datetime | str) -> str:
     """Convert a datetime or string into an OData-compatible datetime literal."""
     if isinstance(value, datetime):
-        return value.isoformat()
-    return str(value)
+        iso = value.astimezone(timezone.utc).isoformat() if value.tzinfo else value.isoformat()
+    else:
+        iso = str(value)
+    return iso.replace("+00:00", "Z")
 
 
 def format_phenomenon_time(value: PhenomenonTime) -> str:
     """Serialize a point or interval phenomenonTime for FROST / OData."""
     if isinstance(value, tuple):
         start, end = value
-        start_s = start.isoformat() if isinstance(start, datetime) else str(start)
-        end_s = end.isoformat() if isinstance(end, datetime) else str(end)
+        start_s = to_odata_datetime(start) if isinstance(start, datetime) else str(start)
+        end_s = to_odata_datetime(end) if isinstance(end, datetime) else str(end)
         return f"{start_s}/{end_s}"
     if isinstance(value, datetime):
-        return value.isoformat()
+        return to_odata_datetime(value)
     return str(value)
 
 

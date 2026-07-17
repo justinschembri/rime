@@ -6,6 +6,8 @@ from rime_ingest.frost.odata import (
     odata_filter_name_eq,
     odata_filter_phenomenon_time_eq,
     odata_filter_phenomenon_time_ge,
+    odata_ge,
+    odata_le,
 )
 
 
@@ -14,7 +16,7 @@ class TestODataFilters:
         dt = datetime(2026, 7, 14, 10, 29, 43, 881337, tzinfo=timezone.utc)
         assert (
             odata_filter_phenomenon_time_eq(dt)
-            == "phenomenonTime eq 2026-07-14T10:29:43.881337+00:00"
+            == "phenomenonTime eq 2026-07-14T10:29:43.881337Z"
         )
 
     def test_phenomenon_time_eq_accepts_iso_string(self) -> None:
@@ -27,7 +29,7 @@ class TestODataFilters:
         dt = datetime(2026, 7, 14, 10, 28, 42, tzinfo=timezone.utc)
         assert (
             odata_filter_phenomenon_time_ge(dt)
-            == "phenomenonTime ge 2026-07-14T10:28:42+00:00"
+            == "phenomenonTime ge 2026-07-14T10:28:42Z"
         )
         assert "'" not in odata_filter_phenomenon_time_ge(dt)
 
@@ -35,3 +37,7 @@ class TestODataFilters:
         assert odata_filter_name_eq("multicare-acerra@ttn") == (
             "name eq 'multicare-acerra@ttn'"
         )
+
+    def test_result_range_uses_ge_and_le(self) -> None:
+        assert odata_ge("result", 7) == "result ge 7"
+        assert odata_le("result", 9) == "result le 9"

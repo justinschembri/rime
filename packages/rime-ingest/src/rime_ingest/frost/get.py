@@ -20,6 +20,7 @@ from .odata import (
     merge_filter,
     merge_order_by,
     odata_eq,
+    odata_ge,
     odata_le,
     odata_filter_name_eq,
     odata_filter_phenomenon_time_eq,
@@ -284,7 +285,7 @@ def get_frost_datastream_observations(
     if time_end is not None:
         filter_clauses.append(odata_filter_phenomenon_time_le(time_end))
     if result_min is not None:
-        filter_clauses.append(odata_eq("result", result_min))
+        filter_clauses.append(odata_ge("result", result_min))
     if result_max is not None:
         filter_clauses.append(odata_le("result", result_max))
     if result_eq is not None:
