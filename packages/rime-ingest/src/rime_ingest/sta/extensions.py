@@ -178,8 +178,10 @@ class SensorConfig:
             # item is going to be each entry, e.g., 70:33:50.. (sensor), "apartment" (location)
             expected_field_keys = set(CONFIG_YAML_EXPECTED_CLASS_FIELDS[entity_group].keys())
             # observationType (STA 1.x) and resultType (STA 2.x) are alternatives —
-            # require at least one, but not both as mandatory keys.
+            # require at least one. unitOfMeasurement is required for v1 payloads
+            # but optional so the same config can target a v2 endpoint.
             datastream_type_fields = {"observationType", "resultType"}
+            datastream_optional_fields = datastream_type_fields | {"unitOfMeasurement"}
             for field_key in actual_entity:
                 if not isinstance(actual_entity[field_key], dict):
                     error = f"{self._filepath.stem}'s {field_key}'s children are of \
@@ -190,7 +192,7 @@ class SensorConfig:
                     return (False, error_list)
                 actual_field_keys = set(actual_entity[field_key].keys())
                 if entity_group == SensorThingsEntityGroups.DATASTREAMS:
-                    required_keys = expected_field_keys - datastream_type_fields
+                    required_keys = expected_field_keys - datastream_optional_fields
                     missing_field_keys = required_keys - actual_field_keys
                     if not (actual_field_keys & datastream_type_fields):
                         error = (

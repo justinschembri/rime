@@ -89,9 +89,9 @@ SENSOR_THINGS_ENTITY_FIELDS: Dict[SensorThingsEntity, Tuple[str, ...]] = {
     SensorThingsEntity.DATASTREAM: (
         "name",
         "description",
-        # v1.* uses observationType ...
+        # v1.* uses observationType + unitOfMeasurement;
+        # v2.* uses resultType (units embedded there) — see _content_fields_for.
         "observationType",
-        # v2.* uses resultType ...
         "resultType",
         "unitOfMeasurement",
         "properties",
@@ -172,7 +172,9 @@ CONFIG_YAML_EXPECTED_CLASS_FIELDS: Dict[SensorThingsEntityGroups, Dict[str, Any]
     SensorThingsEntityGroups.DATASTREAMS: {
         "name": str,
         "description": str,
-        # v1.* uses observationType, while v2.* uses resultType
+        # v1.* uses observationType, while v2.* uses resultType.
+        # unitOfMeasurement is v1-oriented (optional so the same YAML can
+        # target a v2 endpoint; omitted from v2 wire payloads).
         "observationType": (str, type(None)),
         "resultType": (str, type(None)),
         "unitOfMeasurement": dict,

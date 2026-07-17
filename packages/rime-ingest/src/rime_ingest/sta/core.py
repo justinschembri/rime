@@ -75,13 +75,32 @@ def _normalise_dump(d: dict) -> dict:
     return {k: (v if v is not None else {}) if k == "properties" else v for k, v in d.items()}
 
 
+def _content_fields_for(entity_type: SensorThingsEntity) -> set[str]:
+    """Fields used for FROST create/update bodies and content equality.
+
+    STA 1.x Datastreams use ``observationType`` + ``unitOfMeasurement``.
+    STA 2.x uses ``resultType`` and embeds units inside that structure, so
+    ``unitOfMeasurement`` / ``observationType`` are omitted on the wire while
+    remaining on the model for v1 YAML compatibility.
+    """
+    fields = set(SENSOR_THINGS_ENTITY_FIELDS[entity_type])
+    if entity_type == SensorThingsEntity.DATASTREAM:
+        if frost_versions.FROST_VERSION == FrostVersions.v2:
+            fields.discard("observationType")
+            fields.discard("unitOfMeasurement")
+        else:
+            fields.discard("resultType")
+    return fields
+
+
 def _partial_equals(a: "BaseModel", b: "BaseModel") -> bool:
     """Compare two SensorThings models on their content fields only.
 
     "Content fields" are those enumerated in
-    `schema.SENSOR_THINGS_ENTITY_FIELDS` for the entity type. This
-    deliberately excludes `id`, `links`, `iot_links`, and any server-computed
-    fields like a Datastream's `observedArea` / `phenomenonTime`.
+    `schema.SENSOR_THINGS_ENTITY_FIELDS` for the entity type, adjusted for the
+    active FROST version. This deliberately excludes `id`, `links`,
+    `iot_links`, and any server-computed fields like a Datastream's
+    `observedArea` / `phenomenonTime`.
 
     Returns `False` when the two objects resolve to different entity types
     (e.g. `Thing` vs `Sensor`).
@@ -90,7 +109,7 @@ def _partial_equals(a: "BaseModel", b: "BaseModel") -> bool:
     b_entity = b.entity_type  # type: ignore[attr-defined]
     if a_entity != b_entity:
         return False
-    fields = set(SENSOR_THINGS_ENTITY_FIELDS[a_entity])
+    fields = _content_fields_for(a_entity)
     return (
         _normalise_dump(a.model_dump(include=fields))
         == _normalise_dump(b.model_dump(include=fields))
@@ -135,14 +154,7 @@ class SensorThingsObject(BaseModel):
 
     def as_frost_entity(self) -> dict[str, Any]:
         """Dump model fields allowed for a create/update STA JSON body (no iot id/refs)."""
-        include = set(SENSOR_THINGS_ENTITY_FIELDS[self.entity_type])
-        # version compatibility: STA 1.x uses observationType; 2.x uses resultType
-        if self.entity_type == SensorThingsEntity.DATASTREAM:
-            if frost_versions.FROST_VERSION == FrostVersions.v2:
-                include.discard("observationType")
-            else:
-                include.discard("resultType")
-        return self.model_dump(include=include)
+        return self.model_dump(include=_content_fields_for(self.entity_type))
 
     def partial_eq(self, other: "SensorThingsObject") -> bool:
         """Content-only equality (ignores id, links, iot_links).
@@ -196,7 +208,13 @@ class Datastream(SensorThingsObject):
 
     @model_validator(mode="after")
     def handle_frost_version(self) -> Self:
-        """Map observationType <-> resultType for the active FROST version."""
+        """Map v1/v2 Datastream fields for the active FROST version.
+
+        ``observationType`` (STA 1.x) and ``resultType`` (STA 2.x) are kept in
+        sync so a v1 YAML config can target either endpoint. ``unitOfMeasurement``
+        remains on the model for config/UI use but is omitted from v2 wire
+        payloads (units live inside ``resultType`` in STA 2.0).
+        """
         if frost_versions.FROST_VERSION == FrostVersions.v2:
             if self.observationType and not self.resultType:
                 self.resultType = self.observationType
