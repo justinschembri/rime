@@ -16,11 +16,12 @@ from pydantic import (
     computed_field,
 )
 # internal
-from rime_ingest.frost.bridges import NAVIGATION_LINKS_TO_ENTITY
+from rime_ingest.frost.bridges import navigation_link_to_entity
 from rime_ingest.frost.odata import PhenomenonTime, format_phenomenon_time
 from rime_ingest.frost.types import FrostUrl
 from rime_ingest.frost.types import FrostEntityRef
-from ..config import FROST_VERSION
+from rime_ingest.frost import versions as frost_versions
+from rime_ingest.frost.versions import FrostVersions
 from .schema import (
     ENTITIES_TO_ENTITY_GROUPS,
     SENSOR_THINGS_ENTITY_FIELDS,
@@ -30,23 +31,27 @@ from .schema import (
 
 
 def _build_from_frost_entity(cls: type, entity: Dict[str, Any]) -> Any:
-    """Construct a pydantic model from a FROST entity JSON dict.
+    """
+    Construct a pydantic model from a FROST entity JSON dict.
 
-    Drops `@iot.selfLink` and `*@iot.navigationLink` keys, hoists `@iot.id`
-    into the model's `id` field when declared, and silently discards any
+    This is an abstract function intended for use with any Python STA object 
+    defined in the remainder of this module.
+
+    Drops self-link and navigation-link keys, hoists the version-aware id
+    field into the model's ``id`` when present, and silently discards any
     payload key that the model does not expose. Using an explicit
-    `model_fields` filter rather than `extra="ignore"` globally means a
+    ``model_fields`` filter rather than ``extra="ignore"`` globally means a
     typo in a config-driven constructor still fails loudly.
     """
     model_fields = set(cls.model_fields)
     field_kwargs: dict[str, Any] = {k: v for k, v in entity.items() if k in model_fields}
-    if "@iot.id" in entity or "id" in entity:
-        field_kwargs["id"] = entity["@iot.id"]
+    if frost_versions.FROST_ID_FIELD in entity:
+        field_kwargs["id"] = entity[frost_versions.FROST_ID_FIELD]
     iot_links: dict[
         SensorThingsEntity | SensorThingsEntityGroups, FrostUrl | list[FrostUrl]
     ] = {}
     for key, value in entity.items():
-        mapped_entity = NAVIGATION_LINKS_TO_ENTITY.get(key)
+        mapped_entity = navigation_link_to_entity(key)
         if mapped_entity is None:
             continue
         if isinstance(value, list):
@@ -131,7 +136,7 @@ class SensorThingsObject(BaseModel):
         include = set(SENSOR_THINGS_ENTITY_FIELDS[self.entity_type])
         # version compatibility: STA 1.x uses observationType; 2.x uses resultType
         if self.entity_type == SensorThingsEntity.DATASTREAM:
-            if FROST_VERSION.value == "2.0":
+            if frost_versions.FROST_VERSION == FrostVersions.v2:
                 include.discard("observationType")
             else:
                 include.discard("resultType")
@@ -190,7 +195,7 @@ class Datastream(SensorThingsObject):
     @model_validator(mode="after")
     def handle_frost_version(self) -> Self:
         """Map observationType <-> resultType for the active FROST version."""
-        if FROST_VERSION.value == "2.0":
+        if frost_versions.FROST_VERSION == FrostVersions.v2:
             if self.observationType and not self.resultType:
                 self.resultType = self.observationType
             self.observationType = None

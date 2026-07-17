@@ -76,7 +76,7 @@ function resetChartPanel() {
 async function selectDatastream(datastreamId, datastreamName) {
     state.currentDatastream = datastreamId;
     state.currentDatastreamIndex = state.currentThingDatastreams.findIndex(
-        ds => ds['@iot.id'] === datastreamId
+        ds => frostEntityId(ds) === datastreamId
     );
 
     document.querySelectorAll('.metadata-datastream-item').forEach(item => {
@@ -114,7 +114,7 @@ function renderDatastreamPills(activeId) {
     const fragment = document.createDocumentFragment();
 
     datastreams.forEach(ds => {
-        const id = ds['@iot.id'];
+        const id = frostEntityId(ds);
         const displayName = formatDatastreamName(ds.name);
         const pill = document.createElement('button');
         pill.type = 'button';
@@ -244,7 +244,7 @@ async function fetchChartPoints(datastreamId, pointLimit) {
 
         if (collected.length >= pointLimit) break;
 
-        nextUrl = obsData['@iot.nextLink'] || null;
+        nextUrl = frostNextLink(obsData, nextUrl);
         if (nextUrl) nextUrl = nextUrl.replace(/^http:/, window.location.protocol);
     }
 
@@ -620,5 +620,5 @@ function navigateToDatastream(direction) {
     }
 
     const datastream = state.currentThingDatastreams[newIndex];
-    selectDatastream(datastream['@iot.id'], formatDatastreamName(datastream.name));
+    selectDatastream(frostEntityId(datastream), formatDatastreamName(datastream.name));
 }

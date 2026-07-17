@@ -4,12 +4,12 @@
 // FROST defaults to $top=100, forcing one round-trip per 100 entities. On a
 // dense network (e.g. iosb ~5600 nodes) that's ~57 sequential requests. We
 // request much larger pages instead; servers that enforce a lower maxTop simply
-// clamp the page and we follow @iot.nextLink for the remainder.
+// clamp the page and we follow the version-aware next-link for the remainder.
 //
 // Measured on iosb (5613 Things):
 //   Phase 1 (Locations, light):  $top=100 ≈ 30s over 57 reqs → $top=10000 ≈ 9.4s in 1 req.
-//   Phase 2 (health, light):     Datastreams?$select=phenomenonTime/end,@iot.id — paginate
-//     via @iot.nextLink so badges stream in without heavy Observations expands.
+//   Phase 2 (health, light):     Datastreams?$select=phenomenonTime/end,<id> — paginate
+//     via next-link so badges stream in without heavy Observations expands.
 const THINGS_PAGE_SIZE = 10000; // Phase 1 — light payload, fetch in as few requests as possible
 const HEALTH_PAGE_SIZE = 10000; // Phase 2 — last-observation scan via Datastreams phenomenonTime/end
 const DOWNLOAD_PAGE_SIZE = 10000;

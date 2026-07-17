@@ -5,7 +5,7 @@ from urllib.parse import urlparse
 from typing import Optional, Mapping, Any
 
 from .odata import ODataParams, normalize_odata_params
-from .types import FrostVersions
+from .versions import FrostVersions
 from rime_ingest.sta.schema import (
     ENTITIES_TO_ENTITY_GROUPS,
     SensorThingsEntity,
@@ -78,7 +78,7 @@ def sanitize_get_request(
 def sanitize_root_url(
         root_url:str,
         version: str | int | float | FrostVersions
-        )-> tuple[str, str]:
+        )-> tuple[str, FrostVersions]:
     """Strip trailing slashes from ``root_url`` and normalise ``version``.
 
     Args:
@@ -87,21 +87,20 @@ def sanitize_root_url(
             ``v``).
 
     Returns:
-        Tuple of ``(clean_root_url, version_string)`` where the version string
-        matches the ``FrostVersions`` enum value (e.g. ``"1.1"``).
+        Tuple of ``(clean_root_url, version)`` where ``version`` is a
+        ``FrostVersions`` member (also a ``str``, e.g. ``"1.1"``).
 
     Raises:
         ValueError: When ``version`` does not match a known ``FrostVersions``.
     """
     normalized_root = str(root_url.rstrip("/"))
-    normalized_version = FrostVersions.parse(version).value
-    return (normalized_root, normalized_version)
+    return (normalized_root, FrostVersions.parse(version))
 
 def rewrite_to_internal(nav_url: str, internal_root: str) -> str:
     """Rewrite a FROST navigation link to use the internal root URL.
 
-    FROST embeds its ``serviceRootUrl`` into every ``@iot.navigationLink`` and
-    ``@iot.selfLink`` it returns. In containerised deployments the public URL
+    FROST embeds its ``serviceRootUrl`` into every navigation and self link
+    it returns. In containerised deployments the public URL
     (e.g. ``https://multicare.bk.tudelft.nl/FROST-Server``) differs from the
     address the Python app uses to reach FROST internally
     (e.g. ``http://web:8080/FROST-Server``). This function replaces the

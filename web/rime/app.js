@@ -552,7 +552,7 @@ async function fetchThings() {
 
     const allThings = [];
     // Large $top collapses dozens of sequential pages into one or two requests.
-    // The $top is carried forward by @iot.nextLink, so we only set it here.
+    // The $top is carried forward by the next-link, so we only set it here.
     let nextUrl = `${state.frostRoot}/Things?$expand=Locations&$top=${THINGS_PAGE_SIZE}`;
 
     try {
@@ -585,7 +585,7 @@ async function fetchThings() {
                         allThings.push(thing);
                     }
                 } catch (err) {
-                    console.error(`Error processing thing ${thing['@iot.id']}:`, err);
+                    console.error(`Error processing thing ${frostEntityId(thing)}:`, err);
                 }
             }
 
@@ -606,7 +606,7 @@ async function fetchThings() {
                 updateStatusCounts();
             }
 
-            nextUrl = data['@iot.nextLink'] || null;
+            nextUrl = frostNextLink(data, nextUrl);
             if (nextUrl) nextUrl = nextUrl.replace(/^http:/, window.location.protocol);
         }
 
@@ -666,21 +666,20 @@ async function fetchThings() {
 
 // ── Phase 2 (on-demand): grade every node's health ───────────────────────
 // Invoked only by runHealthCheck. Fetches Datastreams with phenomenonTime/end
-// (last observation edge) and paginates via @iot.nextLink.
-
-const HEALTH_DATASTREAMS_SELECT = 'phenomenonTime/end,@iot.id';
-const HEALTH_DATASTREAMS_EXPAND = 'Thing($select=@iot.id)';
+// (last observation edge) and paginates via the version-aware next-link.
 
 function buildHealthDatastreamsUrl() {
-    return `${state.frostRoot}/Datastreams?$select=${HEALTH_DATASTREAMS_SELECT}`
-        + `&$expand=${HEALTH_DATASTREAMS_EXPAND}&$top=${HEALTH_PAGE_SIZE}`;
+    const idField = frostIdField();
+    return `${state.frostRoot}/Datastreams?$select=phenomenonTime/end,${idField}`
+        + `&$expand=Thing($select=${idField})&$top=${HEALTH_PAGE_SIZE}`;
 }
 
 function thingIdFromDatastream(datastream) {
-    if (datastream.Thing?.['@iot.id'] != null) {
-        return String(datastream.Thing['@iot.id']);
+    const expandedId = frostEntityId(datastream.Thing);
+    if (expandedId != null) {
+        return String(expandedId);
     }
-    const link = datastream['Thing@iot.navigationLink'];
+    const link = frostNavLink(datastream, 'Thing');
     if (!link) return null;
     const match = link.match(/Things\((\d+)\)/);
     return match ? match[1] : null;
@@ -768,7 +767,7 @@ async function fetchHealthData(gen) {
                 scheduleStatusUpdate();
             }
 
-            nextUrl = data['@iot.nextLink'] || null;
+            nextUrl = frostNextLink(data, nextUrl);
             if (nextUrl) nextUrl = nextUrl.replace(/^http:/, window.location.protocol);
         }
 
@@ -794,7 +793,7 @@ async function fetchHealthData(gen) {
 
 // Register a Thing that has no usable Location (virtual Thing).
 function registerVirtualThing(thing) {
-    const thingId = thing['@iot.id'];
+    const thingId = frostEntityId(thing);
     if (state.things[thingId]) return;
 
     state.things[thingId] = {
@@ -827,14 +826,14 @@ function registerVirtualThing(thing) {
 // Falls back to a separate fetch via the navigation link if not present.
 // Things without a Location are registered as virtual (roster-only).
 async function processThing(thing) {
-    const thingId = thing['@iot.id'];
+    const thingId = frostEntityId(thing);
 
     let locationEntry;
     if (thing.Locations && thing.Locations.length > 0) {
         // Fast path: location was inlined by $expand
         locationEntry = thing.Locations[0];
     } else {
-        const locationUrl = thing['Locations@iot.navigationLink'];
+        const locationUrl = frostNavLink(thing, 'Locations');
         if (!locationUrl) {
             registerVirtualThing(thing);
             return null;
@@ -915,7 +914,7 @@ function createPopupContent(thing) {
         content += `<p style="margin: 0 0 0.5rem 0; color: #6b7280; font-size: 0.875rem;">${thing.description}</p>`;
     }
     
-    content += `<div id="datastreams-${thing['@iot.id']}" style="margin-top: 0.5rem;">`;
+    content += `<div id="datastreams-${frostEntityId(thing)}" style="margin-top: 0.5rem;">`;
     content += `<div style="color: #9ca3af; font-size: 0.875rem;">Loading datastreams...</div>`;
     content += `</div>`;
     content += `</div>`;
@@ -995,7 +994,7 @@ async function updatePopupWithDatastreams(thingId, datastreams) {
         const unitSymbol = ds.unitOfMeasurement?.symbol || '';
         try {
             const currentProtocol = window.location.protocol;
-            const obsUrl = ds['Observations@iot.navigationLink'] + '?$top=1&$orderby=phenomenonTime%20desc';
+            const obsUrl = frostNavLink(ds, 'Observations') + '?$top=1&$orderby=phenomenonTime%20desc';
             const secureObsUrl = obsUrl.replace(/^http:/, currentProtocol);
             const obsResponse = await frostFetch(secureObsUrl);
             const obsData = await obsResponse.json();
@@ -1026,7 +1025,7 @@ async function updatePopupWithDatastreams(thingId, datastreams) {
         const escapedDisplayName = displayName.replace(/'/g, "\\'").replace(/"/g, '&quot;');
         newContent += `
             <div style="padding: 0.5rem; margin: 0.25rem 0; background: #f3f4f6; border-radius: 0.375rem; cursor: pointer; transition: background 0.2s;"
-                 onclick="selectDatastream(${ds['@iot.id']}, '${escapedDisplayName}')"
+                 onclick="selectDatastream(${frostEntityId(ds)}, '${escapedDisplayName}')"
                  onmouseover="this.style.background='#93c5fd'"
                  onmouseout="this.style.background='#f3f4f6'">
                 <div style="font-weight: 500; margin-bottom: 0.25rem;">${displayName}</div>
@@ -1230,7 +1229,7 @@ function updateThingMetadataDatastreams(thingId, datastreams) {
             </div>
         `;
         dsItem.addEventListener('click', () => {
-            selectDatastream(ds['@iot.id'], displayName);
+            selectDatastream(frostEntityId(ds), displayName);
         });
         fragment.appendChild(dsItem);
     });
@@ -1250,7 +1249,7 @@ function buildPhenomenonTimeFilter(startDate, endDate) {
 function buildObservationsUrl(datastreamId, startDate, endDate) {
     const params = new URLSearchParams();
     params.set('$select', 'phenomenonTime,resultTime,result');
-    params.set('$orderby', 'phenomenonTime asc,@iot.id asc');
+    params.set('$orderby', `phenomenonTime asc,${frostIdField()} asc`);
     params.set('$top', String(DOWNLOAD_PAGE_SIZE));
     const filter = buildPhenomenonTimeFilter(startDate, endDate);
     if (filter) params.set('$filter', filter);
@@ -1283,7 +1282,7 @@ async function fetchAllDatastreamsForThing(thingId) {
         if (page.length === 0) break;
 
         datastreams.push(...page);
-        nextUrl = data['@iot.nextLink'] || null;
+        nextUrl = frostNextLink(data, nextUrl);
         if (nextUrl) nextUrl = nextUrl.replace(/^http:/, window.location.protocol);
     }
 
@@ -1322,7 +1321,7 @@ async function fetchAllObservationsCsvRaw(datastreamId, startDate, endDate, onPr
         }
         if (onProgress) onProgress(rows.length);
 
-        nextUrl = data['@iot.nextLink'] || null;
+        nextUrl = frostNextLink(data, nextUrl);
         if (nextUrl) nextUrl = nextUrl.replace(/^http:/, window.location.protocol);
     }
 
@@ -1562,7 +1561,7 @@ async function downloadThingData(thingId, startDate = null, endDate = null, layo
 
             try {
                 const frostCsv = await fetchAllObservationsCsvRaw(
-                    ds['@iot.id'],
+                    frostEntityId(ds),
                     startDate,
                     endDate,
                     (fetched) => {

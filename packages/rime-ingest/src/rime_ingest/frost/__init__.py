@@ -19,7 +19,7 @@ _EXPORTS: dict[str, tuple[str, str]] = {
     "ODataParams": (".odata", "ODataParams"),
     "FrostResultPageIterator": (".types", "FrostResultPageIterator"),
     "FrostUrl": (".types", "FrostUrl"),
-    "FrostVersions": (".types", "FrostVersions"),
+    "FrostVersions": (".versions", "FrostVersions"),
     # get
     "find_datastream_observations_url": (".get", "find_datastream_observations_url"),
     "frost_entity_lookup": (".get", "frost_entity_lookup"),

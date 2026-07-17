@@ -10,7 +10,6 @@ import base64
 from functools import lru_cache
 import logging
 import dotenv
-from .frost.types import FrostVersions
 from .paths import (
         RUNTIME_SENSOR_CONFIG_PATH,
         CREDENTIALS_DIR,
@@ -22,6 +21,21 @@ event_logger = logging.getLogger("events")
 CONTAINER_ENVIRONMENT = bool(os.getenv("CONTAINER_ENVIRONMENT"))
 if not os.getenv("CONTAINER_ENVIRONMENT"):
     dotenv.load_dotenv(ENV_FILE)  # docker-compose makes .env redundant
+
+# Version + OData field names live in frost.versions; re-bind after dotenv so
+# local ``.env`` overrides the import-time defaults.
+from .frost import versions as frost_versions  # noqa: E402
+
+frost_versions.configure_frost_version()
+
+FrostVersions = frost_versions.FrostVersions
+configure_frost_version = frost_versions.configure_frost_version
+FROST_VERSION = frost_versions.FROST_VERSION
+FROST_ID_FIELD = frost_versions.FROST_ID_FIELD
+FROST_SELF_LINK_FIELD = frost_versions.FROST_SELF_LINK_FIELD
+FROST_NEXT_LINK_FIELD = frost_versions.FROST_NEXT_LINK_FIELD
+FROST_COUNT_FIELD = frost_versions.FROST_COUNT_FIELD
+FROST_NAV_LINK_SUFFIX = frost_versions.FROST_NAV_LINK_SUFFIX
 
 
 def get_frost_credentials() -> dict[str, str]:
@@ -57,11 +71,10 @@ def get_frost_auth_header(kind: Literal["read", "write"]) -> str | None:
 
 
 FROST_ROOT_DEFAULT = "http://localhost:8080/FROST-Server"
-FROST_VERSION = FrostVersions.parse(os.getenv("FROST_VERSION", "v1.1"))
 FROST_ENDPOINT_DEFAULT = "http://localhost:8080/FROST-Server/v1.1"
 
 
-def get_frost_root_url() -> tuple[str, str]:
+def get_frost_root_url() -> tuple[str, FrostVersions]:
     """Return ``(root_url, version)`` from environment variables or defaults.
 
     Resolution order:
@@ -71,15 +84,14 @@ def get_frost_root_url() -> tuple[str, str]:
        split off to derive root and version.
     3. Module-level defaults ``FROST_ROOT_DEFAULT`` / ``FROST_VERSION``.
 
-    The version string is the bare STA version (e.g. ``"1.1"``), without a
-    leading ``v``.
+    ``version`` is a ``FrostVersions`` member (also a ``str``, e.g. ``"1.1"``).
     """
     import re
     version_env = os.getenv("FROST_VERSION")
     version = (
-        FrostVersions.parse(version_env).value
+        FrostVersions.parse(version_env)
         if version_env
-        else FROST_VERSION.value
+        else frost_versions.FROST_VERSION
     )
     root = os.getenv("FROST_ROOT_URL")
     if root:
@@ -88,7 +100,7 @@ def get_frost_root_url() -> tuple[str, str]:
     if endpoint:
         m = re.match(r"^(.*?)/(v[\d.]+)$", endpoint)
         if m:
-            return m.group(1), FrostVersions.parse(m.group(2)).value
+            return m.group(1), FrostVersions.parse(m.group(2))
         return endpoint, version
     return FROST_ROOT_DEFAULT, version
 

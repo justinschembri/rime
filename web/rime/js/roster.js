@@ -17,7 +17,7 @@ function rebuildThingsList() {
 
     for (const thingData of entries) {
         const li = buildThingListItem({
-            '@iot.id': thingData.thingId,
+            ...frostIdRecord(thingData.thingId),
             name: thingData.name,
         });
         if (li) fragment.appendChild(li);
@@ -84,13 +84,14 @@ function populateThingsList(things) {
 }
 
 function buildThingListItem(thing) {
-    const thingData = state.things[thing['@iot.id']];
+    const thingId = frostEntityId(thing);
+    const thingData = state.things[thingId];
     if (!thingData || !isThingVisibleInRoster(thingData)) return null;
 
     const li = document.createElement('li');
     li.className = 'thing-item';
     if (thingData.virtual) li.classList.add('virtual-thing');
-    li.dataset.thingId = thing['@iot.id'];
+    li.dataset.thingId = thingId;
     li.dataset.thingName = thing.name;
     li.dataset.virtual = thingData.virtual ? 'true' : 'false';
 
@@ -108,8 +109,8 @@ function buildThingListItem(thing) {
             });
         }
         highlightThingInList(thing.name);
-        showThingMetadata(thing['@iot.id']);
-        await loadDatastreamsForThing(thing['@iot.id']);
+        showThingMetadata(thingId);
+        await loadDatastreamsForThing(thingId);
     });
 
     return li;

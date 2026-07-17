@@ -6,6 +6,8 @@ from enum import Enum
 from dataclasses import dataclass
 import re
 
+from rime_ingest.frost import versions as frost_versions
+from rime_ingest.frost.versions import FrostVersions
 from rime_ingest.sta.schema import (
     SensorThingsEntity,
     SensorThingsEntityGroups,
@@ -13,24 +15,6 @@ from rime_ingest.sta.schema import (
 )
 
 FrostUrl = str
-
-class FrostVersions(Enum):
-    """Supported FROST Server API versions."""
-
-    v1 = "1.0"
-    v1_1 = "1.1"
-    v2 = "2.0"
-    
-    @classmethod
-    def parse(cls, version: str | int | float | FrostVersions) -> FrostVersions:
-        """Normalize a version string/number/enum into a ``FrostVersions`` member.
-
-        Accepts values with or without a leading ``v`` (e.g. ``"v1.1"``,
-        ``"1.1"``, ``1.1``).
-        """
-        if isinstance(version, FrostVersions):
-            return version
-        return cls(str(version).lstrip("v"))
 
 class FrostEndpoints(Enum):
     """FROST Server entity collection endpoints.
@@ -54,13 +38,13 @@ FrostResultPageIterator = Iterator[list[dict[str, Any]]]
 class FrostEntityRef:
     """Typed reference to a persisted FROST entity.
 
-    Encapsulates the entity type, numeric ``@iot.id``, server root URL, and
-    API version so that callers can reconstruct the full entity URL or produce
-    OData ``{"@iot.id": ...}`` link objects without string manipulation.
+    Encapsulates the entity type, numeric id, server root URL, and API version
+    so that callers can reconstruct the full entity URL or produce OData id
+    link objects without string manipulation.
 
     Attributes:
         entity: The SensorThings entity type (e.g. ``SENSOR``, ``DATASTREAM``).
-        iot_id: The numeric ``@iot.id`` assigned by the server.
+        iot_id: The numeric id assigned by the server.
         root_url: FROST server root URL, without the version segment.
         version: API version enum value.
     """
@@ -102,12 +86,12 @@ class FrostEntityRef:
 
     @property
     def iot_ref(self) -> dict[str, int]:
-        """Return an OData ``{"@iot.id": <id>}`` link dict for this entity."""
-        return {"@iot.id": self.iot_id}
+        """Return an OData id link dict for this entity (version-aware key)."""
+        return {frost_versions.FROST_ID_FIELD: self.iot_id}
 
     @property
     def frost_url(self) -> FrostUrl:
         """Reconstruct the full FROST entity URL from stored components."""
         from rime_ingest.frost.bridges import ENTITY_TO_FROST_ENDPOINT
         endpoint = ENTITY_TO_FROST_ENDPOINT[self.entity]
-        return f"{self.root_url}/v{self.version.value}{endpoint.value}({self.iot_id})"
+        return f"{self.root_url}/v{self.version}{endpoint.value}({self.iot_id})"

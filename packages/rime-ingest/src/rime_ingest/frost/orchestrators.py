@@ -5,7 +5,8 @@ import logging
 from rime_ingest.config import FROST_ROOT_DEFAULT, FROST_VERSION
 from rime_ingest.frost.post import make_frost_entity
 from rime_ingest.frost.sanitization import sanitize_root_url
-from rime_ingest.frost.types import FrostEntityRef, FrostVersions
+from rime_ingest.frost.types import FrostEntityRef
+from rime_ingest.frost.versions import FrostVersions
 from rime_ingest.sta.core import Location
 from rime_ingest.sta.extensions import SensorConfig
 from rime_ingest.sta.schema import (

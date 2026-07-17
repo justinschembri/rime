@@ -10,6 +10,7 @@ from urllib.parse import urlparse
 from typing import Any, Mapping, Sequence, Optional, Iterable, Literal
 
 from .errors import FrostWriterError
+from . import versions as frost_versions
 from rime_ingest.paths import DOWNLOADS_DIR
 
 VERSION_PATTERN = re.compile(r"^v\d+(?:\.\d+)?$", flags=re.IGNORECASE)
@@ -393,9 +394,8 @@ class FrostWriter:
     def _infer_source_url(self, response: Mapping[str, Any]) -> Optional[str]:
         """Infer a source URL for filename generation.
 
-        Checks ``self.source_url`` first, then the response's
-        ``@iot.selfLink``, then the ``@iot.selfLink`` of the first row in
-        ``response["value"]``.
+        Checks ``self.source_url`` first, then the response's self-link, then
+        the self-link of the first row in ``response["value"]``.
 
         Args:
             response: Parsed FROST response mapping.
@@ -406,7 +406,7 @@ class FrostWriter:
         if self.source_url:
             return self.source_url
 
-        response_self = response.get("@iot.selfLink")
+        response_self = response.get(frost_versions.FROST_SELF_LINK_FIELD)
         if isinstance(response_self, str):
             return response_self
 
@@ -414,7 +414,7 @@ class FrostWriter:
         if isinstance(rows, list):
             for row in rows:
                 if isinstance(row, Mapping):
-                    row_self = row.get("@iot.selfLink")
+                    row_self = row.get(frost_versions.FROST_SELF_LINK_FIELD)
                     if isinstance(row_self, str):
                         return row_self
         return None

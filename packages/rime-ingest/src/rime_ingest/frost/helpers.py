@@ -5,11 +5,13 @@ import logging
 from rime_ingest.config import FROST_ROOT_DEFAULT, FROST_VERSION
 from rime_ingest.frost.get import frost_entity_lookup, frost_object_lookup, general_frost_get
 from rime_ingest.frost.sanitization import sanitize_root_url
+from rime_ingest.frost import versions as frost_versions
+from rime_ingest.frost.versions import FrostVersions
 from rime_ingest.sta.core import Datastream, Observation, SensorThingsObject, UnLinkedSensorThingsObjects
 from rime_ingest.sta.schema import SensorThingsEntity, SensorThingsEntityGroups
 #internal
 from .odata import ODataParams, odata_filter_name_eq
-from .types import FrostEndpoints, FrostEntityRef, FrostVersions
+from .types import FrostEndpoints, FrostEntityRef
 #logging
 
 main_logger = logging.getLogger("main")
@@ -76,7 +78,7 @@ def _check_unlinked_object_exists(
     matches: list[FrostEntityRef] = []
     for r in response:
         if st_object.partial_eq(cls.from_frost_entity(r)):
-            matches.append(FrostEntityRef.from_frost_url(r["@iot.selfLink"]))
+            matches.append(FrostEntityRef.from_frost_url(r[frost_versions.FROST_SELF_LINK_FIELD]))
     if len(matches) > 1:
         main_logger.warning(
             f"Found more than one candidate match for {st_object}. "
@@ -100,7 +102,7 @@ def _check_datastream_object_exists(
     ``sanitize_get_request``.
 
     When ``iot_links[Sensors][0]`` is a ``FrostEntityRef`` (post-attach), the
-    Sensor is matched by ``@iot.id``; when it is a plain string (pre-attach,
+    Sensor is matched by id; when it is a plain string (pre-attach,
     from YAML), it is matched by name.
 
     Args:
@@ -126,8 +128,8 @@ def _check_datastream_object_exists(
         )
     sensor_entry = sensor_bucket[0]
     if isinstance(sensor_entry, FrostEntityRef):
-        sensor_name = sensor_entry.iot_id  # matched by @iot.id in expanded Sensor
-        expand_select = f"Sensor($select=@iot.id,name)"
+        sensor_name = sensor_entry.iot_id  # matched by id in expanded Sensor
+        expand_select = f"Sensor($select={frost_versions.FROST_ID_FIELD},name)"
     else:
         sensor_name = sensor_entry  # plain name string from YAML
         expand_select = "Sensor($select=name)"
@@ -151,11 +153,11 @@ def _check_datastream_object_exists(
             continue
         linked_sensor = match.get("Sensor") or {}
         if isinstance(sensor_entry, FrostEntityRef):
-            if linked_sensor.get("@iot.id") == sensor_name:
-                return FrostEntityRef.from_frost_url(match["@iot.selfLink"])
+            if linked_sensor.get(frost_versions.FROST_ID_FIELD) == sensor_name:
+                return FrostEntityRef.from_frost_url(match[frost_versions.FROST_SELF_LINK_FIELD])
         else:
             if linked_sensor.get("name") == sensor_name:
-                return FrostEntityRef.from_frost_url(match["@iot.selfLink"])
+                return FrostEntityRef.from_frost_url(match[frost_versions.FROST_SELF_LINK_FIELD])
 
     return None
 
@@ -186,7 +188,7 @@ def _check_observation_object_exists(
         return None
     for match in matches:
         if st_observation.partial_eq(Observation.from_frost_entity(match)):
-            return FrostEntityRef.from_frost_url(match["@iot.selfLink"])
+            return FrostEntityRef.from_frost_url(match[frost_versions.FROST_SELF_LINK_FIELD])
     return None
 
 def check_object_existence(

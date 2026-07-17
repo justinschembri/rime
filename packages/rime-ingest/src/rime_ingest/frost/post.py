@@ -11,7 +11,8 @@ from rime_ingest.config import FROST_ROOT_DEFAULT, FROST_VERSION, get_frost_auth
 from rime_ingest.frost.bridges import ENTITY_TO_FROST_ENDPOINT
 from rime_ingest.frost.helpers import check_object_existence
 from rime_ingest.frost.sanitization import rewrite_to_internal, sanitize_root_url
-from rime_ingest.frost.types import FrostEntityRef, FrostUrl, FrostVersions
+from rime_ingest.frost.types import FrostEntityRef, FrostUrl
+from rime_ingest.frost.versions import FrostVersions
 from rime_ingest.sta.core import Observation, SensorThingsObject
 from rime_ingest.transformers.types import CanonicalDatastreams, SensorUUID
 
