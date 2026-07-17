@@ -183,6 +183,24 @@ class TestPartialEq:
         b = Observation(phenomenonTime="2025-03-23T12:14:39Z", result=99.0)
         assert a.partial_eq(b) is False
 
+    def test_observation_partial_eq_normalises_datetime_phenomenon_time(self):
+        from datetime import datetime, timezone
+
+        local = Observation(
+            result=1.0,
+            phenomenonTime=datetime(2025, 1, 1, tzinfo=timezone.utc),
+        )
+        from_server = Observation.from_frost_entity(
+            {
+                "@iot.id": 1,
+                "@iot.selfLink": "http://example/Observations(1)",
+                "phenomenonTime": "2025-01-01T00:00:00Z",
+                "result": 1.0,
+                "resultTime": None,
+            }
+        )
+        assert local.partial_eq(from_server) is True
+
 
 # --- ObservedProperty quick round-trip sanity check -----------------------
 

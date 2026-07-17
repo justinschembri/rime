@@ -280,9 +280,19 @@ class Observation(BaseModel):
         """Content-only equality for Observations.
 
         Compares `phenomenonTime`, `resultTime`, `result`, and `validTime`;
-        ignores `iot_links`.
+        ignores `iot_links`. Normalises ``phenomenonTime`` to the canonical
+        FROST string form so datetimes and ISO strings compare equal.
         """
-        return _partial_equals(self, other)
+        if not isinstance(other, Observation):
+            return False
+        fields = set(SENSOR_THINGS_ENTITY_FIELDS[self.entity_type])
+        a = _normalise_dump(self.model_dump(include=fields))
+        b = _normalise_dump(other.model_dump(include=fields))
+        for side in (a, b):
+            phenomenon_time = side.get("phenomenonTime")
+            if phenomenon_time is not None:
+                side["phenomenonTime"] = format_phenomenon_time(phenomenon_time)
+        return a == b
 
 
 class TimePeriod(BaseModel):
