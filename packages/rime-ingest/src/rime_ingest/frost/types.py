@@ -6,8 +6,7 @@ from enum import Enum
 from dataclasses import dataclass
 import re
 
-from rime_ingest.frost import versions as frost_versions
-from rime_ingest.frost.versions import FrostVersions
+from rime_ingest.frost.versions import FrostVersions, odata_fields_for
 from rime_ingest.sta.schema import (
     SensorThingsEntity,
     SensorThingsEntityGroups,
@@ -87,7 +86,7 @@ class FrostEntityRef:
     @property
     def iot_ref(self) -> dict[str, int]:
         """Return an OData id link dict for this entity (version-aware key)."""
-        return {frost_versions.FROST_ID_FIELD: self.iot_id}
+        return {odata_fields_for(self.version).id: self.iot_id}
 
     @property
     def frost_url(self) -> FrostUrl:

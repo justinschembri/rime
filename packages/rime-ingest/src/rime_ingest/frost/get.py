@@ -9,8 +9,7 @@ from rime_ingest.config import (
     FROST_ROOT_DEFAULT,
     FROST_VERSION,
 )
-from rime_ingest.frost import versions as frost_versions
-from rime_ingest.frost.versions import FrostVersions
+from rime_ingest.frost.versions import FrostVersions, odata_fields_for
 from rime_ingest.sta.core import Observation, SensorThingsObject
 from rime_ingest.sta.schema import (
     SensorThingsEntity,
@@ -121,7 +120,7 @@ def frost_entity_lookup_pages(
                 return
             yield page 
 
-            next_link = response.get(frost_versions.FROST_NEXT_LINK_FIELD)
+            next_link = response.get(odata_fields_for(version).next_link)
             if not next_link:
                 break
             response = general_frost_get(
@@ -280,7 +279,7 @@ def get_frost_datastream_observations(
     params_map: dict[ODataParams, Any] = {}
     if not verbose:
         params_map[ODataParams.SELECT] = (
-            f"{frost_versions.FROST_ID_FIELD},phenomenonTime,resultTime,result"
+            f"{odata_fields_for(version).id},phenomenonTime,resultTime,result"
         )
 
     filter_clauses: list[str] = []
@@ -357,7 +356,8 @@ def find_datastream_observations_url(
     if not sensors:
         return None
 
-    sensor_id = sensors[0].get(frost_versions.FROST_ID_FIELD)
+    fields = odata_fields_for(version)
+    sensor_id = sensors[0].get(fields.id)
     if sensor_id is None:
         return None
 
@@ -374,11 +374,11 @@ def find_datastream_observations_url(
         return None
 
     ds = datastreams[0]
-    self_link = ds.get(frost_versions.FROST_SELF_LINK_FIELD)
+    self_link = ds.get(fields.self_link)
     if isinstance(self_link, str) and self_link:
         return rewrite_to_internal(self_link, root_url)
 
-    ds_id = ds.get(frost_versions.FROST_ID_FIELD)
+    ds_id = ds.get(fields.id)
     if ds_id is None:
         return None
     norm_root, ver_str = sanitize_root_url(root_url, version)

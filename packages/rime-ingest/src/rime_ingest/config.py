@@ -30,12 +30,21 @@ frost_versions.configure_frost_version()
 
 FrostVersions = frost_versions.FrostVersions
 configure_frost_version = frost_versions.configure_frost_version
-FROST_VERSION = frost_versions.FROST_VERSION
-FROST_ID_FIELD = frost_versions.FROST_ID_FIELD
-FROST_SELF_LINK_FIELD = frost_versions.FROST_SELF_LINK_FIELD
-FROST_NEXT_LINK_FIELD = frost_versions.FROST_NEXT_LINK_FIELD
-FROST_COUNT_FIELD = frost_versions.FROST_COUNT_FIELD
-FROST_NAV_LINK_SUFFIX = frost_versions.FROST_NAV_LINK_SUFFIX
+
+
+def _sync_frost_version_exports() -> None:
+    """Refresh config-module aliases after ``configure_frost_version``."""
+    global FROST_VERSION, FROST_ID_FIELD, FROST_SELF_LINK_FIELD
+    global FROST_NEXT_LINK_FIELD, FROST_COUNT_FIELD, FROST_NAV_LINK_SUFFIX
+    FROST_VERSION = frost_versions.FROST_VERSION
+    FROST_ID_FIELD = frost_versions.FROST_ID_FIELD
+    FROST_SELF_LINK_FIELD = frost_versions.FROST_SELF_LINK_FIELD
+    FROST_NEXT_LINK_FIELD = frost_versions.FROST_NEXT_LINK_FIELD
+    FROST_COUNT_FIELD = frost_versions.FROST_COUNT_FIELD
+    FROST_NAV_LINK_SUFFIX = frost_versions.FROST_NAV_LINK_SUFFIX
+
+
+_sync_frost_version_exports()
 
 
 def get_frost_credentials() -> dict[str, str]:
@@ -95,14 +104,23 @@ def get_frost_root_url() -> tuple[str, FrostVersions]:
     )
     root = os.getenv("FROST_ROOT_URL")
     if root:
-        return root, version
+        frost_versions.configure_frost_version(version)
+        _sync_frost_version_exports()
+        return root, frost_versions.FROST_VERSION
     endpoint = os.getenv("FROST_ENDPOINT")
     if endpoint:
         m = re.match(r"^(.*?)/(v[\d.]+)$", endpoint)
         if m:
-            return m.group(1), FrostVersions.parse(m.group(2))
-        return endpoint, version
-    return FROST_ROOT_DEFAULT, version
+            version = FrostVersions.parse(m.group(2))
+            frost_versions.configure_frost_version(version)
+            _sync_frost_version_exports()
+            return m.group(1), frost_versions.FROST_VERSION
+        frost_versions.configure_frost_version(version)
+        _sync_frost_version_exports()
+        return endpoint, frost_versions.FROST_VERSION
+    frost_versions.configure_frost_version(version)
+    _sync_frost_version_exports()
+    return FROST_ROOT_DEFAULT, frost_versions.FROST_VERSION
 
 
 def generate_sensor_config_files() -> List[Path]:

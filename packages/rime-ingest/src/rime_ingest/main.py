@@ -116,7 +116,7 @@ def push_available(
 
     root_url, version = get_frost_root_url()
     event_logger.info(
-        f"Sensor stream starts in {start_delay}s, target: {root_url}/{version}."
+        f"Sensor stream starts in {start_delay}s, target: {root_url}/v{version}."
     )
     time.sleep(start_delay)
     # INITIAL SETUP ############################################################

@@ -10,7 +10,7 @@ from urllib.parse import urlparse
 from typing import Any, Mapping, Sequence, Optional, Iterable, Literal
 
 from .errors import FrostWriterError
-from . import versions as frost_versions
+from .versions import odata_fields_for
 from rime_ingest.paths import DOWNLOADS_DIR
 
 VERSION_PATTERN = re.compile(r"^v\d+(?:\.\d+)?$", flags=re.IGNORECASE)
@@ -406,7 +406,7 @@ class FrostWriter:
         if self.source_url:
             return self.source_url
 
-        response_self = response.get(frost_versions.FROST_SELF_LINK_FIELD)
+        response_self = response.get(odata_fields_for().self_link)
         if isinstance(response_self, str):
             return response_self
 
@@ -414,7 +414,7 @@ class FrostWriter:
         if isinstance(rows, list):
             for row in rows:
                 if isinstance(row, Mapping):
-                    row_self = row.get(frost_versions.FROST_SELF_LINK_FIELD)
+                    row_self = row.get(odata_fields_for().self_link)
                     if isinstance(row_self, str):
                         return row_self
         return None

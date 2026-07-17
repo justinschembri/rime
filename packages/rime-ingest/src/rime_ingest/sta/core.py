@@ -45,8 +45,10 @@ def _build_from_frost_entity(cls: type, entity: Dict[str, Any]) -> Any:
     """
     model_fields = set(cls.model_fields)
     field_kwargs: dict[str, Any] = {k: v for k, v in entity.items() if k in model_fields}
-    if frost_versions.FROST_ID_FIELD in entity:
-        field_kwargs["id"] = entity[frost_versions.FROST_ID_FIELD]
+    for id_key in (frost_versions.FROST_ID_FIELD, "id", "@iot.id"):
+        if id_key in entity:
+            field_kwargs["id"] = entity[id_key]
+            break
     iot_links: dict[
         SensorThingsEntity | SensorThingsEntityGroups, FrostUrl | list[FrostUrl]
     ] = {}

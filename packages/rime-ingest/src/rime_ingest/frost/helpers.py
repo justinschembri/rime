@@ -5,8 +5,7 @@ import logging
 from rime_ingest.config import FROST_ROOT_DEFAULT, FROST_VERSION
 from rime_ingest.frost.get import frost_entity_lookup, frost_object_lookup, general_frost_get
 from rime_ingest.frost.sanitization import sanitize_root_url
-from rime_ingest.frost import versions as frost_versions
-from rime_ingest.frost.versions import FrostVersions
+from rime_ingest.frost.versions import FrostVersions, odata_fields_for
 from rime_ingest.sta.core import Datastream, Observation, SensorThingsObject, UnLinkedSensorThingsObjects
 from rime_ingest.sta.schema import SensorThingsEntity, SensorThingsEntityGroups
 #internal
@@ -75,10 +74,11 @@ def _check_unlinked_object_exists(
     if not response:
         return None
     cls = type(st_object)
+    self_link_field = odata_fields_for(version).self_link
     matches: list[FrostEntityRef] = []
     for r in response:
         if st_object.partial_eq(cls.from_frost_entity(r)):
-            matches.append(FrostEntityRef.from_frost_url(r[frost_versions.FROST_SELF_LINK_FIELD]))
+            matches.append(FrostEntityRef.from_frost_url(r[self_link_field]))
     if len(matches) > 1:
         main_logger.warning(
             f"Found more than one candidate match for {st_object}. "
@@ -127,9 +127,10 @@ def _check_datastream_object_exists(
             f"Datastream '{st_datastream.name}' is missing iot_links[Sensors]."
         )
     sensor_entry = sensor_bucket[0]
+    fields = odata_fields_for(version)
     if isinstance(sensor_entry, FrostEntityRef):
         sensor_name = sensor_entry.iot_id  # matched by id in expanded Sensor
-        expand_select = f"Sensor($select={frost_versions.FROST_ID_FIELD},name)"
+        expand_select = f"Sensor($select={fields.id},name)"
     else:
         sensor_name = sensor_entry  # plain name string from YAML
         expand_select = "Sensor($select=name)"
@@ -153,11 +154,11 @@ def _check_datastream_object_exists(
             continue
         linked_sensor = match.get("Sensor") or {}
         if isinstance(sensor_entry, FrostEntityRef):
-            if linked_sensor.get(frost_versions.FROST_ID_FIELD) == sensor_name:
-                return FrostEntityRef.from_frost_url(match[frost_versions.FROST_SELF_LINK_FIELD])
+            if linked_sensor.get(fields.id) == sensor_name:
+                return FrostEntityRef.from_frost_url(match[fields.self_link])
         else:
             if linked_sensor.get("name") == sensor_name:
-                return FrostEntityRef.from_frost_url(match[frost_versions.FROST_SELF_LINK_FIELD])
+                return FrostEntityRef.from_frost_url(match[fields.self_link])
 
     return None
 
@@ -186,9 +187,10 @@ def _check_observation_object_exists(
     matches = frost_object_lookup(st_observation, root_url, version, auth_headers=auth_headers)
     if not matches:
         return None
+    self_link_field = odata_fields_for(version).self_link
     for match in matches:
         if st_observation.partial_eq(Observation.from_frost_entity(match)):
-            return FrostEntityRef.from_frost_url(match[frost_versions.FROST_SELF_LINK_FIELD])
+            return FrostEntityRef.from_frost_url(match[self_link_field])
     return None
 
 def check_object_existence(
