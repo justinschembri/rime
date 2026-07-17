@@ -10,6 +10,7 @@ import base64
 from functools import lru_cache
 import logging
 import dotenv
+from .frost.types import FrostVersions
 from .paths import (
         RUNTIME_SENSOR_CONFIG_PATH,
         CREDENTIALS_DIR,
@@ -56,7 +57,7 @@ def get_frost_auth_header(kind: Literal["read", "write"]) -> str | None:
 
 
 FROST_ROOT_DEFAULT = "http://localhost:8080/FROST-Server"
-FROST_VERSION_DEFAULT = "v1.1"
+FROST_VERSION = FrostVersions.parse(os.getenv("FROST_VERSION", "v1.1"))
 FROST_ENDPOINT_DEFAULT = "http://localhost:8080/FROST-Server/v1.1"
 
 
@@ -68,18 +69,26 @@ def get_frost_root_url() -> tuple[str, str]:
     2. ``FROST_ENDPOINT`` env var (legacy combined form, e.g.
        ``http://host/FROST-Server/v1.1``); the trailing ``/vX.Y`` segment is
        split off to derive root and version.
-    3. Module-level defaults ``FROST_ROOT_DEFAULT`` / ``FROST_VERSION_DEFAULT``.
+    3. Module-level defaults ``FROST_ROOT_DEFAULT`` / ``FROST_VERSION``.
+
+    The version string is the bare STA version (e.g. ``"1.1"``), without a
+    leading ``v``.
     """
     import re
+    version_env = os.getenv("FROST_VERSION")
+    version = (
+        FrostVersions.parse(version_env).value
+        if version_env
+        else FROST_VERSION.value
+    )
     root = os.getenv("FROST_ROOT_URL")
-    version = os.getenv("FROST_VERSION", FROST_VERSION_DEFAULT)
     if root:
         return root, version
     endpoint = os.getenv("FROST_ENDPOINT")
     if endpoint:
         m = re.match(r"^(.*?)/(v[\d.]+)$", endpoint)
         if m:
-            return m.group(1), m.group(2)
+            return m.group(1), FrostVersions.parse(m.group(2)).value
         return endpoint, version
     return FROST_ROOT_DEFAULT, version
 

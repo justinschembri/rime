@@ -2,10 +2,10 @@
 # standard
 import logging
 
-from rime_ingest.config import FROST_ROOT_DEFAULT, FROST_VERSION_DEFAULT
+from rime_ingest.config import FROST_ROOT_DEFAULT, FROST_VERSION
 from rime_ingest.frost.post import make_frost_entity
 from rime_ingest.frost.sanitization import sanitize_root_url
-from rime_ingest.frost.types import FrostEntityRef
+from rime_ingest.frost.types import FrostEntityRef, FrostVersions
 from rime_ingest.sta.core import Location
 from rime_ingest.sta.extensions import SensorConfig
 from rime_ingest.sta.schema import (
@@ -30,7 +30,7 @@ _DATASTREAM_RELATED_ENTITIES: tuple[SensorThingsEntity, ...] = (
 def initial_setup(
     sensor_config: SensorConfig,
     root_url: str = FROST_ROOT_DEFAULT,
-    version: str = FROST_VERSION_DEFAULT,
+    version: str | FrostVersions = FROST_VERSION,
     read_auth_headers: str | None = None,
     write_auth_headers: str | None = None
 ) -> list[FrostEntityRef]:

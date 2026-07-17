@@ -10,15 +10,13 @@ import logging
 
 # external
 import yaml
-
+# internal
 from rime_ingest.exceptions import FailedSensorConfigValidation
 from rime_ingest.sta.maps import SENSOR_THINGS_CLASS_MAP
 from rime_ingest.transformers.types import CanonicalDatastreams, SensorUUID, SupportedSensors
 
-# internal
 if TYPE_CHECKING:
     from .core import (
-        Observation,
         SensorThingsObject,
     )
 
@@ -179,6 +177,9 @@ class SensorConfig:
                 return (False, error_list)
             # item is going to be each entry, e.g., 70:33:50.. (sensor), "apartment" (location)
             expected_field_keys = set(CONFIG_YAML_EXPECTED_CLASS_FIELDS[entity_group].keys())
+            # observationType (STA 1.x) and resultType (STA 2.x) are alternatives —
+            # require at least one, but not both as mandatory keys.
+            datastream_type_fields = {"observationType", "resultType"}
             for field_key in actual_entity:
                 if not isinstance(actual_entity[field_key], dict):
                     error = f"{self._filepath.stem}'s {field_key}'s children are of \
@@ -188,7 +189,19 @@ class SensorConfig:
                     error_list.append(error)
                     return (False, error_list)
                 actual_field_keys = set(actual_entity[field_key].keys())
-                missing_field_keys = expected_field_keys - actual_field_keys
+                if entity_group == SensorThingsEntityGroups.DATASTREAMS:
+                    required_keys = expected_field_keys - datastream_type_fields
+                    missing_field_keys = required_keys - actual_field_keys
+                    if not (actual_field_keys & datastream_type_fields):
+                        error = (
+                            f"{key}.{field_key} must include observationType "
+                            + "or resultType."
+                        )
+                        error_list.append(error)
+                        main_logger.error(error)
+                        invalid = True
+                else:
+                    missing_field_keys = expected_field_keys - actual_field_keys
                 extra_field_keys = actual_field_keys - expected_field_keys
                 if missing_field_keys:
                     error = f"{key}.{field_key} has missing keys: {missing_field_keys}."
