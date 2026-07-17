@@ -94,7 +94,7 @@ def sanitize_root_url(
         ValueError: When ``version`` does not match a known ``FrostVersions``.
     """
     normalized_root = str(root_url.rstrip("/"))
-    normalized_version = FrostVersions(str(version).lstrip("v")).value
+    normalized_version = FrostVersions.parse(version).value
     return (normalized_root, normalized_version)
 
 def rewrite_to_internal(nav_url: str, internal_root: str) -> str:

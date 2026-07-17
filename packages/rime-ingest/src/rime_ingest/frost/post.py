@@ -7,11 +7,11 @@ from datetime import datetime, date
 from typing import Any, Mapping, Optional
 # external
 import requests
-from rime_ingest.config import FROST_ROOT_DEFAULT, FROST_VERSION_DEFAULT, get_frost_auth_header, get_frost_root_url
+from rime_ingest.config import FROST_ROOT_DEFAULT, FROST_VERSION, get_frost_auth_header, get_frost_root_url
 from rime_ingest.frost.bridges import ENTITY_TO_FROST_ENDPOINT
 from rime_ingest.frost.helpers import check_object_existence
 from rime_ingest.frost.sanitization import rewrite_to_internal, sanitize_root_url
-from rime_ingest.frost.types import FrostEntityRef, FrostUrl
+from rime_ingest.frost.types import FrostEntityRef, FrostUrl, FrostVersions
 from rime_ingest.sta.core import Observation, SensorThingsObject
 from rime_ingest.transformers.types import CanonicalDatastreams, SensorUUID
 
@@ -95,7 +95,7 @@ def general_post(
 def make_frost_entity(
     st_object: SensorThingsObject | Observation,
     root_url: str = FROST_ROOT_DEFAULT,
-    version: str | float | int = FROST_VERSION_DEFAULT,
+    version: str | float | int | FrostVersions = FROST_VERSION,
     read_auth_headers: Optional[str] = None,
     write_auth_headers: Optional[str] = None,
     *,

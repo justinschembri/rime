@@ -15,12 +15,12 @@ from pydantic import (
     model_validator,
     computed_field,
 )
-
+# internal
 from rime_ingest.frost.bridges import NAVIGATION_LINKS_TO_ENTITY
 from rime_ingest.frost.odata import PhenomenonTime, format_phenomenon_time
 from rime_ingest.frost.types import FrostUrl
 from rime_ingest.frost.types import FrostEntityRef
-# internal
+from ..config import FROST_VERSION
 from .schema import (
     ENTITIES_TO_ENTITY_GROUPS,
     SENSOR_THINGS_ENTITY_FIELDS,
@@ -129,6 +129,12 @@ class SensorThingsObject(BaseModel):
     def as_frost_entity(self) -> dict[str, Any]:
         """Dump model fields allowed for a create/update STA JSON body (no iot id/refs)."""
         include = set(SENSOR_THINGS_ENTITY_FIELDS[self.entity_type])
+        # version compatibility: STA 1.x uses observationType; 2.x uses resultType
+        if self.entity_type == SensorThingsEntity.DATASTREAM:
+            if FROST_VERSION.value == "2.0":
+                include.discard("observationType")
+            else:
+                include.discard("resultType")
         return self.model_dump(include=include)
 
     def partial_eq(self, other: "SensorThingsObject") -> bool:
@@ -177,8 +183,22 @@ class Thing(SensorThingsObject):
 
 
 class Datastream(SensorThingsObject):
-    observationType: str
+    observationType: str | None = None
+    resultType: str | None = None
     unitOfMeasurement: Optional[Dict[str, Any]] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def handle_frost_version(self) -> Self:
+        """Map observationType <-> resultType for the active FROST version."""
+        if FROST_VERSION.value == "2.0":
+            if self.observationType and not self.resultType:
+                self.resultType = self.observationType
+            self.observationType = None
+        else:
+            if self.resultType and not self.observationType:
+                self.observationType = self.resultType
+            self.resultType = None
+        return self
 
     def as_frost_entity(self) -> dict[str, Any]:
         payload = super().as_frost_entity()

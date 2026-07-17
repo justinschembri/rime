@@ -7,7 +7,7 @@ import requests
 # internal
 from rime_ingest.config import (
     FROST_ROOT_DEFAULT,
-    FROST_VERSION_DEFAULT,
+    FROST_VERSION,
 )
 from rime_ingest.sta.core import Observation, SensorThingsObject
 from rime_ingest.sta.schema import (
@@ -66,7 +66,7 @@ def general_frost_get(
 def frost_entity_lookup_pages(
         first_entity: str | SensorThingsEntityGroups | SensorThingsEntity,
         root_url: str = FROST_ROOT_DEFAULT,
-        version: str | float | int | FrostVersions = FROST_VERSION_DEFAULT,
+        version: str | float | int | FrostVersions = FROST_VERSION,
         params: Optional[Mapping[str | ODataParams, Any]] = None,
         *,
         first_entity_id: Optional[int | str] = "",
@@ -132,7 +132,7 @@ def frost_entity_lookup_pages(
 def frost_entity_lookup(
         first_entity: str | SensorThingsEntityGroups | SensorThingsEntity,
         root_url: str = FROST_ROOT_DEFAULT,
-        version: str | float | int | FrostVersions = FROST_VERSION_DEFAULT,
+        version: str | float | int | FrostVersions = FROST_VERSION,
         params: Optional[Mapping[str | ODataParams, Any]] = None,
         *,
         first_entity_id: Optional[int | str] = "",
@@ -164,7 +164,7 @@ def frost_entity_lookup(
 def frost_object_lookup_pages(
         st_object: SensorThingsObject | Observation,
         root_url: str = FROST_ROOT_DEFAULT,
-        version: str | float | int | FrostVersions = FROST_VERSION_DEFAULT,
+        version: str | float | int | FrostVersions = FROST_VERSION,
         auth_headers: str | None = None,
         ) -> FrostResultPageIterator:
     """Yield FROST pages matching an in-memory SensorThings object.
@@ -209,7 +209,7 @@ def frost_object_lookup_pages(
 def frost_object_lookup(
         st_object: SensorThingsObject | Observation,
         root_url: str = FROST_ROOT_DEFAULT,
-        version: str | float | int | FrostVersions = FROST_VERSION_DEFAULT,
+        version: str | float | int | FrostVersions = FROST_VERSION,
         auth_headers: str | None = None,
         ) -> list[dict[str, Any]] | None:
     """Merge all pages from ``frost_object_lookup_pages`` into a single list.
@@ -237,7 +237,7 @@ def frost_object_lookup(
 def get_frost_datastream_observations(
         datastream_id: int | str,
         root_url: str = FROST_ROOT_DEFAULT,
-        version: str | float | int | FrostVersions = FROST_VERSION_DEFAULT,
+        version: str | float | int | FrostVersions = FROST_VERSION,
         verbose: bool = False,
         *,
         time_start: Optional[datetime | str] = None,
@@ -314,7 +314,7 @@ def find_datastream_observations_url(
         sensor_name: str,
         datastream_name: str,
         root_url: str = FROST_ROOT_DEFAULT,
-        version: str | float | int | FrostVersions = FROST_VERSION_DEFAULT,
+        version: str | float | int | FrostVersions = FROST_VERSION,
         auth_headers: str | None = None,
 ) -> FrostUrl | None:
     """Resolve the Datastream entity URL for posting Observations.

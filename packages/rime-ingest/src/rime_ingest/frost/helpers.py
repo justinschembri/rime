@@ -2,14 +2,15 @@
 #standard
 import logging
 
-from rime_ingest.config import FROST_ROOT_DEFAULT, FROST_VERSION_DEFAULT
+from rime_ingest.config import FROST_ROOT_DEFAULT, FROST_VERSION
 from rime_ingest.frost.get import frost_entity_lookup, frost_object_lookup, general_frost_get
 from rime_ingest.frost.sanitization import sanitize_root_url
 from rime_ingest.sta.core import Datastream, Observation, SensorThingsObject, UnLinkedSensorThingsObjects
 from rime_ingest.sta.schema import SensorThingsEntity, SensorThingsEntityGroups
 #internal
 from .odata import ODataParams, odata_filter_name_eq
-from .types import FrostEndpoints, FrostEntityRef
+from .types import FrostEndpoints, FrostEntityRef, FrostVersions
+from .types import FrostEndpoints, FrostEntityRef, FrostParams, FrostVersions
 #logging
 
 main_logger = logging.getLogger("main")
@@ -17,7 +18,7 @@ event_logger = logging.getLogger("events")
 
 def check_frost_connection(
         root_url:str = FROST_ROOT_DEFAULT,
-        version:str = FROST_VERSION_DEFAULT,
+        version: str | FrostVersions = FROST_VERSION,
         auth_headers: str | None = None,
         ) -> bool:
     """Probe every FROST entity endpoint to verify read connectivity.
@@ -50,7 +51,7 @@ def check_frost_connection(
 def _check_unlinked_object_exists(
         st_object: UnLinkedSensorThingsObjects,
         root_url:str = FROST_ROOT_DEFAULT,
-        version: str = FROST_VERSION_DEFAULT,
+        version: str | FrostVersions = FROST_VERSION,
         auth_headers: str | None = None,
         ) -> None | FrostEntityRef:
     """Check whether an unlinked SensorThings object exists on the FROST server.
@@ -89,7 +90,7 @@ def _check_unlinked_object_exists(
 def _check_datastream_object_exists(
         st_datastream: Datastream,
         root_url:str = FROST_ROOT_DEFAULT,
-        version: str = FROST_VERSION_DEFAULT,
+        version: str | FrostVersions = FROST_VERSION,
         auth_headers: str | None = None,
         ) -> None | FrostEntityRef:
     """Check whether a content-equivalent Datastream with its linked Sensor exists.
@@ -162,7 +163,7 @@ def _check_datastream_object_exists(
 def _check_observation_object_exists(
         st_observation: Observation,
         root_url:str = FROST_ROOT_DEFAULT,
-        version: str = FROST_VERSION_DEFAULT,
+        version: str | FrostVersions = FROST_VERSION,
         auth_headers: str | None = None,
         ) -> None | FrostEntityRef:
     """Check whether a content-equivalent Observation exists on the FROST server.
@@ -192,7 +193,7 @@ def _check_observation_object_exists(
 def check_object_existence(
         st_object: SensorThingsObject | Observation,
         root_url:str = FROST_ROOT_DEFAULT,
-        version: str = FROST_VERSION_DEFAULT,
+        version: str | FrostVersions = FROST_VERSION,
         auth_headers: str | None = None,
         ) -> None | FrostEntityRef:
     """Route an existence check to the appropriate type-specific checker.
