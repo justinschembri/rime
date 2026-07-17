@@ -73,7 +73,7 @@ class FrostEntityRef:
             raise ValueError(f"Unexpected FROST entity URL format: {url}")
 
         root_url, version, endpoint, iot_id = match.groups()
-        version = FrostVersions.parse(version)
+        version = FrostVersions.safe_parse(version)
         endpoint_name = endpoint.lstrip("/")
         try:
             entity_group = SensorThingsEntityGroups(endpoint_name)

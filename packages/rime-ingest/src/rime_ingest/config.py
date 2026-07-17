@@ -98,7 +98,7 @@ def get_frost_root_url() -> tuple[str, FrostVersions]:
     import re
     version_env = os.getenv("FROST_VERSION")
     version = (
-        FrostVersions.parse(version_env)
+        FrostVersions.safe_parse(version_env)
         if version_env
         else frost_versions.FROST_VERSION
     )
@@ -111,7 +111,7 @@ def get_frost_root_url() -> tuple[str, FrostVersions]:
     if endpoint:
         m = re.match(r"^(.*?)/(v[\d.]+)$", endpoint)
         if m:
-            version = FrostVersions.parse(m.group(2))
+            version = FrostVersions.safe_parse(m.group(2))
             frost_versions.configure_frost_version(version)
             _sync_frost_version_exports()
             return m.group(1), frost_versions.FROST_VERSION
