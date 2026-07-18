@@ -32,12 +32,12 @@ from rime_ingest.frost.get import (
 from rime_ingest.frost.helpers import check_object_existence
 from rime_ingest.frost.odata import ODataParams
 from rime_ingest.sta.core import (
-    Datastream,
-    Location,
-    Observation,
-    ObservedProperty,
-    Sensor,
-    Thing,
+    DatastreamV1,
+    LocationV1,
+    ObservationV1,
+    ObservedPropertyV1,
+    SensorV1,
+    ThingV1,
 )
 from rime_ingest.sta.schema import (
     SensorThingsEntityGroups,
@@ -161,7 +161,7 @@ class TestFrostEntityLookup:
 
 class TestFrostObjectLookup:
     def test_lookup_thing_by_name(self, docker_frost: DockerFrost) -> None:
-        thing = Thing(name="TEST-THING", description="ignored")
+        thing = ThingV1(name="TEST-THING", description="ignored")
 
         data = frost_object_lookup(
             thing,
@@ -174,7 +174,7 @@ class TestFrostObjectLookup:
         assert data[0]["name"] == "TEST-THING"
 
     def test_missing_thing(self, docker_frost: DockerFrost) -> None:
-        thing = Thing(name="__nope__", description="x")
+        thing = ThingV1(name="__nope__", description="x")
 
         data = frost_object_lookup(
             thing,
@@ -272,7 +272,7 @@ class TestGetDatastreamObservations:
 
 class TestCheckObjectExistence:
     def test_existing_thing_matches(self, docker_frost: DockerFrost) -> None:
-        thing = Thing(
+        thing = ThingV1(
             name="TEST-THING",
             description="Ephemeral thing used by frost tests.",
             properties={"site": "test"},
@@ -288,7 +288,7 @@ class TestCheckObjectExistence:
         )
 
     def test_existing_location_matches(self, docker_frost: DockerFrost) -> None:
-        location = Location(
+        location = LocationV1(
             name="TEST-LOCATION",
             description="Ephemeral location.",
             encodingType="application/geo+json",
@@ -305,7 +305,7 @@ class TestCheckObjectExistence:
         )
 
     def test_existing_sensor_matches(self, docker_frost: DockerFrost) -> None:
-        sensor = Sensor(
+        sensor = SensorV1(
             name="TEST-SENSOR",
             description="Ephemeral sensor.",
             encodingType="text/plain",
@@ -324,7 +324,7 @@ class TestCheckObjectExistence:
     def test_existing_observed_property_matches(
         self, docker_frost: DockerFrost
     ) -> None:
-        observed_property = ObservedProperty(
+        observed_property = ObservedPropertyV1(
             name="TEST-OBSPROP",
             description="Ephemeral observed property.",
             definition="https://example.com/testprop",
@@ -342,7 +342,7 @@ class TestCheckObjectExistence:
     def test_missing_thing_returns_false(
         self, docker_frost: DockerFrost
     ) -> None:
-        thing = Thing(name="__nope__", description="x")
+        thing = ThingV1(name="__nope__", description="x")
 
         assert (
             check_object_existence(
@@ -362,13 +362,13 @@ class TestCheckDatastreamExistence:
     def _make_datastream(
         self, *, sensor_name: str, name: str = "TEST-DS"
     ) -> Datastream:
-        sensor = Sensor(
+        sensor = SensorV1(
             name=sensor_name,
             description="linked sensor",
             encodingType="text/plain",
             metadata="none",
         )
-        datastream = Datastream(
+        datastream = DatastreamV1(
             name=name,
             description="Ephemeral datastream.",
             observationType=(
@@ -436,7 +436,7 @@ class TestCheckObservationExistence:
     def test_matches_existing_phenomenon_time(
         self, docker_frost: DockerFrost
     ) -> None:
-        observation = Observation(
+        observation = ObservationV1(
             result=1.0,
             phenomenonTime=datetime(2025, 1, 1, tzinfo=timezone.utc),
         )
@@ -453,7 +453,7 @@ class TestCheckObservationExistence:
     def test_missing_phenomenon_time_returns_false(
         self, docker_frost: DockerFrost
     ) -> None:
-        observation = Observation(
+        observation = ObservationV1(
             result=0,
             phenomenonTime=datetime(1900, 1, 1, tzinfo=timezone.utc),
         )
@@ -481,7 +481,7 @@ class TestCheckObjectExistencePayloadQuirks:
     def test_thing_without_server_properties(
         self, docker_frost: DockerFrost
     ) -> None:
-        thing = Thing(
+        thing = ThingV1(
             name="TEST-THING-NOPROPS",
             description="Thing seeded without properties.",
         )
@@ -498,7 +498,7 @@ class TestCheckObjectExistencePayloadQuirks:
     def test_location_with_integer_valued_coordinates(
         self, docker_frost: DockerFrost
     ) -> None:
-        location = Location(
+        location = LocationV1(
             name="TEST-LOCATION-INTCOORD",
             description="Ephemeral location with .0 coords.",
             encodingType="application/geo+json",

@@ -15,7 +15,7 @@ from datetime import UTC, datetime
 from rime_ingest.frost.get import find_datastream_observations_url
 from rime_ingest.frost.post import make_frost_entity
 from rime_ingest.frost.types import FrostEntityRef
-from rime_ingest.sta.core import Observation
+from rime_ingest.sta.core import ObservationV1 as Observation
 
 
 def test_find_datastream_observations_url_returns_datastream_parent(monkeypatch):

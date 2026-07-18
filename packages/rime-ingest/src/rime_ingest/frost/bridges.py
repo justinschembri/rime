@@ -38,6 +38,13 @@ _NAV_LINK_NAME_TO_ENTITY: dict[str, SensorThingsEntity | SensorThingsEntityGroup
     "ObservedProperties": SensorThingsEntityGroups.OBSERVEDPROPERTIES,
     "FeatureOfInterest": SensorThingsEntity.FEATUREOFINTEREST,
     "FeaturesOfInterest": SensorThingsEntityGroups.FEATURESOFINTEREST,
+    "Feature": SensorThingsEntity.FEATURE,
+    "Features": SensorThingsEntityGroups.FEATURES,
+    "FeatureType": SensorThingsEntity.FEATURETYPE,
+    "FeatureTypes": SensorThingsEntityGroups.FEATURETYPES,
+    # STA 2.0 Datastream ↔ Feature role names (navigation properties).
+    "UltimateFeaturesOfInterest": SensorThingsEntityGroups.FEATURES,
+    "ProximateFeatureOfInterest": SensorThingsEntity.FEATURE,
 }
 
 
@@ -83,6 +90,8 @@ ENTITY_TO_FROST_ENDPOINT: dict[SensorThingsEntity, FrostEndpoints] = {
     SensorThingsEntity.OBSERVATION: FrostEndpoints.OBSERVATIONS,
     SensorThingsEntity.OBSERVEDPROPERTY: FrostEndpoints.OBSERVEDPROPERTIES,
     SensorThingsEntity.FEATUREOFINTEREST: FrostEndpoints.FEATURESOFINTEREST,
+    SensorThingsEntity.FEATURE: FrostEndpoints.FEATURES,
+    SensorThingsEntity.FEATURETYPE: FrostEndpoints.FEATURETYPES,
 }
 
 

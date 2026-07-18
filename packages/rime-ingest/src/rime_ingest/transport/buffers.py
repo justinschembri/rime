@@ -8,6 +8,8 @@ from typing import Any, DefaultDict, Iterable, Tuple
 from abc import ABC, abstractmethod
 # internal
 from rime_ingest.sta.core import Observation
+from rime_ingest.sta.maps import class_map_for
+from rime_ingest.sta.schema import SensorThingsEntity
 from rime_ingest.transformers.types import (
         CanonicalDatastreams,
         SensorUUID,
@@ -150,7 +152,8 @@ class TresholdBuffer(ObservationBuffer):
 
     def _dump_locked(self) -> Tuple[Observation, CanonicalDatastreams]:
 
-        observation = Observation(
+        observation_cls = class_map_for()[SensorThingsEntity.OBSERVATION]
+        observation = observation_cls(
             result=self.sample_results(),
             phenomenonTime=(
                 self._phenomenon_start,

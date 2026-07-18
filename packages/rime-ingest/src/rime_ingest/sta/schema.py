@@ -2,8 +2,12 @@
 Enums and schema contracts for SensorThings models/config ingestion.
 """
 
+from __future__ import annotations
+
 from enum import Enum
 from typing import Any, Dict, Tuple
+
+from rime_ingest.frost.versions import FrostVersions, FROST_VERSION
 
 
 class SensorThingsEntity(Enum):
@@ -16,7 +20,9 @@ class SensorThingsEntity(Enum):
     DATASTREAM = "Datastream"
     OBSERVATION = "Observation"
     OBSERVEDPROPERTY = "ObservedProperty"
-    FEATUREOFINTEREST = "FeatureOfInterest"
+    FEATUREOFINTEREST = "FeatureOfInterest"  # STA 1.x
+    FEATURE = "Feature"  # STA 2.0 (replaces FeatureOfInterest)
+    FEATURETYPE = "FeatureType"  # STA 2.0
 
 
 class SensorThingsEntityGroups(Enum):
@@ -29,7 +35,9 @@ class SensorThingsEntityGroups(Enum):
     DATASTREAMS = "Datastreams"
     OBSERVATIONS = "Observations"
     OBSERVEDPROPERTIES = "ObservedProperties"
-    FEATURESOFINTEREST = "FeaturesOfInterest"
+    FEATURESOFINTEREST = "FeaturesOfInterest"  # STA 1.x
+    FEATURES = "Features"  # STA 2.0
+    FEATURETYPES = "FeatureTypes"  # STA 2.0
 
 
 # mapping groups (i.e. plural nouns such as Sensors) to entities (i.e. singular)
@@ -42,6 +50,8 @@ ENTITY_GROUPS_TO_ENTITIES: Dict[SensorThingsEntityGroups, SensorThingsEntity] = 
     SensorThingsEntityGroups.OBSERVATIONS: SensorThingsEntity.OBSERVATION,
     SensorThingsEntityGroups.OBSERVEDPROPERTIES: SensorThingsEntity.OBSERVEDPROPERTY,
     SensorThingsEntityGroups.FEATURESOFINTEREST: SensorThingsEntity.FEATUREOFINTEREST,
+    SensorThingsEntityGroups.FEATURES: SensorThingsEntity.FEATURE,
+    SensorThingsEntityGroups.FEATURETYPES: SensorThingsEntity.FEATURETYPE,
 }
 
 
@@ -52,13 +62,10 @@ ENTITIES_TO_ENTITY_GROUPS: Dict[SensorThingsEntity, SensorThingsEntityGroups] = 
 }
 
 
-# permissible fields for SensorThings objects:
-SENSOR_THINGS_ENTITY_FIELDS: Dict[SensorThingsEntity, Tuple[str, ...]] = {
-    SensorThingsEntity.THING: (
-        "name",
-        "description",
-        "properties",
-    ),
+# Wire / equality content fields per entity for STA 1.x (kept for callers that
+# still index by entity enum rather than concrete class).
+SENSOR_THINGS_ENTITY_FIELDS_V1: Dict[SensorThingsEntity, Tuple[str, ...]] = {
+    SensorThingsEntity.THING: ("name", "description", "properties"),
     SensorThingsEntity.LOCATION: (
         "name",
         "description",
@@ -89,10 +96,7 @@ SENSOR_THINGS_ENTITY_FIELDS: Dict[SensorThingsEntity, Tuple[str, ...]] = {
     SensorThingsEntity.DATASTREAM: (
         "name",
         "description",
-        # v1.* uses observationType + unitOfMeasurement;
-        # v2.* uses resultType (units embedded there) — see _content_fields_for.
         "observationType",
-        "resultType",
         "unitOfMeasurement",
         "properties",
     ),
@@ -101,8 +105,82 @@ SENSOR_THINGS_ENTITY_FIELDS: Dict[SensorThingsEntity, Tuple[str, ...]] = {
         "resultTime",
         "result",
         "validTime",
+        "parameters",
     ),
 }
+
+SENSOR_THINGS_ENTITY_FIELDS_V2: Dict[SensorThingsEntity, Tuple[str, ...]] = {
+    SensorThingsEntity.THING: ("name", "description", "definition", "properties"),
+    SensorThingsEntity.LOCATION: (
+        "name",
+        "description",
+        "definition",
+        "encodingType",
+        "location",
+        "properties",
+    ),
+    SensorThingsEntity.SENSOR: (
+        "name",
+        "description",
+        "definition",
+        "encodingType",
+        "metadata",
+        "properties",
+    ),
+    SensorThingsEntity.FEATURE: (
+        "name",
+        "description",
+        "definition",
+        "encodingType",
+        "feature",
+        "properties",
+    ),
+    SensorThingsEntity.FEATURETYPE: (
+        "name",
+        "description",
+        "definition",
+        "properties",
+    ),
+    SensorThingsEntity.OBSERVEDPROPERTY: (
+        "name",
+        "description",
+        "definition",
+        "properties",
+    ),
+    SensorThingsEntity.DATASTREAM: (
+        "name",
+        "description",
+        "definition",
+        "resultType",
+        "resultEncoding",
+        "properties",
+    ),
+    SensorThingsEntity.OBSERVATION: (
+        "phenomenonTime",
+        "resultTime",
+        "result",
+        "validTime",
+        "properties",
+    ),
+}
+
+
+def entity_fields_for(
+    version: str | int | float | FrostVersions | None = None,
+) -> Dict[SensorThingsEntity, Tuple[str, ...]]:
+    """Return content-field tuples for the given STA version."""
+    resolved = (
+        FrostVersions.safe_parse(version) if version is not None else FROST_VERSION
+    )
+    if resolved == FrostVersions.v2:
+        return SENSOR_THINGS_ENTITY_FIELDS_V2
+    return SENSOR_THINGS_ENTITY_FIELDS_V1
+
+
+# Back-compat alias: defaults to the active process version.
+SENSOR_THINGS_ENTITY_FIELDS: Dict[SensorThingsEntity, Tuple[str, ...]] = (
+    SENSOR_THINGS_ENTITY_FIELDS_V1
+)
 
 
 # these are the multiplicity relations between SensorThings entities. For example
@@ -134,6 +212,7 @@ SENSOR_THINGS_MULTIPLICITIES = {
     ],
     SensorThingsEntity.OBSERVEDPROPERTY: [SensorThingsEntityGroups.DATASTREAMS],
     SensorThingsEntity.FEATUREOFINTEREST: [SensorThingsEntityGroups.OBSERVATIONS],
+    SensorThingsEntity.FEATURE: [SensorThingsEntityGroups.OBSERVATIONS],
 }
 
 
@@ -146,37 +225,59 @@ CONFIG_YAML_REQUIRED_ENTITY_GROUPS: Tuple[SensorThingsEntityGroups, ...] = (
 )
 
 
-CONFIG_YAML_EXPECTED_CLASS_FIELDS: Dict[SensorThingsEntityGroups, Dict[str, Any]] = {
+_CONFIG_YAML_COMMON: Dict[SensorThingsEntityGroups, Dict[str, Any]] = {
     SensorThingsEntityGroups.SENSORS: {
         "name": str,
-        "description": (str, dict),
-        "properties": (str, dict),
+        "description": (str, dict, type(None)),
+        "properties": (str, dict, type(None)),
         "encodingType": str,
         "metadata": str,
         "iot_links": dict,
     },
     SensorThingsEntityGroups.THINGS: {
         "name": str,
-        "description": str,
+        "description": (str, type(None)),
         "properties": (str, dict, type(None)),
         "iot_links": dict,
     },
     SensorThingsEntityGroups.LOCATIONS: {
         "name": str,
-        "description": str,
+        "description": (str, type(None)),
         "properties": (str, dict, type(None)),
         "encodingType": str,
         "location": dict,
         "iot_links": dict,
     },
+    SensorThingsEntityGroups.OBSERVEDPROPERTIES: {
+        "name": str,
+        "definition": str,
+        "description": (str, type(None)),
+        "properties": (str, type(None), dict),
+    },
+}
+
+CONFIG_YAML_EXPECTED_CLASS_FIELDS_V1: Dict[SensorThingsEntityGroups, Dict[str, Any]] = {
+    **_CONFIG_YAML_COMMON,
+    SensorThingsEntityGroups.SENSORS: {
+        **_CONFIG_YAML_COMMON[SensorThingsEntityGroups.SENSORS],
+        "description": (str, dict),  # mandatory in practice for v1 templates
+    },
+    SensorThingsEntityGroups.THINGS: {
+        **_CONFIG_YAML_COMMON[SensorThingsEntityGroups.THINGS],
+        "description": str,
+    },
+    SensorThingsEntityGroups.LOCATIONS: {
+        **_CONFIG_YAML_COMMON[SensorThingsEntityGroups.LOCATIONS],
+        "description": str,
+    },
+    SensorThingsEntityGroups.OBSERVEDPROPERTIES: {
+        **_CONFIG_YAML_COMMON[SensorThingsEntityGroups.OBSERVEDPROPERTIES],
+        "description": str,
+    },
     SensorThingsEntityGroups.DATASTREAMS: {
         "name": str,
         "description": str,
-        # v1.* uses observationType, while v2.* uses resultType.
-        # unitOfMeasurement is v1-oriented (optional so the same YAML can
-        # target a v2 endpoint; omitted from v2 wire payloads).
-        "observationType": (str, type(None)),
-        "resultType": (str, type(None)),
+        "observationType": str,
         "unitOfMeasurement": dict,
         "observedArea": dict,
         "phenomenon_time": (str, type(None)),
@@ -184,13 +285,50 @@ CONFIG_YAML_EXPECTED_CLASS_FIELDS: Dict[SensorThingsEntityGroups, Dict[str, Any]
         "properties": (dict, type(None)),
         "iot_links": dict,
     },
-    SensorThingsEntityGroups.OBSERVEDPROPERTIES: {
+}
+
+CONFIG_YAML_EXPECTED_CLASS_FIELDS_V2: Dict[SensorThingsEntityGroups, Dict[str, Any]] = {
+    **_CONFIG_YAML_COMMON,
+    SensorThingsEntityGroups.SENSORS: {
+        **_CONFIG_YAML_COMMON[SensorThingsEntityGroups.SENSORS],
+        "definition": (str, type(None)),
+    },
+    SensorThingsEntityGroups.THINGS: {
+        **_CONFIG_YAML_COMMON[SensorThingsEntityGroups.THINGS],
+        "definition": (str, type(None)),
+    },
+    SensorThingsEntityGroups.LOCATIONS: {
+        **_CONFIG_YAML_COMMON[SensorThingsEntityGroups.LOCATIONS],
+        "definition": (str, type(None)),
+    },
+    SensorThingsEntityGroups.DATASTREAMS: {
         "name": str,
-        "definition": str,
-        "description": str,
-        "properties": (str, type(None)),
+        "description": (str, type(None)),
+        "definition": (str, type(None)),
+        "resultType": dict,
+        "resultEncoding": (dict, type(None)),
+        "observedArea": dict,
+        "phenomenon_time": (str, type(None)),
+        "result_time": (str, type(None)),
+        "properties": (dict, type(None)),
+        "iot_links": dict,
     },
 }
+
+
+def config_yaml_expected_fields(
+    version: str | int | float | FrostVersions | None = None,
+) -> Dict[SensorThingsEntityGroups, Dict[str, Any]]:
+    resolved = (
+        FrostVersions.safe_parse(version) if version is not None else FROST_VERSION
+    )
+    if resolved == FrostVersions.v2:
+        return CONFIG_YAML_EXPECTED_CLASS_FIELDS_V2
+    return CONFIG_YAML_EXPECTED_CLASS_FIELDS_V1
+
+
+# Back-compat: process-default (usually v1.1 at import).
+CONFIG_YAML_EXPECTED_CLASS_FIELDS = CONFIG_YAML_EXPECTED_CLASS_FIELDS_V1
 
 
 CONFIG_YAML_EXPECTED_IOT_LINK_GROUPS: Dict[

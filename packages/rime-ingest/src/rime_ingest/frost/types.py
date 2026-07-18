@@ -22,7 +22,9 @@ class FrostEndpoints(Enum):
     (e.g. ``/v1.1/Datastreams``).
     """
     DATASTREAMS = "/Datastreams"
-    FEATURESOFINTEREST = "/FeaturesOfInterest"
+    FEATURESOFINTEREST = "/FeaturesOfInterest"  # STA 1.x
+    FEATURES = "/Features"  # STA 2.0
+    FEATURETYPES = "/FeatureTypes"  # STA 2.0
     HISTORICALLOCATIONS = "/HistoricalLocations"
     LOCATIONS = "/Locations"
     OBSERVATIONS = "/Observations"
@@ -31,6 +33,27 @@ class FrostEndpoints(Enum):
     THINGS = "/Things"
 
 FrostResultPageIterator = Iterator[list[dict[str, Any]]]
+
+
+def frost_endpoints_for(
+    version: str | int | float | FrostVersions | None = None,
+) -> tuple[FrostEndpoints, ...]:
+    """Collection endpoints present on a FROST server for ``version``."""
+    from rime_ingest.frost.versions import FROST_VERSION as _active
+
+    resolved = FrostVersions.safe_parse(version) if version is not None else _active
+    common = (
+        FrostEndpoints.DATASTREAMS,
+        FrostEndpoints.HISTORICALLOCATIONS,
+        FrostEndpoints.LOCATIONS,
+        FrostEndpoints.OBSERVATIONS,
+        FrostEndpoints.OBSERVEDPROPERTIES,
+        FrostEndpoints.SENSORS,
+        FrostEndpoints.THINGS,
+    )
+    if resolved == FrostVersions.v2:
+        return common + (FrostEndpoints.FEATURES, FrostEndpoints.FEATURETYPES)
+    return common + (FrostEndpoints.FEATURESOFINTEREST,)
 
 
 @dataclass(frozen=True)
