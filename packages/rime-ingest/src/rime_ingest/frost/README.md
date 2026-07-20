@@ -32,7 +32,7 @@ frost/
 │                     # connectivity probe (check_frost_connection)
 ├── writers.py        # FrostWriter — streams or buffers FROST responses to
 │                     # JSON or CSV files with atomic rename
-├── orchestrators.py  # initial_setup — provisions all entities in a
+├── orchestrators.py  # initial_setup / v1 / v2 — provisions entities in a
 │                     # SensorConfig in dependency order
 └── __init__.py
 ```

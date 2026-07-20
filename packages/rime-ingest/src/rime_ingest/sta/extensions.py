@@ -259,8 +259,6 @@ class SensorConfig:
                 # Entity groups that are leaf definitions (no iot_links in config).
                 if entity_group in {
                     SensorThingsEntityGroups.OBSERVEDPROPERTIES,
-                    SensorThingsEntityGroups.PROXIMATE_FEATURES_OF_INTEREST,
-                    SensorThingsEntityGroups.ULTIMATE_FEATURES_OF_INTEREST,
                     SensorThingsEntityGroups.FEATURES,
                     SensorThingsEntityGroups.FEATURE_TYPES,
                 }:

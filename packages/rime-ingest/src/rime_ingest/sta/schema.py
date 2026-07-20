@@ -21,8 +21,6 @@ class SensorThingsEntity(Enum):
     OBSERVATION = "Observation"
     OBSERVEDPROPERTY = "ObservedProperty"
     FEATUREOFINTEREST = "FeatureOfInterest"  # STA 1.x
-    ULTIMATE_FEATURE_OF_INTEREST = "UltimateFeatureOfInterest" # STA 2.x
-    PROXIMATE_FEATURE_OF_INTEREST = "ProximateFeatureOfInterest" # STA 2.x
     FEATURE = "Feature"  # STA 2.x (replaces FeatureOfInterest)
     FEATURE_TYPE = "FeatureType"  # STA 2.x
 
@@ -38,8 +36,9 @@ class SensorThingsEntityGroups(Enum):
     OBSERVATIONS = "Observations"
     OBSERVEDPROPERTIES = "ObservedProperties"
     FEATURESOFINTEREST = "FeaturesOfInterest"  # STA 1.x
+    # STA 2.x Datastream↔Feature *roles* (not separate entity types / endpoints).
     PROXIMATE_FEATURES_OF_INTEREST = "ProximateFeaturesOfInterest"
-    ULTIMATE_FEATURES_OF_INTEREST = "UltimateFeaturesOfInterest" # STA 2.x
+    ULTIMATE_FEATURES_OF_INTEREST = "UltimateFeaturesOfInterest"
     FEATURES = "Features"  # STA 2.x
     FEATURE_TYPES = "FeatureTypes" # STA 2.x
 
@@ -55,17 +54,27 @@ ENTITY_GROUPS_TO_ENTITIES: Dict[SensorThingsEntityGroups, SensorThingsEntity] = 
     SensorThingsEntityGroups.OBSERVATIONS: SensorThingsEntity.OBSERVATION,
     SensorThingsEntityGroups.OBSERVEDPROPERTIES: SensorThingsEntity.OBSERVEDPROPERTY,
     SensorThingsEntityGroups.FEATURESOFINTEREST: SensorThingsEntity.FEATUREOFINTEREST,
-    SensorThingsEntityGroups.PROXIMATE_FEATURES_OF_INTEREST: SensorThingsEntity.PROXIMATE_FEATURE_OF_INTEREST,
-    SensorThingsEntityGroups.ULTIMATE_FEATURES_OF_INTEREST: SensorThingsEntity.ULTIMATE_FEATURE_OF_INTEREST,
+    # Role groups resolve to Feature entities (created at /Features).
+    SensorThingsEntityGroups.PROXIMATE_FEATURES_OF_INTEREST: SensorThingsEntity.FEATURE,
+    SensorThingsEntityGroups.ULTIMATE_FEATURES_OF_INTEREST: SensorThingsEntity.FEATURE,
     SensorThingsEntityGroups.FEATURES: SensorThingsEntity.FEATURE,
     SensorThingsEntityGroups.FEATURE_TYPES: SensorThingsEntity.FEATURE_TYPE,
 }
 
 
-# inverse of ENTITY_GROUPS_TO_ENTITIES, useful when a singular entity ref must
-# be slotted into a group-keyed iot_links bucket (e.g. a Datastream's Sensor).
+# inverse of ENTITY_GROUPS_TO_ENTITIES for entity→canonical collection group.
+# Role groups (proximate / ultimate) are omitted so FEATURE maps to FEATURES.
 ENTITIES_TO_ENTITY_GROUPS: Dict[SensorThingsEntity, SensorThingsEntityGroups] = {
-    entity: group for group, entity in ENTITY_GROUPS_TO_ENTITIES.items()
+    SensorThingsEntity.SENSOR: SensorThingsEntityGroups.SENSORS,
+    SensorThingsEntity.THING: SensorThingsEntityGroups.THINGS,
+    SensorThingsEntity.LOCATION: SensorThingsEntityGroups.LOCATIONS,
+    SensorThingsEntity.HISTORICALLOCATION: SensorThingsEntityGroups.HISTORICALLOCATIONS,
+    SensorThingsEntity.DATASTREAM: SensorThingsEntityGroups.DATASTREAMS,
+    SensorThingsEntity.OBSERVATION: SensorThingsEntityGroups.OBSERVATIONS,
+    SensorThingsEntity.OBSERVEDPROPERTY: SensorThingsEntityGroups.OBSERVEDPROPERTIES,
+    SensorThingsEntity.FEATUREOFINTEREST: SensorThingsEntityGroups.FEATURESOFINTEREST,
+    SensorThingsEntity.FEATURE: SensorThingsEntityGroups.FEATURES,
+    SensorThingsEntity.FEATURE_TYPE: SensorThingsEntityGroups.FEATURE_TYPES,
 }
 
 

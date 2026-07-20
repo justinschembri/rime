@@ -12,6 +12,7 @@ from rime_ingest.sta.extensions import SensorConfig
 from rime_ingest.sta.schema import (
     ENTITIES_TO_ENTITY_GROUPS,
     SensorThingsEntity,
+    SensorThingsEntityGroups,
 )
 
 main_logger = logging.getLogger("main")
@@ -27,13 +28,23 @@ _DATASTREAM_REQUIRED_ENTITIES: tuple[SensorThingsEntity, ...] = (
     SensorThingsEntity.OBSERVEDPROPERTY,
 )
 
-# STA v2 Datastreams may optionally link proximate / ultimate FOIs.
-_DATASTREAM_OPTIONAL_ENTITIES: tuple[SensorThingsEntity, ...] = ()
-if FROST_VERSION == FrostVersions.v2:
-    _DATASTREAM_OPTIONAL_ENTITIES = (
-        SensorThingsEntity.PROXIMATE_FEATURE_OF_INTEREST,
-        SensorThingsEntity.ULTIMATE_FEATURE_OF_INTEREST,
-    )
+# STA v2 role buckets on Datastreams — names resolve to Features in the registry.
+_DATASTREAM_FEATURE_ROLE_GROUPS: tuple[SensorThingsEntityGroups, ...] = (
+    SensorThingsEntityGroups.PROXIMATE_FEATURES_OF_INTEREST,
+    SensorThingsEntityGroups.ULTIMATE_FEATURES_OF_INTEREST,
+)
+
+_CREATE_ORDER_V1: tuple[SensorThingsEntity, ...] = (
+    SensorThingsEntity.THING,
+    SensorThingsEntity.LOCATION,
+    SensorThingsEntity.SENSOR,
+    SensorThingsEntity.OBSERVEDPROPERTY,
+)
+
+_CREATE_ORDER_V2: tuple[SensorThingsEntity, ...] = (
+    *_CREATE_ORDER_V1,
+    SensorThingsEntity.FEATURE,
+)
 
 
 def initial_setup(
@@ -41,55 +52,112 @@ def initial_setup(
     root_url: str = FROST_ROOT_DEFAULT,
     version: str | FrostVersions = FROST_VERSION,
     read_auth_headers: str | None = None,
-    write_auth_headers: str | None = None
+    write_auth_headers: str | None = None,
 ) -> list[FrostEntityRef]:
-    """Provision all SensorThings entities described in a ``SensorConfig`` on FROST.
+    """Provision SensorThings entities from a ``SensorConfig`` (version dispatch)."""
+    root_url, version = sanitize_root_url(root_url, version)
+    if version == FrostVersions.v2:
+        return initial_setup_v2(
+            sensor_config,
+            root_url=root_url,
+            version=version,
+            read_auth_headers=read_auth_headers,
+            write_auth_headers=write_auth_headers,
+        )
+    return initial_setup_v1(
+        sensor_config,
+        root_url=root_url,
+        version=version,
+        read_auth_headers=read_auth_headers,
+        write_auth_headers=write_auth_headers,
+    )
 
-    Entities are created in dependency order: Things → Locations → Sensors →
-    ObservedProperties → Datastreams. Locations are posted to their parent
-    Thing's navigation link. Datastream ``iot_links`` placeholders (name strings
-    from YAML) are resolved to ``FrostEntityRef`` objects via the local
-    registry before the Datastream is posted.
 
-    Duplicate entities are silently skipped by ``make_frost_entity``, so this
-    function is safe to call on an already-provisioned server.
+def initial_setup_v1(
+    sensor_config: SensorConfig,
+    root_url: str = FROST_ROOT_DEFAULT,
+    version: str | FrostVersions = FrostVersions.v1_1,
+    read_auth_headers: str | None = None,
+    write_auth_headers: str | None = None,
+) -> list[FrostEntityRef]:
+    """STA 1.x provisioning: Things → Locations → Sensors → ObservedProperties → Datastreams."""
+    root_url, version = sanitize_root_url(root_url, version)
+    registry: RefRegistry = {}
+    created_refs = _provision_entities(
+        sensor_config,
+        _CREATE_ORDER_V1,
+        registry,
+        root_url=root_url,
+        version=version,
+        read_auth_headers=read_auth_headers,
+        write_auth_headers=write_auth_headers,
+    )
+    created_refs.extend(
+        _provision_datastreams(
+            sensor_config,
+            registry,
+            root_url=root_url,
+            version=version,
+            read_auth_headers=read_auth_headers,
+            write_auth_headers=write_auth_headers,
+            resolve_feature_roles=False,
+        )
+    )
+    return created_refs
 
-    Args:
-        sensor_config: Parsed sensor configuration containing all
-            ``SensorThingsObject`` instances to create.
-        root_url: FROST server root URL, without the version segment.
-        version: API version.
-        auth_headers: Base64-encoded credentials for the ``Authorization``
-            header.
 
-    Returns:
-        List of ``FrostEntityRef`` objects for every entity that was created or
-        already existed, in creation order.
+def initial_setup_v2(
+    sensor_config: SensorConfig,
+    root_url: str = FROST_ROOT_DEFAULT,
+    version: str | FrostVersions = FrostVersions.v2,
+    read_auth_headers: str | None = None,
+    write_auth_headers: str | None = None,
+) -> list[FrostEntityRef]:
+    """STA 2.0 provisioning: … → Features → Datastreams (with FOI role links).
 
-    Raises:
-        ValueError: When a Datastream's ``iot_links`` are missing or malformed.
-        KeyError: When a Datastream references a related entity (Sensor, Thing,
-            ObservedProperty) that was not created in the same config.
-        TypeError: When ``iot_links`` placeholders are not name strings at the
-            time Datastreams are processed.
+    Features are created at ``/Features``. Proximate / ultimate FOI names in
+    datastream ``iot_links`` are resolved against those Features at link time.
     """
     root_url, version = sanitize_root_url(root_url, version)
     registry: RefRegistry = {}
-    created_refs: list[FrostEntityRef] = []
-
-    create_order: tuple[SensorThingsEntity, ...] = (
-        SensorThingsEntity.THING,
-        SensorThingsEntity.LOCATION,
-        SensorThingsEntity.SENSOR,
-        SensorThingsEntity.OBSERVEDPROPERTY,
-        SensorThingsEntity.FEATURE,
+    created_refs = _provision_entities(
+        sensor_config,
+        _CREATE_ORDER_V2,
+        registry,
+        root_url=root_url,
+        version=version,
+        read_auth_headers=read_auth_headers,
+        write_auth_headers=write_auth_headers,
     )
+    created_refs.extend(
+        _provision_datastreams(
+            sensor_config,
+            registry,
+            root_url=root_url,
+            version=version,
+            read_auth_headers=read_auth_headers,
+            write_auth_headers=write_auth_headers,
+            resolve_feature_roles=True,
+        )
+    )
+    return created_refs
 
+
+def _provision_entities(
+    sensor_config: SensorConfig,
+    create_order: tuple[SensorThingsEntity, ...],
+    registry: RefRegistry,
+    *,
+    root_url: str,
+    version: FrostVersions,
+    read_auth_headers: str | None,
+    write_auth_headers: str | None,
+) -> list[FrostEntityRef]:
+    created_refs: list[FrostEntityRef] = []
     ref: FrostEntityRef | None = None
     for entity_type in create_order:
         for st_object in sensor_config.st_objects.get(entity_type, []):
             endpoint = ""
-            # link the location to the previously created thing
             if isinstance(st_object, Location) and isinstance(ref, FrostEntityRef):
                 endpoint = ref.frost_url
             ref = make_frost_entity(
@@ -98,42 +166,81 @@ def initial_setup(
                 version=version,
                 read_auth_headers=read_auth_headers,
                 write_auth_headers=write_auth_headers,
-                endpoint=endpoint
+                endpoint=endpoint,
             )
             registry[(entity_type, st_object.name)] = ref
             created_refs.append(ref)
+    return created_refs
 
-    # start the Datastream connection loop:
-    for datastream in sensor_config.st_objects.get(SensorThingsEntity.DATASTREAM, []):
-        for related_entities in (
-            *_DATASTREAM_REQUIRED_ENTITIES,
-            *_DATASTREAM_OPTIONAL_ENTITIES,
-        ):
-            group = ENTITIES_TO_ENTITY_GROUPS[related_entities]
-            # all the iot_links that the datastream defines are placed into a bucket
-            bucket = (datastream.iot_links or {}).get(group)
-            if not bucket or not isinstance(bucket, list):
-                if related_entities in _DATASTREAM_OPTIONAL_ENTITIES:
-                    continue
-                raise ValueError(
-                    f"Datastream '{datastream.name}' is missing iot_links[{group.value}]."
-                )
-            placeholder = bucket[0]
+
+def _attach_required_datastream_refs(
+    datastream,
+    registry: RefRegistry,
+) -> None:
+    for related_entity in _DATASTREAM_REQUIRED_ENTITIES:
+        group = ENTITIES_TO_ENTITY_GROUPS[related_entity]
+        bucket = (datastream.iot_links or {}).get(group)
+        if not bucket or not isinstance(bucket, list):
+            raise ValueError(
+                f"Datastream '{datastream.name}' is missing iot_links[{group.value}]."
+            )
+        placeholder = bucket[0]
+        if not isinstance(placeholder, str):
+            raise TypeError(
+                f"Datastream '{datastream.name}' iot_links[{group.value}][0] "
+                f"must be a name string at this stage, got {type(placeholder)}."
+            )
+        try:
+            datastream.attach_ref(registry[(related_entity, placeholder)])
+        except KeyError as exc:
+            raise KeyError(
+                f"Datastream '{datastream.name}' references unknown "
+                f"{related_entity.value} '{placeholder}'."
+            ) from exc
+
+
+def _resolve_feature_role_links(
+    datastream,
+    registry: RefRegistry,
+) -> None:
+    links = datastream.iot_links or {}
+    for role_group in _DATASTREAM_FEATURE_ROLE_GROUPS:
+        bucket = links.get(role_group)
+        if not bucket or not isinstance(bucket, list):
+            continue
+        resolved: list[FrostEntityRef] = []
+        for placeholder in bucket:
             if not isinstance(placeholder, str):
                 raise TypeError(
-                    f"Datastream '{datastream.name}' iot_links[{group.value}][0] "
-                    f"must be a name string at this stage, got {type(placeholder)}."
+                    f"Datastream '{datastream.name}' "
+                    f"iot_links[{role_group.value}] entries must be "
+                    f"name strings, got {type(placeholder)}."
                 )
             try:
-                # us the string name of the iot_link to lookup entities created
-                # in the loop and attach them to these datastream Object.
-                datastream.attach_ref(registry[(related_entities, placeholder)])
+                resolved.append(registry[(SensorThingsEntity.FEATURE, placeholder)])
             except KeyError as exc:
                 raise KeyError(
                     f"Datastream '{datastream.name}' references unknown "
-                    f"{related_entities.value} '{placeholder}'."
+                    f"Feature '{placeholder}' via {role_group.value}."
                 ) from exc
+        links[role_group] = resolved
 
+
+def _provision_datastreams(
+    sensor_config: SensorConfig,
+    registry: RefRegistry,
+    *,
+    root_url: str,
+    version: FrostVersions,
+    read_auth_headers: str | None,
+    write_auth_headers: str | None,
+    resolve_feature_roles: bool,
+) -> list[FrostEntityRef]:
+    created_refs: list[FrostEntityRef] = []
+    for datastream in sensor_config.st_objects.get(SensorThingsEntity.DATASTREAM, []):
+        _attach_required_datastream_refs(datastream, registry)
+        if resolve_feature_roles:
+            _resolve_feature_role_links(datastream, registry)
         ref = make_frost_entity(
             datastream,
             root_url=root_url,
@@ -143,7 +250,4 @@ def initial_setup(
         )
         registry[(SensorThingsEntity.DATASTREAM, datastream.name)] = ref
         created_refs.append(ref)
-
     return created_refs
-
-

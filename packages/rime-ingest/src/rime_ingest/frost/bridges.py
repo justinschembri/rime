@@ -43,10 +43,10 @@ _NAV_LINK_NAME_TO_ENTITY: dict[str, SensorThingsEntity | SensorThingsEntityGroup
     "Features": SensorThingsEntityGroups.FEATURES,
     "FeatureType": SensorThingsEntity.FEATURE_TYPE,
     "FeatureTypes": SensorThingsEntityGroups.FEATURE_TYPES,
-    # STA 2.* Datastream ↔ Feature role names (navigation properties).
-    "UltimateFeatureOfInterest": SensorThingsEntity.ULTIMATE_FEATURE_OF_INTEREST,
+    # STA 2.* Datastream ↔ Feature role names (navigation properties / iot_links).
+    "UltimateFeatureOfInterest": SensorThingsEntityGroups.ULTIMATE_FEATURES_OF_INTEREST,
     "UltimateFeaturesOfInterest": SensorThingsEntityGroups.ULTIMATE_FEATURES_OF_INTEREST,
-    "ProximateFeatureOfInterest": SensorThingsEntity.PROXIMATE_FEATURE_OF_INTEREST,
+    "ProximateFeatureOfInterest": SensorThingsEntityGroups.PROXIMATE_FEATURES_OF_INTEREST,
     "ProximateFeaturesOfInterest": SensorThingsEntityGroups.PROXIMATE_FEATURES_OF_INTEREST,
 }
 
@@ -94,8 +94,6 @@ ENTITY_TO_FROST_ENDPOINT: dict[SensorThingsEntity, FrostEndpoints] = {
     SensorThingsEntity.OBSERVEDPROPERTY: FrostEndpoints.OBSERVEDPROPERTIES,
     SensorThingsEntity.FEATUREOFINTEREST: FrostEndpoints.FEATURESOFINTEREST,
     SensorThingsEntity.FEATURE: FrostEndpoints.FEATURES,
-    SensorThingsEntity.PROXIMATE_FEATURE_OF_INTEREST: FrostEndpoints.FEATURES,
-    SensorThingsEntity.ULTIMATE_FEATURE_OF_INTEREST: FrostEndpoints.FEATURES,
     SensorThingsEntity.FEATURE_TYPE: FrostEndpoints.FEATURETYPES,
 }
 

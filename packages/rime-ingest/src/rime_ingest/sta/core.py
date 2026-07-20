@@ -286,12 +286,15 @@ class Datastream(SensorThingsObject):
             refs = links.get(group)
             if not refs:
                 continue
-            ref = refs[0]
-            if not isinstance(ref, FrostEntityRef):
+            if not isinstance(refs, list):
+                refs = [refs]
+            resolved = [r for r in refs if isinstance(r, FrostEntityRef)]
+            if not resolved:
                 continue
-            payload[binding.field] = (
-                [ref.iot_ref] if binding.as_collection else ref.iot_ref
-            )
+            if binding.as_collection:
+                payload[binding.field] = [r.iot_ref for r in resolved]
+            else:
+                payload[binding.field] = resolved[0].iot_ref
         return payload
 
 
@@ -389,14 +392,6 @@ class Feature(SensorThingsObject):
     definition: Optional[_OptionalUri] = None
     encodingType: _Name
     feature: dict
-
-class UltimateFeatureOfInterest(Feature):
-    """STA 2.x UltimateFeatureOfInterest"""
-    _entity_type: ClassVar[SensorThingsEntity] = SensorThingsEntity.FEATURE
-
-class ProximateFeatureOfInterest(Feature):
-    """STA 2.x ProximateFeatureOfInterest"""
-    _entity_type: ClassVar[SensorThingsEntity] = SensorThingsEntity.FEATURE
 
 class FeatureType(SensorThingsObject):
     """STA 2.0 FeatureType — type metadata for Features."""
