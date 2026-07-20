@@ -10,7 +10,7 @@ FROST POST/GET select the concrete class via ``sta.maps.class_map_for``.
 # standard
 from __future__ import annotations
 from datetime import datetime
-from typing import ClassVar, Optional, Any, Dict, List, Tuple, Union, Self
+from typing import ClassVar, Optional, Any, Dict, List, Union, Self
 from typing_extensions import Annotated
 # external
 from pydantic import (
@@ -390,11 +390,18 @@ class Feature(SensorThingsObject):
     encodingType: _Name
     feature: dict
 
+class UltimateFeatureOfInterest(Feature):
+    """STA 2.x UltimateFeatureOfInterest"""
+    _entity_type: ClassVar[SensorThingsEntity] = SensorThingsEntity.ULTIMATE_FEATURE_OF_INTEREST
+
+class ProximateFeatureOfInterest(Feature):
+    """STA 2.x ProximateFeatureOfInterest"""
+    _entity_type: ClassVar[SensorThingsEntity] = SensorThingsEntity.PROXIMATE_FEATURE_OF_INTEREST
 
 class FeatureType(SensorThingsObject):
     """STA 2.0 FeatureType — type metadata for Features."""
 
-    _entity_type: ClassVar[SensorThingsEntity] = SensorThingsEntity.FEATURETYPE
+    _entity_type: ClassVar[SensorThingsEntity] = SensorThingsEntity.FEATURE_TYPE
     _sta_version: ClassVar[FrostVersions] = FrostVersions.v2
     _content_fields: ClassVar[frozenset[str]] = frozenset(
         {"name", "description", "definition", "properties"}

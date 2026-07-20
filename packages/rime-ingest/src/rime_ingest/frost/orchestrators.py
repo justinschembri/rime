@@ -27,6 +27,13 @@ _DATASTREAM_RELATED_ENTITIES: tuple[SensorThingsEntity, ...] = (
     SensorThingsEntity.OBSERVEDPROPERTY,
 )
 
+# STA v2 includes Proximate and Ultimate Feature of Interest
+if FROST_VERSION == FrostVersions.v2:
+    _DATASTREAM_RELATED_ENTITIES += (
+            SensorThingsEntity.PROXIMATE_FEATURE_OF_INTEREST,
+            SensorThingsEntity.ULTIMATE_FEATURE_OF_INTEREST
+            )
+
 
 def initial_setup(
     sensor_config: SensorConfig,
@@ -76,6 +83,12 @@ def initial_setup(
         SensorThingsEntity.OBSERVEDPROPERTY,
     )
 
+    if version == FrostVersions.v2:
+        create_order += (
+                SensorThingsEntity.PROXIMATE_FEATURE_OF_INTEREST,
+                SensorThingsEntity.ULTIMATE_FEATURE_OF_INTEREST
+                )
+
     ref: FrostEntityRef | None = None
     for entity_type in create_order:
         for st_object in sensor_config.st_objects.get(entity_type, []):
@@ -94,9 +107,11 @@ def initial_setup(
             registry[(entity_type, st_object.name)] = ref
             created_refs.append(ref)
 
+    # start the Datastream connection loop:
     for datastream in sensor_config.st_objects.get(SensorThingsEntity.DATASTREAM, []):
-        for related in _DATASTREAM_RELATED_ENTITIES:
-            group = ENTITIES_TO_ENTITY_GROUPS[related]
+        for related_entities in _DATASTREAM_RELATED_ENTITIES:
+            group = ENTITIES_TO_ENTITY_GROUPS[related_entities]
+            # all the iot_links that the datastream defines are placed into a bucket
             bucket = (datastream.iot_links or {}).get(group)
             if not bucket or not isinstance(bucket, list):
                 raise ValueError(
@@ -109,11 +124,13 @@ def initial_setup(
                     f"must be a name string at this stage, got {type(placeholder)}."
                 )
             try:
-                datastream.attach_ref(registry[(related, placeholder)])
+                # us the string name of the iot_link to lookup entities created
+                # in the loop and attach them to these datastream Object.
+                datastream.attach_ref(registry[(related_entities, placeholder)])
             except KeyError as exc:
                 raise KeyError(
                     f"Datastream '{datastream.name}' references unknown "
-                    f"{related.value} '{placeholder}'."
+                    f"{related_entities.value} '{placeholder}'."
                 ) from exc
 
         ref = make_frost_entity(
@@ -127,3 +144,5 @@ def initial_setup(
         created_refs.append(ref)
 
     return created_refs
+
+

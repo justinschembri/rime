@@ -68,8 +68,8 @@ _CLASS_MAP_V2: SensorThingsClassMap = {
     SensorThingsEntityGroups.OBSERVEDPROPERTIES: ObservedPropertyV2,
     SensorThingsEntity.FEATURE: Feature,
     SensorThingsEntityGroups.FEATURES: Feature,
-    SensorThingsEntity.FEATURETYPE: FeatureType,
-    SensorThingsEntityGroups.FEATURETYPES: FeatureType,
+    SensorThingsEntity.FEATURE_TYPE: FeatureType,
+    SensorThingsEntityGroups.FEATURE_TYPES: FeatureType,
     # Tolerate configs / lookups that still say FeatureOfInterest under v2.
     SensorThingsEntity.FEATUREOFINTEREST: Feature,
     SensorThingsEntityGroups.FEATURESOFINTEREST: Feature,

@@ -18,6 +18,7 @@ from .types import FrostEndpoints
 from . import versions as frost_versions
 from .versions import FrostVersions
 
+#TODO: Perhaps these mappings are just generally convoluted.
 
 # Entity / group name as it appears before the navigation-link annotation
 # suffix (``@iot.navigationLink`` in STA 1.x, ``@navigationLink`` in STA 2.0).
@@ -40,9 +41,10 @@ _NAV_LINK_NAME_TO_ENTITY: dict[str, SensorThingsEntity | SensorThingsEntityGroup
     "FeaturesOfInterest": SensorThingsEntityGroups.FEATURESOFINTEREST,
     "Feature": SensorThingsEntity.FEATURE,
     "Features": SensorThingsEntityGroups.FEATURES,
-    "FeatureType": SensorThingsEntity.FEATURETYPE,
-    "FeatureTypes": SensorThingsEntityGroups.FEATURETYPES,
-    # STA 2.0 Datastream ↔ Feature role names (navigation properties).
+    "FeatureType": SensorThingsEntity.FEATURE_TYPE,
+    "FeatureTypes": SensorThingsEntityGroups.FEATURE_TYPES,
+    # STA 2.* Datastream ↔ Feature role names (navigation properties).
+    "UltimateFeatureOfInterest": SensorThingsEntityGroups.ULTIMATE_FEATURES_OF_INTEREST,
     "UltimateFeaturesOfInterest": SensorThingsEntityGroups.FEATURES,
     "ProximateFeatureOfInterest": SensorThingsEntity.FEATURE,
 }
@@ -91,7 +93,7 @@ ENTITY_TO_FROST_ENDPOINT: dict[SensorThingsEntity, FrostEndpoints] = {
     SensorThingsEntity.OBSERVEDPROPERTY: FrostEndpoints.OBSERVEDPROPERTIES,
     SensorThingsEntity.FEATUREOFINTEREST: FrostEndpoints.FEATURESOFINTEREST,
     SensorThingsEntity.FEATURE: FrostEndpoints.FEATURES,
-    SensorThingsEntity.FEATURETYPE: FrostEndpoints.FEATURETYPES,
+    SensorThingsEntity.FEATURE_TYPE: FrostEndpoints.FEATURETYPES,
 }
 
 

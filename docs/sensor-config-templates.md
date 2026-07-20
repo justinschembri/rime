@@ -37,13 +37,27 @@ All standard datastreams, observedProperties, units of measurement, and sensor p
 
 ## Template Files
 
-Template files are located in `deploy/sensor_configs/`:
-- `template_milesight.am103l.yaml`
-- `template_milesight.am308l.yaml`
-- `template_netatmo.nws03.yaml`
-- `template.yaml` (generic template for custom sensors)
+Templates live under each provider, versioned for STA 1.x vs 2.0:
 
-Templates are tracked in git, while generated configuration files (specific to your sensors) are ignored.
+```
+deploy/sensor_configs/
+  dragino/{v1,v2}/template_dragino.lsn50v2-s31.yaml
+  kinemetrics/{v1,v2}/template_kinemetrics.etna2.yaml
+  milesight/{v1,v2}/template_milesight.am103l.yaml
+  milesight/{v1,v2}/template_milesight.am308l.yaml
+  netatmo/{v1,v2}/template_netatmo.nws03.yaml
+```
+
+- **v1** datastreams use `observationType` + `unitOfMeasurement`
+- **v2** datastreams use a structured `resultType` object (units inside `uom`)
+
+`rime generate-config` selects `v1` or `v2` from `--sta-version` (or `FROST_VERSION` when omitted):
+
+```bash
+rime generate-config milesight.am103l --sta-version 2.0
+```
+
+Templates are tracked in git; generated configuration files (specific to your sensors) are ignored.
 
 ## File Structure
 
@@ -277,7 +291,7 @@ If you prefer to create configurations manually:
 
 1. Copy a template file:
    ```bash
-   cp deploy/sensor_configs/template_milesight.am103l.yaml deploy/sensor_configs/<your-sensor-name>.yaml
+   cp deploy/sensor_configs/milesight/v1/template_milesight.am103l.yaml deploy/sensor_configs/<your-sensor-name>.yaml
    ```
 
 2. Replace placeholders:

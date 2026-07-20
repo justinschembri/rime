@@ -21,8 +21,10 @@ class SensorThingsEntity(Enum):
     OBSERVATION = "Observation"
     OBSERVEDPROPERTY = "ObservedProperty"
     FEATUREOFINTEREST = "FeatureOfInterest"  # STA 1.x
-    FEATURE = "Feature"  # STA 2.0 (replaces FeatureOfInterest)
-    FEATURETYPE = "FeatureType"  # STA 2.0
+    ULTIMATE_FEATURE_OF_INTEREST = "UltimateFeatureOfInterest" # STA 2.x
+    PROXIMATE_FEATURE_OF_INTEREST = "ProximateFeatureOfInterest" # STA 2.x
+    FEATURE = "Feature"  # STA 2.x (replaces FeatureOfInterest)
+    FEATURE_TYPE = "FeatureType"  # STA 2.x
 
 
 class SensorThingsEntityGroups(Enum):
@@ -36,8 +38,9 @@ class SensorThingsEntityGroups(Enum):
     OBSERVATIONS = "Observations"
     OBSERVEDPROPERTIES = "ObservedProperties"
     FEATURESOFINTEREST = "FeaturesOfInterest"  # STA 1.x
-    FEATURES = "Features"  # STA 2.0
-    FEATURETYPES = "FeatureTypes"  # STA 2.0
+    ULTIMATE_FEATURES_OF_INTEREST = "UltimateFeaturesOfInterest" # STA 2.x
+    FEATURES = "Features"  # STA 2.x
+    FEATURE_TYPES = "FeatureTypes" # STA 2.x
 
 
 # mapping groups (i.e. plural nouns such as Sensors) to entities (i.e. singular)
@@ -51,7 +54,7 @@ ENTITY_GROUPS_TO_ENTITIES: Dict[SensorThingsEntityGroups, SensorThingsEntity] = 
     SensorThingsEntityGroups.OBSERVEDPROPERTIES: SensorThingsEntity.OBSERVEDPROPERTY,
     SensorThingsEntityGroups.FEATURESOFINTEREST: SensorThingsEntity.FEATUREOFINTEREST,
     SensorThingsEntityGroups.FEATURES: SensorThingsEntity.FEATURE,
-    SensorThingsEntityGroups.FEATURETYPES: SensorThingsEntity.FEATURETYPE,
+    SensorThingsEntityGroups.FEATURETYPES: SensorThingsEntity.FEATURE_TYPE,
 }
 
 
@@ -135,7 +138,7 @@ SENSOR_THINGS_ENTITY_FIELDS_V2: Dict[SensorThingsEntity, Tuple[str, ...]] = {
         "feature",
         "properties",
     ),
-    SensorThingsEntity.FEATURETYPE: (
+    SensorThingsEntity.FEATURE_TYPE: (
         "name",
         "description",
         "definition",

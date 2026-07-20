@@ -151,6 +151,8 @@ def _setup_sensor_configuration():
         
         # Step 4: Generate configuration
         try:
+            from rime_ingest.frost.versions import FROST_VERSION
+
             output_path = generate_config_from_template(
                 sensor_model=sensor_model,
                 sensor_id=sensor_id,
@@ -160,6 +162,7 @@ def _setup_sensor_configuration():
                 location_description=location_description,
                 longitude=longitude,
                 latitude=latitude,
+                version=FROST_VERSION,
             )
             console.print(f"\n[bold green]✓ Configuration generated successfully:[/bold green] {output_path}")
             

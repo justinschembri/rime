@@ -12,6 +12,7 @@ class TestSensorConfig(unittest.TestCase):
         / "deploy"
         / "sensor_configs"
         / "netatmo"
+        / "v1"
         / "template_netatmo.nws03.yaml"
     )
 
