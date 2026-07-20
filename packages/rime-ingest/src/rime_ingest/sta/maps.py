@@ -16,11 +16,13 @@ from rime_ingest.sta.core import (
     ObservationV2,
     ObservedPropertyV1,
     ObservedPropertyV2,
+    ProximateFeatureOfInterest,
     SensorThingsObject,
     SensorV1,
     SensorV2,
     ThingV1,
     ThingV2,
+    UltimateFeatureOfInterest,
 )
 from rime_ingest.sta.schema import (
     SensorThingsEntity,
@@ -70,6 +72,10 @@ _CLASS_MAP_V2: SensorThingsClassMap = {
     SensorThingsEntityGroups.FEATURES: Feature,
     SensorThingsEntity.FEATURE_TYPE: FeatureType,
     SensorThingsEntityGroups.FEATURE_TYPES: FeatureType,
+    SensorThingsEntity.PROXIMATE_FEATURE_OF_INTEREST: ProximateFeatureOfInterest,
+    SensorThingsEntityGroups.PROXIMATE_FEATURES_OF_INTEREST: ProximateFeatureOfInterest,
+    SensorThingsEntity.ULTIMATE_FEATURE_OF_INTEREST: UltimateFeatureOfInterest,
+    SensorThingsEntityGroups.ULTIMATE_FEATURES_OF_INTEREST: UltimateFeatureOfInterest,
     # Tolerate configs / lookups that still say FeatureOfInterest under v2.
     SensorThingsEntity.FEATUREOFINTEREST: Feature,
     SensorThingsEntityGroups.FEATURESOFINTEREST: Feature,

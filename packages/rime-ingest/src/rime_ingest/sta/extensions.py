@@ -12,7 +12,7 @@ import logging
 import yaml
 # internal
 from rime_ingest.exceptions import FailedSensorConfigValidation
-from rime_ingest.frost.versions import FROST_VERSION
+from rime_ingest.frost.versions import FROST_VERSION, FrostVersions
 from rime_ingest.sta.maps import class_map_for
 from rime_ingest.transformers.types import CanonicalDatastreams, SensorUUID, SupportedSensors
 
@@ -179,14 +179,20 @@ class SensorConfig:
             # item is going to be each entry, e.g., 70:33:50.. (sensor), "apartment" (location)
             expected_fields = config_yaml_expected_fields(FROST_VERSION)
             expected_field_keys = set(expected_fields[entity_group].keys())
-            # Config-only / server-computed keys allowed in YAML but not on the model.
-            datastream_optional_fields = {
-                "observedArea",
-                "phenomenon_time",
-                "result_time",
-                "definition",
-                "resultEncoding",
+            # Fields whose allowed types include None may be omitted from YAML.
+            optional_fields = {
+                name
+                for name, typ in expected_fields[entity_group].items()
+                if typ is type(None)
+                or (isinstance(typ, tuple) and type(None) in typ)
             }
+            # Config-only / server-computed keys allowed in YAML but not on the model.
+            if entity_group == SensorThingsEntityGroups.DATASTREAMS:
+                optional_fields |= {
+                    "observedArea",
+                    "phenomenon_time",
+                    "result_time",
+                }
             for field_key in actual_entity:
                 if not isinstance(actual_entity[field_key], dict):
                     error = f"{self._filepath.stem}'s {field_key}'s children are of \
@@ -196,11 +202,8 @@ class SensorConfig:
                     error_list.append(error)
                     return (False, error_list)
                 actual_field_keys = set(actual_entity[field_key].keys())
-                if entity_group == SensorThingsEntityGroups.DATASTREAMS:
-                    required_keys = expected_field_keys - datastream_optional_fields
-                    missing_field_keys = required_keys - actual_field_keys
-                else:
-                    missing_field_keys = expected_field_keys - actual_field_keys
+                required_keys = expected_field_keys - optional_fields
+                missing_field_keys = required_keys - actual_field_keys
                 extra_field_keys = actual_field_keys - expected_field_keys
                 if missing_field_keys:
                     error = f"{key}.{field_key} has missing keys: {missing_field_keys}."
@@ -213,6 +216,8 @@ class SensorConfig:
                     error_list.append(error)
                     invalid = True
                 for field in actual_entity[field_key]:
+                    if field not in expected_fields[entity_group]:
+                        continue
                     expected_type = expected_fields[entity_group][field]
                     if not isinstance(actual_entity[field_key][field], expected_type):
                         error = (
@@ -251,17 +256,32 @@ class SensorConfig:
         for entity_type, entity_instances in unvalidated_data.items():
             try:
                 entity_group = SensorThingsEntityGroups(entity_type)
-                # observedProperties have no iot_links.
-                if entity_group == SensorThingsEntityGroups.OBSERVEDPROPERTIES:
+                # Entity groups that are leaf definitions (no iot_links in config).
+                if entity_group in {
+                    SensorThingsEntityGroups.OBSERVEDPROPERTIES,
+                    SensorThingsEntityGroups.PROXIMATE_FEATURES_OF_INTEREST,
+                    SensorThingsEntityGroups.ULTIMATE_FEATURES_OF_INTEREST,
+                    SensorThingsEntityGroups.FEATURES,
+                    SensorThingsEntityGroups.FEATURE_TYPES,
+                }:
                     continue
                 for entity, entity_fields in entity_instances.items():
                     passed_links = entity_fields["iot_links"]
                     exp_links = set(CONFIG_YAML_EXPECTED_IOT_LINK_GROUPS[entity_group])
+                    optional_links: set[SensorThingsEntityGroups] = set()
+                    if (
+                        entity_group == SensorThingsEntityGroups.DATASTREAMS
+                        and FROST_VERSION == FrostVersions.v2
+                    ):
+                        optional_links = {
+                            SensorThingsEntityGroups.PROXIMATE_FEATURES_OF_INTEREST,
+                            SensorThingsEntityGroups.ULTIMATE_FEATURES_OF_INTEREST,
+                        }
                     passed_link_groups = {
                         SensorThingsEntityGroups(link_group_name)
                         for link_group_name in passed_links
                     }
-                    extra_links = passed_link_groups - exp_links
+                    extra_links = passed_link_groups - exp_links - optional_links
                     missing_links = exp_links - passed_link_groups
                     if extra_links:
                         error = (

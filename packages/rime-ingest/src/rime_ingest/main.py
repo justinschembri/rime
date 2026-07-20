@@ -88,14 +88,13 @@ def _setup_sensor_arrangements(
         )
         return None
 
-    if FROST_VERSION in (FrostVersions.v1 or FrostVersions.v1_1):
-        initial_setup(
-            sensor_config,
-            root_url=root_url,
-            version=FROST_VERSION,
-            write_auth_headers=get_frost_auth_header("write"),
-            read_auth_headers=get_frost_auth_header("read"),
-        )
+    initial_setup(
+        sensor_config,
+        root_url=root_url,
+        version=FROST_VERSION,
+        write_auth_headers=get_frost_auth_header("write"),
+        read_auth_headers=get_frost_auth_header("read"),
+    )
 
 def push_available(
     sensor_config_paths: List[Path] = generate_sensor_config_files(),

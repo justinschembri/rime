@@ -392,11 +392,11 @@ class Feature(SensorThingsObject):
 
 class UltimateFeatureOfInterest(Feature):
     """STA 2.x UltimateFeatureOfInterest"""
-    _entity_type: ClassVar[SensorThingsEntity] = SensorThingsEntity.ULTIMATE_FEATURE_OF_INTEREST
+    _entity_type: ClassVar[SensorThingsEntity] = SensorThingsEntity.FEATURE
 
 class ProximateFeatureOfInterest(Feature):
     """STA 2.x ProximateFeatureOfInterest"""
-    _entity_type: ClassVar[SensorThingsEntity] = SensorThingsEntity.PROXIMATE_FEATURE_OF_INTEREST
+    _entity_type: ClassVar[SensorThingsEntity] = SensorThingsEntity.FEATURE
 
 class FeatureType(SensorThingsObject):
     """STA 2.0 FeatureType — type metadata for Features."""

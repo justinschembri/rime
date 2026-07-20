@@ -21,18 +21,19 @@ RefRegistry = dict[RegistryKey, FrostEntityRef]
 
 # Datastreams reference exactly one of each of these entity types in their
 # `iot_links`. Captured here so the resolver below can iterate uniformly.
-_DATASTREAM_RELATED_ENTITIES: tuple[SensorThingsEntity, ...] = (
+_DATASTREAM_REQUIRED_ENTITIES: tuple[SensorThingsEntity, ...] = (
     SensorThingsEntity.SENSOR,
     SensorThingsEntity.THING,
     SensorThingsEntity.OBSERVEDPROPERTY,
 )
 
-# STA v2 includes Proximate and Ultimate Feature of Interest
+# STA v2 Datastreams may optionally link proximate / ultimate FOIs.
+_DATASTREAM_OPTIONAL_ENTITIES: tuple[SensorThingsEntity, ...] = ()
 if FROST_VERSION == FrostVersions.v2:
-    _DATASTREAM_RELATED_ENTITIES += (
-            SensorThingsEntity.PROXIMATE_FEATURE_OF_INTEREST,
-            SensorThingsEntity.ULTIMATE_FEATURE_OF_INTEREST
-            )
+    _DATASTREAM_OPTIONAL_ENTITIES = (
+        SensorThingsEntity.PROXIMATE_FEATURE_OF_INTEREST,
+        SensorThingsEntity.ULTIMATE_FEATURE_OF_INTEREST,
+    )
 
 
 def initial_setup(
@@ -81,13 +82,8 @@ def initial_setup(
         SensorThingsEntity.LOCATION,
         SensorThingsEntity.SENSOR,
         SensorThingsEntity.OBSERVEDPROPERTY,
+        SensorThingsEntity.FEATURE,
     )
-
-    if version == FrostVersions.v2:
-        create_order += (
-                SensorThingsEntity.PROXIMATE_FEATURE_OF_INTEREST,
-                SensorThingsEntity.ULTIMATE_FEATURE_OF_INTEREST
-                )
 
     ref: FrostEntityRef | None = None
     for entity_type in create_order:
@@ -109,11 +105,16 @@ def initial_setup(
 
     # start the Datastream connection loop:
     for datastream in sensor_config.st_objects.get(SensorThingsEntity.DATASTREAM, []):
-        for related_entities in _DATASTREAM_RELATED_ENTITIES:
+        for related_entities in (
+            *_DATASTREAM_REQUIRED_ENTITIES,
+            *_DATASTREAM_OPTIONAL_ENTITIES,
+        ):
             group = ENTITIES_TO_ENTITY_GROUPS[related_entities]
             # all the iot_links that the datastream defines are placed into a bucket
             bucket = (datastream.iot_links or {}).get(group)
             if not bucket or not isinstance(bucket, list):
+                if related_entities in _DATASTREAM_OPTIONAL_ENTITIES:
+                    continue
                 raise ValueError(
                     f"Datastream '{datastream.name}' is missing iot_links[{group.value}]."
                 )

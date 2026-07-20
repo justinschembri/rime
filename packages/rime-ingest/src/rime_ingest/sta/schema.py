@@ -38,12 +38,14 @@ class SensorThingsEntityGroups(Enum):
     OBSERVATIONS = "Observations"
     OBSERVEDPROPERTIES = "ObservedProperties"
     FEATURESOFINTEREST = "FeaturesOfInterest"  # STA 1.x
+    PROXIMATE_FEATURES_OF_INTEREST = "ProximateFeaturesOfInterest"
     ULTIMATE_FEATURES_OF_INTEREST = "UltimateFeaturesOfInterest" # STA 2.x
     FEATURES = "Features"  # STA 2.x
     FEATURE_TYPES = "FeatureTypes" # STA 2.x
 
 
 # mapping groups (i.e. plural nouns such as Sensors) to entities (i.e. singular)
+# TODO: probably all these mappings can become class methods.
 ENTITY_GROUPS_TO_ENTITIES: Dict[SensorThingsEntityGroups, SensorThingsEntity] = {
     SensorThingsEntityGroups.SENSORS: SensorThingsEntity.SENSOR,
     SensorThingsEntityGroups.THINGS: SensorThingsEntity.THING,
@@ -53,8 +55,10 @@ ENTITY_GROUPS_TO_ENTITIES: Dict[SensorThingsEntityGroups, SensorThingsEntity] = 
     SensorThingsEntityGroups.OBSERVATIONS: SensorThingsEntity.OBSERVATION,
     SensorThingsEntityGroups.OBSERVEDPROPERTIES: SensorThingsEntity.OBSERVEDPROPERTY,
     SensorThingsEntityGroups.FEATURESOFINTEREST: SensorThingsEntity.FEATUREOFINTEREST,
+    SensorThingsEntityGroups.PROXIMATE_FEATURES_OF_INTEREST: SensorThingsEntity.PROXIMATE_FEATURE_OF_INTEREST,
+    SensorThingsEntityGroups.ULTIMATE_FEATURES_OF_INTEREST: SensorThingsEntity.ULTIMATE_FEATURE_OF_INTEREST,
     SensorThingsEntityGroups.FEATURES: SensorThingsEntity.FEATURE,
-    SensorThingsEntityGroups.FEATURETYPES: SensorThingsEntity.FEATURE_TYPE,
+    SensorThingsEntityGroups.FEATURE_TYPES: SensorThingsEntity.FEATURE_TYPE,
 }
 
 
