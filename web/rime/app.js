@@ -665,12 +665,14 @@ async function fetchThings() {
 }
 
 // ── Phase 2 (on-demand): grade every node's health ───────────────────────
-// Invoked only by runHealthCheck. Fetches Datastreams with phenomenonTime/end
+// Invoked only by runHealthCheck. Fetches Datastreams with phenomenonTime
 // (last observation edge) and paginates via the version-aware next-link.
+// Whole phenomenonTime is selected so the same query works on STA 1.x
+// (ISO string / interval) and STA 2.0 (TM_Period object).
 
 function buildHealthDatastreamsUrl() {
     const idField = frostIdField();
-    return `${state.frostRoot}/Datastreams?$select=phenomenonTime/end,${idField}`
+    return `${state.frostRoot}/Datastreams?$select=phenomenonTime,${idField}`
         + `&$expand=Thing($select=${idField})&$top=${HEALTH_PAGE_SIZE}`;
 }
 
@@ -686,22 +688,14 @@ function thingIdFromDatastream(datastream) {
 }
 
 function lastObservationEndFromDatastream(datastream) {
-    const phenomenonTime = datastream.phenomenonTime;
-    let end = null;
-
-    if (phenomenonTime && typeof phenomenonTime === 'object') {
-        end = phenomenonTime.end ?? null;
-    } else if (typeof phenomenonTime === 'string') {
-        return parsePhenomenonTime(phenomenonTime);
+    if (!datastream) return null;
+    // Prefer nested / dotted legacy forms, then the full phenomenonTime value.
+    const dotted = datastream['phenomenonTime/end'];
+    if (dotted) {
+        const date = new Date(dotted);
+        if (!Number.isNaN(date.getTime())) return date;
     }
-
-    if (!end) {
-        end = datastream['phenomenonTime/end'];
-    }
-    if (!end) return null;
-
-    const date = new Date(end);
-    return Number.isNaN(date.getTime()) ? null : date;
+    return parsePhenomenonTime(datastream.phenomenonTime);
 }
 
 function applyHealthFromMostRecent(stored, mostRecentMs) {
@@ -991,7 +985,7 @@ async function updatePopupWithDatastreams(thingId, datastreams) {
     
     // Fetch latest observations for all datastreams
     const datastreamPromises = datastreams.map(async (ds) => {
-        const unitSymbol = ds.unitOfMeasurement?.symbol || '';
+        const unitSymbol = frostUnitSymbol(ds);
         try {
             const currentProtocol = window.location.protocol;
             const obsUrl = frostNavLink(ds, 'Observations') + '?$top=1&$orderby=phenomenonTime%20desc';
@@ -1204,7 +1198,7 @@ function updateThingMetadataDatastreams(thingId, datastreams) {
     const fragment = document.createDocumentFragment();
 
     datastreams.forEach((ds) => {
-        const unitSymbol = ds.unitOfMeasurement?.symbol || '';
+        const unitSymbol = frostUnitSymbol(ds);
         const obs = Array.isArray(ds.Observations) ? ds.Observations[0] : null;
         const latestResult = obs ? latestObservationResult(obs.result) : null;
         const hasValue = latestResult !== null && latestResult !== undefined;
@@ -1553,7 +1547,7 @@ async function downloadThingData(thingId, startDate = null, endDate = null, layo
         for (let i = 0; i < datastreams.length; i++) {
             const ds = datastreams[i];
             const dsName = formatDatastreamName(ds.name);
-            const unitSymbol = ds.unitOfMeasurement?.symbol || '';
+            const unitSymbol = frostUnitSymbol(ds);
             const progress = `Preparing data (${i + 1}/${datastreams.length}): ${dsName}…`;
 
             setDownloadProgress(`${progress} Large datasets may take a moment.`);

@@ -8,10 +8,12 @@
 //
 // Measured on iosb (5613 Things):
 //   Phase 1 (Locations, light):  $top=100 ≈ 30s over 57 reqs → $top=10000 ≈ 9.4s in 1 req.
-//   Phase 2 (health, light):     Datastreams?$select=phenomenonTime/end,<id> — paginate
+//   Phase 2 (health, light):     Datastreams?$select=phenomenonTime,<id> — paginate
 //     via next-link so badges stream in without heavy Observations expands.
+//     Select whole phenomenonTime (not /end): STA 1.x returns an ISO string /
+//     interval; STA 2.0 returns a TM_Period {start,end} object.
 const THINGS_PAGE_SIZE = 10000; // Phase 1 — light payload, fetch in as few requests as possible
-const HEALTH_PAGE_SIZE = 10000; // Phase 2 — last-observation scan via Datastreams phenomenonTime/end
+const HEALTH_PAGE_SIZE = 10000; // Phase 2 — last-observation scan via Datastreams.phenomenonTime
 const DOWNLOAD_PAGE_SIZE = 10000;
 
 // ── Health tiers ───────────────────────────────────────────────────────────
@@ -48,11 +50,22 @@ function getHealthTier(minutes) {
     return HEALTH_TIERS[HEALTH_TIERS.length - 1];
 }
 
-// FROST phenomenonTime may be a single instant ("2026-…Z") or an interval
-// ("2026-…Z/2026-…Z"). For "time since last observation" we use the END of an
-// interval (the most recent edge). Returns a valid Date or null.
+// FROST phenomenonTime shapes:
+//   STA 1.x — instant string ("2026-…Z") or interval ("2026-…Z/2026-…Z")
+//   STA 2.0 — TM_Period / TM_Object: { start, end? }
+// For "time since last observation" we use the END of an interval (or start
+// when end is absent). Returns a valid Date or null.
 function parsePhenomenonTime(value) {
     if (!value) return null;
+
+    if (typeof value === 'object') {
+        const edge = value.end ?? value.start;
+        if (!edge) return null;
+        const date = new Date(edge);
+        return Number.isNaN(date.getTime()) ? null : date;
+    }
+
+    if (typeof value !== 'string') return null;
     const part = value.includes('/') ? value.split('/').pop() : value;
     const date = new Date(part);
     return Number.isNaN(date.getTime()) ? null : date;

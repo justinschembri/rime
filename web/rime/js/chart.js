@@ -186,7 +186,7 @@ async function loadChartData(datastreamId) {
         if (!dsResponse.ok) throw new Error(`HTTP error! Status: ${dsResponse.status}`);
 
         const dsData = await dsResponse.json();
-        const unitSymbol = dsData.unitOfMeasurement?.symbol || '';
+        const unitSymbol = frostUnitSymbol(dsData);
         const datastreamName = formatDatastreamName(dsData.name || 'Unknown');
 
         const points = await fetchChartPoints(datastreamId, state.currentLimit);

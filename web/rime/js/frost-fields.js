@@ -87,3 +87,14 @@ function frostNavLink(entity, relation, versionOrUrl) {
 function frostIdRecord(id, versionOrUrl) {
     return { [frostIdField(versionOrUrl)]: id };
 }
+
+/** Unit symbol: STA 1.x ``unitOfMeasurement.symbol``; STA 2.0 ``resultType.uom``. */
+function frostUnitSymbol(datastream) {
+    if (!datastream) return '';
+    return (
+        datastream.unitOfMeasurement?.symbol
+        || datastream.resultType?.uom?.symbol
+        || datastream.resultType?.uom?.code
+        || ''
+    );
+}

@@ -11,6 +11,18 @@ function escapeCsvField(value) {
 
 function parseTimeRange(value) {
     if (!value) return null;
+
+    if (typeof value === 'object') {
+        const startRaw = value.start;
+        const endRaw = value.end ?? value.start;
+        if (!startRaw) return null;
+        const start = new Date(startRaw);
+        const end = new Date(endRaw);
+        if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return null;
+        return { start, end };
+    }
+
+    if (typeof value !== 'string') return null;
     if (value.includes('/')) {
         const [a, b] = value.split('/');
         const start = new Date(a);
@@ -107,11 +119,20 @@ function normalizeObservations(observations) {
     return points;
 }
 
+function formatPhenomenonTimeForCsv(value) {
+    if (!value) return '';
+    if (typeof value === 'object') {
+        if (value.start && value.end) return `${value.start}/${value.end}`;
+        return value.end ?? value.start ?? '';
+    }
+    return String(value);
+}
+
 function observationToCsvRows(observation) {
     const points = expandObservationToPoints(observation);
     if (points.length === 0) {
         return [[
-            escapeCsvField(observation.phenomenonTime),
+            escapeCsvField(formatPhenomenonTimeForCsv(observation.phenomenonTime)),
             escapeCsvField(observation.resultTime),
             escapeCsvField(observation.result),
         ].join(',')];
