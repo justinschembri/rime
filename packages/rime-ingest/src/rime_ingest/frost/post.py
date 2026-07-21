@@ -88,7 +88,12 @@ def general_post(
         return FrostEntityRef.from_frost_url(response.headers["Location"])
     except requests.HTTPError as exc:
         response_text = exc.response.text if exc.response is not None else ""
-        detail = f"{exc} - response body: {response_text}"
+        request_body = request_payload.decode("utf-8", errors="replace")
+        detail = (
+            f"{exc} - response body: {response_text}"
+            f" - request body: {request_body}"
+        )
+        main_logger.error("FROST POST failed to %s: %s", url, detail)
         raise FrostRequestError(detail, url)
     except Exception as exc:
         raise FrostRequestError(exc, url)

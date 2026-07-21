@@ -140,10 +140,16 @@ def _generate_config(
     output: Optional[Path] = typer.Option(
         None, "--output", "-o", help="Output file path (defaults to sensor_configs/{sensor_id}.yaml)"
     ),
+    sta_version: Optional[str] = typer.Option(
+        None,
+        "--sta-version",
+        help="STA template version: 1.1 / v1 or 2.0 / v2 (default: FROST_VERSION)",
+    ),
 ):
     """Generate sensor configuration file from template."""
     from .config_generator import generate_config_from_template
     from rime_ingest.transformers.types import SupportedSensors
+    from rime_ingest.frost.versions import FrostVersions, FROST_VERSION
     
     try:
         sensor_model_enum = SupportedSensors(sensor_model)
@@ -151,10 +157,22 @@ def _generate_config(
         console.print(f"[bold red]Error:[/bold red] Unsupported sensor model: {sensor_model}")
         console.print("Supported models: milesight.am103l, milesight.am308l, netatmo.nws03")
         raise typer.Exit(1)
+
+    try:
+        resolved_version = (
+            FrostVersions.safe_parse(sta_version) if sta_version else FROST_VERSION
+        )
+    except ValueError:
+        console.print(
+            f"[bold red]Error:[/bold red] Unsupported STA version: {sta_version}"
+        )
+        console.print("Use 1.0 / 1.1 / v1 or 2.0 / v2")
+        raise typer.Exit(1)
     
     # Collect user inputs with rich prompts
     console.print(Panel.fit(
-        f"[bold]Generating configuration for {sensor_model_enum.value}[/bold]",
+        f"[bold]Generating configuration for {sensor_model_enum.value}[/bold]\n"
+        f"STA template: [cyan]{_sta_template_label(resolved_version)}[/cyan]",
         border_style="blue"
     ))
     
@@ -204,6 +222,7 @@ def _generate_config(
             longitude=longitude,
             latitude=latitude,
             output_path=output,
+            version=resolved_version,
         )
         console.print(f"\n[bold green]✓ Configuration generated successfully:[/bold green] {output_path}")
         console.print("\n[bold]Next steps:[/bold]")
@@ -214,6 +233,12 @@ def _generate_config(
         import traceback
         console.print_exception()
         raise typer.Exit(1)
+
+
+def _sta_template_label(version: "FrostVersions") -> str:
+    from rime_ingest.frost.versions import FrostVersions
+
+    return "v2" if version == FrostVersions.v2 else "v1"
 
 
 def _setup(

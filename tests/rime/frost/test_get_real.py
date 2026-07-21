@@ -23,7 +23,7 @@ from rime_ingest.frost.get import (
 )
 from rime_ingest.frost.helpers import check_object_existence
 from rime_ingest.frost.odata import ODataParams
-from rime_ingest.sta.core import Thing
+from rime_ingest.sta.core import ThingV1 as Thing
 from rime_ingest.sta.schema import SensorThingsEntityGroups
 
 

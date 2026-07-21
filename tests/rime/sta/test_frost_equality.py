@@ -11,12 +11,13 @@ import pytest
 
 # internal
 from rime_ingest.sta.core import (
-    Datastream,
-    Location,
-    Observation,
-    ObservedProperty,
-    Sensor,
-    Thing,
+    DatastreamV1,
+    LocationV1,
+    ObservationV1,
+    ObservationV2,
+    ObservedPropertyV1,
+    SensorV1,
+    ThingV1,
 )
 
 
@@ -36,9 +37,9 @@ class TestFromFrostEntity:
             "HistoricalLocations@iot.navigationLink": "http://example/Things(7)/HistoricalLocations",
         }
 
-        thing = Thing.from_frost_entity(payload)
+        thing = ThingV1.from_frost_entity(payload)
 
-        assert isinstance(thing, Thing)
+        assert isinstance(thing, ThingV1)
         assert thing.id == 7
         assert thing.name == "NWS03"
         assert thing.description == "Netatmo weather station"
@@ -55,9 +56,9 @@ class TestFromFrostEntity:
             "FeatureOfInterest@iot.navigationLink": "http://example/Observations(13)/FeatureOfInterest",
         }
 
-        obs = Observation.from_frost_entity(payload)
+        obs = ObservationV1.from_frost_entity(payload)
 
-        assert isinstance(obs, Observation)
+        assert isinstance(obs, ObservationV1)
         assert obs.result == 22.9
         assert obs.phenomenonTime is not None
         assert obs.resultTime is None
@@ -87,9 +88,9 @@ class TestFromFrostEntity:
             "Observations@iot.navigationLink": "http://example/Datastreams(1)/Observations",
         }
 
-        ds = Datastream.from_frost_entity(payload)
+        ds = DatastreamV1.from_frost_entity(payload)
 
-        assert isinstance(ds, Datastream)
+        assert isinstance(ds, DatastreamV1)
         assert ds.id == 1
         assert ds.name == "temperature"
         assert ds.observationType == "http://.../OM_Measurement"
@@ -100,13 +101,13 @@ class TestFromFrostEntity:
 
 class TestPartialEq:
     def test_ignores_links_and_id(self):
-        a = Thing(
+        a = ThingV1(
             name="NWS03",
             description="Netatmo weather station",
             properties={"site": "test"},
             id=1,
         )
-        b = Thing(
+        b = ThingV1(
             name="NWS03",
             description="Netatmo weather station",
             properties={"site": "test"},
@@ -118,26 +119,26 @@ class TestPartialEq:
         assert (a == b) is False
 
     def test_detects_content_change(self):
-        a = Thing(name="NWS03", description="A")
-        b = Thing(name="NWS04", description="A")
+        a = ThingV1(name="NWS03", description="A")
+        b = ThingV1(name="NWS04", description="A")
         assert a.partial_eq(b) is False
 
     def test_rejects_cross_type(self):
-        thing = Thing(name="x", description="y")
-        sensor = Sensor(name="x", description="y", encodingType="text/html")
+        thing = ThingV1(name="x", description="y")
+        sensor = SensorV1(name="x", description="y", encodingType="text/html")
         assert thing.partial_eq(sensor) is False
 
     def test_handles_float_int_coords(self):
         # FROST serializes `52.0` as `52`. Local model carries floats.
         # Python dict equality treats `4.0 == 4` and `52.0 == 52` as True,
         # so these Locations must compare equal under partial_eq.
-        declared = Location(
+        declared = LocationV1(
             name="L",
             description="L",
             encodingType="application/geo+json",
             location={"type": "Point", "coordinates": [4.0, 52.0]},
         )
-        from_server = Location.from_frost_entity(
+        from_server = LocationV1.from_frost_entity(
             {
                 "@iot.id": 42,
                 "@iot.selfLink": "http://example/Locations(42)",
@@ -153,8 +154,8 @@ class TestPartialEq:
         # If the server omits `properties`, pydantic fills in the default
         # `{}`. A locally-declared Thing with `properties={}` must compare
         # equal to it under partial_eq.
-        declared = Thing(name="T", description="d", properties={})
-        from_server = Thing.from_frost_entity(
+        declared = ThingV1(name="T", description="d", properties={})
+        from_server = ThingV1.from_frost_entity(
             {
                 "@iot.id": 1,
                 "@iot.selfLink": "http://example/Things(1)",
@@ -165,8 +166,8 @@ class TestPartialEq:
         assert declared.partial_eq(from_server) is True
 
     def test_observation_partial_eq(self):
-        a = Observation(phenomenonTime="2025-03-23T12:14:39Z", result=22.9)
-        b = Observation.from_frost_entity(
+        a = ObservationV1(phenomenonTime="2025-03-23T12:14:39Z", result=22.9)
+        b = ObservationV1.from_frost_entity(
             {
                 "@iot.id": 99,
                 "@iot.selfLink": "http://example/Observations(99)",
@@ -179,18 +180,85 @@ class TestPartialEq:
         assert a.partial_eq(b) is True
 
     def test_observation_partial_eq_detects_result_change(self):
-        a = Observation(phenomenonTime="2025-03-23T12:14:39Z", result=22.9)
-        b = Observation(phenomenonTime="2025-03-23T12:14:39Z", result=99.0)
+        a = ObservationV1(phenomenonTime="2025-03-23T12:14:39Z", result=22.9)
+        b = ObservationV1(phenomenonTime="2025-03-23T12:14:39Z", result=99.0)
         assert a.partial_eq(b) is False
+
+    def test_v2_observation_from_frost_entity_instant_dict(self):
+        """FROST v2 returns instants as ``{"start": "<iso>"}``."""
+        payload = {
+            "@id": "http://example/Observations(1)",
+            "id": 1,
+            "phenomenonTime": {"start": "2025-06-01T12:00:00Z"},
+            "resultTime": None,
+            "result": 42.0,
+            "properties": None,
+            "Datastream@navigationLink": "http://example/Observations(1)/Datastream",
+        }
+        obs = ObservationV2.from_frost_entity(payload)
+        assert isinstance(obs, ObservationV2)
+        assert obs.result == 42.0
+        assert obs.phenomenonTime == "2025-06-01T12:00:00Z"
+
+    def test_v2_observation_from_frost_entity_interval_dict(self):
+        """FROST v2 returns intervals as ``{"start": ..., "end": ...}``."""
+        payload = {
+            "@id": "http://example/Observations(2)",
+            "id": 2,
+            "phenomenonTime": {
+                "start": "2025-06-01T12:00:00Z",
+                "end": "2025-06-01T12:05:00Z",
+            },
+            "resultTime": None,
+            "result": [1, 2, 3],
+            "properties": None,
+        }
+        obs = ObservationV2.from_frost_entity(payload)
+        assert isinstance(obs, ObservationV2)
+        assert isinstance(obs.phenomenonTime, tuple)
+        assert len(obs.phenomenonTime) == 2
+
+    def test_v2_observation_partial_eq_with_server_instant(self):
+        """Local instant observation matches v2 server ``{"start": ...}`` form."""
+        local = ObservationV2(
+            result=22.9,
+            phenomenonTime="2025-06-01T12:00:00Z",
+        )
+        from_server = ObservationV2.from_frost_entity(
+            {
+                "id": 1,
+                "@id": "http://example/Observations(1)",
+                "phenomenonTime": {"start": "2025-06-01T12:00:00Z"},
+                "resultTime": None,
+                "result": 22.9,
+                "properties": None,
+            }
+        )
+        assert local.partial_eq(from_server) is True
+
+    def test_v2_observation_partial_eq_different_result(self):
+        """Different results at the same time must not match."""
+        local = ObservationV2(result=22.9, phenomenonTime="2025-06-01T12:00:00Z")
+        from_server = ObservationV2.from_frost_entity(
+            {
+                "id": 1,
+                "@id": "http://example/Observations(1)",
+                "phenomenonTime": {"start": "2025-06-01T12:00:00Z"},
+                "resultTime": None,
+                "result": 99.0,
+                "properties": None,
+            }
+        )
+        assert local.partial_eq(from_server) is False
 
     def test_observation_partial_eq_normalises_datetime_phenomenon_time(self):
         from datetime import datetime, timezone
 
-        local = Observation(
+        local = ObservationV1(
             result=1.0,
             phenomenonTime=datetime(2025, 1, 1, tzinfo=timezone.utc),
         )
-        from_server = Observation.from_frost_entity(
+        from_server = ObservationV1.from_frost_entity(
             {
                 "@iot.id": 1,
                 "@iot.selfLink": "http://example/Observations(1)",
@@ -215,8 +283,8 @@ def test_observed_property_round_trip():
         "properties": {},
         "Datastreams@iot.navigationLink": "http://example/ObservedProperties(3)/Datastreams",
     }
-    op = ObservedProperty.from_frost_entity(payload)
-    local = ObservedProperty(
+    op = ObservedPropertyV1.from_frost_entity(payload)
+    local = ObservedPropertyV1(
         name="Temperature",
         description="Ambient temperature",
         definition="http://dbpedia.org/page/Temperature",

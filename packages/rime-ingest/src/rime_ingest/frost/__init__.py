@@ -39,6 +39,8 @@ _EXPORTS: dict[str, tuple[str, str]] = {
     "FrostWriter": (".writers", "FrostWriter"),
     # orchestrators
     "initial_setup": (".orchestrators", "initial_setup"),
+    "initial_setup_v1": (".orchestrators", "initial_setup_v1"),
+    "initial_setup_v2": (".orchestrators", "initial_setup_v2"),
 }
 
 __all__ = list(_EXPORTS)

@@ -18,6 +18,7 @@ from .types import FrostEndpoints
 from . import versions as frost_versions
 from .versions import FrostVersions
 
+#TODO: Perhaps these mappings are just generally convoluted.
 
 # Entity / group name as it appears before the navigation-link annotation
 # suffix (``@iot.navigationLink`` in STA 1.x, ``@navigationLink`` in STA 2.0).
@@ -38,6 +39,15 @@ _NAV_LINK_NAME_TO_ENTITY: dict[str, SensorThingsEntity | SensorThingsEntityGroup
     "ObservedProperties": SensorThingsEntityGroups.OBSERVEDPROPERTIES,
     "FeatureOfInterest": SensorThingsEntity.FEATUREOFINTEREST,
     "FeaturesOfInterest": SensorThingsEntityGroups.FEATURESOFINTEREST,
+    "Feature": SensorThingsEntity.FEATURE,
+    "Features": SensorThingsEntityGroups.FEATURES,
+    "FeatureType": SensorThingsEntity.FEATURE_TYPE,
+    "FeatureTypes": SensorThingsEntityGroups.FEATURE_TYPES,
+    # STA 2.* Datastream ↔ Feature role names (navigation properties / iot_links).
+    "UltimateFeatureOfInterest": SensorThingsEntityGroups.ULTIMATE_FEATURES_OF_INTEREST,
+    "UltimateFeaturesOfInterest": SensorThingsEntityGroups.ULTIMATE_FEATURES_OF_INTEREST,
+    "ProximateFeatureOfInterest": SensorThingsEntityGroups.PROXIMATE_FEATURES_OF_INTEREST,
+    "ProximateFeaturesOfInterest": SensorThingsEntityGroups.PROXIMATE_FEATURES_OF_INTEREST,
 }
 
 
@@ -83,6 +93,8 @@ ENTITY_TO_FROST_ENDPOINT: dict[SensorThingsEntity, FrostEndpoints] = {
     SensorThingsEntity.OBSERVATION: FrostEndpoints.OBSERVATIONS,
     SensorThingsEntity.OBSERVEDPROPERTY: FrostEndpoints.OBSERVEDPROPERTIES,
     SensorThingsEntity.FEATUREOFINTEREST: FrostEndpoints.FEATURESOFINTEREST,
+    SensorThingsEntity.FEATURE: FrostEndpoints.FEATURES,
+    SensorThingsEntity.FEATURE_TYPE: FrostEndpoints.FEATURETYPES,
 }
 
 
@@ -114,6 +126,12 @@ _DATASTREAM_LINK_BINDINGS_V2: dict[SensorThingsEntityGroups, DatastreamLinkBindi
     SensorThingsEntityGroups.THINGS: DatastreamLinkBinding("Thing"),
     SensorThingsEntityGroups.OBSERVEDPROPERTIES: DatastreamLinkBinding(
         "ObservedProperties", as_collection=True
+    ),
+    SensorThingsEntityGroups.PROXIMATE_FEATURES_OF_INTEREST: DatastreamLinkBinding(
+        "ProximateFeatureOfInterest"
+    ),
+    SensorThingsEntityGroups.ULTIMATE_FEATURES_OF_INTEREST: DatastreamLinkBinding(
+        "UltimateFeaturesOfInterest", as_collection=True
     ),
 }
 

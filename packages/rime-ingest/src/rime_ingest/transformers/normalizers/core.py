@@ -8,7 +8,8 @@ from pydantic import BaseModel, model_validator
 # internal
 from ..messages import ObservationRecord
 from ..types import CanonicalDatastreams
-from ...sta.core import Observation
+from ...sta.maps import class_map_for
+from ...sta.schema import SensorThingsEntity
 
 
 class Normalizer(BaseModel):
@@ -61,8 +62,9 @@ class Normalizer(BaseModel):
             transformed_results[canonical_datastream_name] = getattr(self, model_datastream_name)
         return transformed_results
 
-    def to_stObservations(self) -> list[Tuple[Observation, CanonicalDatastreams]]:
+    def to_stObservations(self) -> list[Tuple[Any, CanonicalDatastreams]]:
         """Return a tuple of observations and corresponding datastream."""
+        observation_cls = class_map_for()[SensorThingsEntity.OBSERVATION]
         transformed_results = self._transform()
         observations = []
         for datastream, value in transformed_results.items():
@@ -70,7 +72,7 @@ class Normalizer(BaseModel):
                 continue
             if value is None:
                 continue
-            observation = Observation(
+            observation = observation_cls(
                 id=None,
                 result=value,
                 phenomenonTime=(

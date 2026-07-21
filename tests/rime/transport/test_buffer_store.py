@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
-from rime_ingest.sta.core import Observation
+from rime_ingest.sta.core import ObservationV1 as Observation
 from rime_ingest.transport.buffers import (
     NullBuffer,
     TransportBufferStore,

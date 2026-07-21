@@ -11,6 +11,8 @@ import os
 from rime_ingest.loggers import setup_loggers  # noqa: F401
 from rime_ingest.paths import APPLICATION_CONFIG_FILE
 from rime_ingest.config import (
+    FROST_VERSION,
+    FrostVersions,
     generate_sensor_config_files,
     get_frost_auth_header,
     get_frost_root_url,
@@ -71,7 +73,6 @@ def parse_application_config(config_path: Path) -> set[SensorTransport]:
 def _setup_sensor_arrangements(
     sensor_config: SensorConfig,
     root_url: str,
-    version: str,
 ) -> None:
     """Provision a SensorConfig as FROST entities (idempotent).
 
@@ -90,11 +91,10 @@ def _setup_sensor_arrangements(
     initial_setup(
         sensor_config,
         root_url=root_url,
-        version=version,
+        version=FROST_VERSION,
         write_auth_headers=get_frost_auth_header("write"),
         read_auth_headers=get_frost_auth_header("read"),
     )
-
 
 def push_available(
     sensor_config_paths: List[Path] = generate_sensor_config_files(),
@@ -127,7 +127,7 @@ def push_available(
         sensor_config = SensorConfig(f)
         sensor_registry[sensor_config.name] = SupportedSensors(sensor_config.model)
         netmon.expected_sensors.add(sensor_config.name)
-        _setup_sensor_arrangements(sensor_config, root_url, version)
+        _setup_sensor_arrangements(sensor_config, root_url)
     # generate a list of connections
     sensor_connections = parse_application_config(APPLICATION_CONFIG_FILE)
 

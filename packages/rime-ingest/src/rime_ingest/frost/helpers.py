@@ -10,7 +10,7 @@ from rime_ingest.sta.core import Datastream, Observation, SensorThingsObject, Un
 from rime_ingest.sta.schema import SensorThingsEntity, SensorThingsEntityGroups
 #internal
 from .odata import ODataParams, odata_filter_name_eq
-from .types import FrostEndpoints, FrostEntityRef
+from .types import FrostEntityRef, frost_endpoints_for
 #logging
 
 main_logger = logging.getLogger("main")
@@ -23,8 +23,8 @@ def check_frost_connection(
         ) -> bool:
     """Probe every FROST entity endpoint to verify read connectivity.
 
-    Performs a GET against each endpoint in ``FrostEndpoints`` and logs the
-    outcome. Intended as a startup preflight check.
+    Performs a GET against each endpoint in ``frost_endpoints_for(version)`` and
+    logs the outcome. Intended as a startup preflight check.
 
     Args:
         root_url: FROST server root URL, without the version segment.
@@ -38,7 +38,7 @@ def check_frost_connection(
     root_url, version = sanitize_root_url(root_url, version)
     base_url = f"{root_url}/v{version}"
     try:
-        for endpoint in FrostEndpoints:
+        for endpoint in frost_endpoints_for(version):
             url = base_url + endpoint.value
             general_frost_get(url, auth_headers=auth_headers)
     except Exception as e:
@@ -149,7 +149,7 @@ def _check_datastream_object_exists(
         return None
 
     for match in matches:
-        candidate = Datastream.from_frost_entity(match)
+        candidate = type(st_datastream).from_frost_entity(match)
         if not st_datastream.partial_eq(candidate):
             continue
         linked_sensor = match.get("Sensor") or {}
@@ -189,7 +189,7 @@ def _check_observation_object_exists(
         return None
     self_link_field = odata_fields_for(version).self_link
     for match in matches:
-        if st_observation.partial_eq(Observation.from_frost_entity(match)):
+        if st_observation.partial_eq(type(st_observation).from_frost_entity(match)):
             return FrostEntityRef.from_frost_url(match[self_link_field])
     return None
 
