@@ -1,0 +1,177 @@
+# TEMPLATE: Milesight AM103L
+# STA API version: 2.0
+# This template contains all standard datastreams and observedProperties for Milesight AM103L sensors.
+# Use this template to generate sensor configuration files - you only need to provide:
+# - Sensor ID/name (device MAC address)
+# - Thing name and description
+# - Location name, description, and coordinates
+#
+# Generate config using: rime generate-config milesight.am103l
+
+Sensors:
+  milesight.am103l:
+    name: <SENSOR_UUID>
+    description: Milesight AM103L-LoRaWAN Indoor Air Quality Sensor (3 in 1)
+    metadata: https://resource.milesight.com/milesight/iot/document/am30x-datasheet-en.pdf
+    encodingType: application/pdf
+    properties:
+      wireless_transmission:
+        technology: LoRaWAN
+        frequency: CN470/RU864/IN865/EU868/US915/AU915/KR920/AS923-1&2&3&4
+        tx_power: 16dBm(868MHz)/22dBm(915MHz)/19dBm(470MHz)
+        sensitivity: 137dBm @300bps
+        work_mode: OTAA/ABP Class A
+      sensors:
+        temperature:
+          operating_principle: Digital CMOSens technology (MEMS)
+          range: -20°C~60°C
+          accuracy: ± 0.2°C
+          resolution: 0.1°C
+        humidity:
+          operating_principle: Digital CMOSens technology (MEMS)
+          range: 0% ~ 100% RH
+          accuracy: ± 2% RH
+          resolution: 0.5% RH
+        carbon_dioxide:
+          operating_princple: Nondispersive Infrared (NDIR)
+          range: 400 ~ 500 ppm
+          accuracy: ± (30 ppm + 3% of reading) at (0°C~ 50°C, 0% to 85%RH)
+          resolution: 1 ppm
+    iot_links:
+      Datastreams: &id001
+      - battery_level
+      - co2
+      - humidity
+      - temperature_indoor
+Things:
+  Milesight AM103L:
+    name: Milesight AM103L
+    description: Milesight AM103L-LoRaWAN Indoor Air Quality Sensor (3 in 1)
+    properties:
+      dev_eui: <SENSOR_UUID>
+    iot_links:
+      Datastreams: *id001
+      Locations:
+      - <LOCATION_NAME>
+Locations:
+  <LOCATION_NAME>:
+    name: <LOCATION_NAME>
+    description: <LOCATION_DESCRIPTION>
+    properties: null
+    encodingType: application/geo+json
+    location:
+      type: Point
+      coordinates:
+      - <LONGITUDE>
+      - <LATITUDE>
+    iot_links:
+      Things:
+      - Milesight AM103L
+Datastreams:
+  temperature_indoor:
+    name: temperature_indoor
+    description: This datastream is measuring the internal room temperature.
+    resultType:
+      type: Quantity
+      uom:
+        symbol: °C
+        code: °C
+        label: degree Celsius
+        definition: https://unitsofmeasure.org/ucum#para-30
+    observedArea: &id002
+      type: Polygon
+      coordinates: null
+    phenomenon_time: null
+    result_time: null
+    properties: null
+    iot_links:
+      ObservedProperties:
+      - temperature_indoor
+      Sensors:
+      - <SENSOR_UUID>
+      Things:
+      - Milesight AM103L
+  humidity:
+    name: humidity
+    description: Datastream for observations of humidity levels in Milesight AM103L.
+    resultType:
+      type: Quantity
+      uom:
+        symbol: '%'
+        code: '%'
+        label: percent
+        definition: https://unitsofmeasure.org/ucum#para-29
+    observedArea: *id002
+    phenomenon_time: null
+    result_time: null
+    properties: null
+    iot_links:
+      ObservedProperties:
+      - internal_humidity
+      Sensors:
+      - <SENSOR_UUID>
+      Things:
+      - Milesight AM103L
+  co2:
+    name: co2
+    description: Datastream for observations of CO2 levels in Milesight AM103L.
+    resultType:
+      type: Quantity
+      uom:
+        symbol: ppm
+        code: ppm
+        label: parts per million
+        definition: https://unitsofmeasure.org/ucum#para-29
+    observedArea: *id002
+    phenomenon_time: null
+    result_time: null
+    properties: null
+    iot_links:
+      ObservedProperties:
+      - co2_levels
+      Sensors:
+      - <SENSOR_UUID>
+      Things:
+      - Milesight AM103L
+  battery_level:
+    name: battery_level
+    description: Battery level of the sensor.
+    resultType:
+      type: Quantity
+      uom:
+        symbol: percent
+        code: percent
+        label: percentage
+        definition: '...'
+    observedArea: *id002
+    phenomenon_time: null
+    result_time: null
+    properties: null
+    iot_links:
+      ObservedProperties:
+      - battery_level
+      Sensors:
+      - <SENSOR_UUID>
+      Things:
+      - Milesight AM103L
+ObservedProperties:
+  temperature_indoor:
+    name: temperature_indoor
+    definition: https://qudt.org/vocab/quantitykind/Temperature
+    description: The temperature where the indoor module is placed.
+    properties: null
+  internal_humidity:
+    name: internal_humidity
+    definition: https://qudt.org/vocab/quantitykind/RelativeHumidity
+    description: The internal humidity levels wherever the indoor sensor is placed.
+    properties: null
+  co2_levels:
+    name: co2_levels
+    definition: http://codes.wmo.int/wmdr/ObservedVariableAtmosphere/194
+    description: The CO2 levels wherever the indoor module is placed.
+    properties: null
+  battery_level:
+    name: battery_level
+    definition: https://qudt.org/vocab/quantitykind/DimensionlessRatio
+    description: Remaining charge of the sensor battery expressed as a percentage of full capacity.
+    properties: null

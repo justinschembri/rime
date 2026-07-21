@@ -1,0 +1,206 @@
+ TEMPLATE: Dragino LSN50v2-S31
+# STA API version: 2.0
+# This template contains all standard datastreams and observedProperties for Dragino LSN50v2-S31 sensors.
+# Use this template to generate sensor configuration files - you only need to provide:
+# - Sensor ID/name (device DevEUI)
+# - Location name, description, and coordinates
+#
+# Generate config using: rime generate-config dragino.lsn50v2-s31
+
+Sensors:
+  dragino.lsn50v2-s31:
+    name: <SENSOR_UUID>
+    description: Dragino LSN50v2-S31 LoRaWAN Temperature & Humidity Sensor
+    metadata: https://www.dropbox.com/scl/fo/7cxxx92u5wg0w5vusccuq/AAxrHpw-ADkgsb08oWZ9Wd4?dl=0&preview=Datasheet_LSN50v2-S31_LoRaWAN_Temperature_Humidity_Sensor.pdf&rlkey=qqkiahcudrqg0xsofg08ra9xb
+    encodingType: application/pdf
+    properties:
+      wireless_transmission:
+        technology: LoRaWAN
+        protocol: LoRaWAN 1.0.3 Class A
+        frequency: 862~1020 MHz
+        bands: CN470/EU433/KR920/US915/EU868/AS923/AU915/IN865
+        sensitivity: -148 dBm
+        work_mode: OTAA Class A
+      power:
+        battery: 8500mAh Li-SOCI2
+        supply_voltage: 2.5~3.6 V
+        sleep_current: 20 uA
+        transmit_current: 125 mA @ 20 dBm / 44 mA @ 14 dBm
+      probe:
+        type: External SHT31
+        cable_length: 3 m
+        casing: Waterproof anti-condensation
+      sensors:
+        temperature:
+          operating_principle: Sensirion SHT31 digital temperature sensor
+          range: -40°C ~ 80°C
+          accuracy: ±0.2°C @ 0-90°C
+          resolution: 0.01°C
+          long_term_shift: <0.03°C/yr
+        humidity:
+          operating_principle: Sensirion SHT31 digital humidity sensor
+          range: 0% ~ 99.9% RH
+          accuracy: ±2% RH (0~100% RH)
+          resolution: 0.01% RH
+          long_term_shift: <0.25% RH/yr
+      device:
+        operating_temperature: -40°C ~ 85°C
+        dimensions: 120 x 55 x 200 mm
+        weight: 370 g
+    iot_links:
+      Datastreams: &id001
+      - battery_voltage
+      - temperature_air
+      - humidity_air
+
+Things:
+  Dragino Lsn50v 2S31:
+    name: Dragino Lsn50v 2S31
+    description: Dragino LSN50v2-S31 LoRaWAN Temperature & Humidity Sensor
+    properties:
+      dev_eui: <SENSOR_UUID>
+    iot_links:
+      Datastreams: *id001
+      Locations:
+      - <LOCATION_NAME>
+
+Locations:
+  <LOCATION_NAME>:
+    name: <LOCATION_NAME>
+    description: <LOCATION_DESCRIPTION>
+    properties: null
+    encodingType: application/geo+json
+    location:
+      type: Point
+      coordinates:
+      - <LONGITUDE>
+      - <LATITUDE>
+    iot_links:
+      Things:
+      - Dragino Lsn50v 2S31
+
+Datastreams:
+  temperature_air:
+    name: temperature_air
+    description: Ambient air temperature measured by the external SHT31 probe.
+    resultType:
+      type: Quantity
+      uom:
+        symbol: °C
+        code: °C
+        label: degree Celsius
+        definition: https://unitsofmeasure.org/ucum#para-30
+    observedArea: &id002
+      type: Polygon
+      coordinates: null
+    phenomenon_time: null
+    result_time: null
+    properties: null
+    iot_links:
+      ObservedProperties:
+      - air_temperature
+      Sensors:
+      - <SENSOR_UUID>
+      Things:
+      - Dragino Lsn50v 2S31
+      UltimateFeaturesOfInterest:
+      # link all ultimate features of interest here:
+      - ...
+      ProximateFeaturesOfInterest:
+      - <TEMPERATURE_AIR_PROXIMATE_FEATURE_OF_INTEREST>
+
+  humidity_air:
+    name: humidity_air
+    description: Relative air humidity measured by the external SHT31 probe.
+    resultType:
+      type: Quantity
+      uom:
+        symbol: '%'
+        code: '%'
+        label: percent
+        definition: https://unitsofmeasure.org/ucum#para-29
+    observedArea: *id002
+    phenomenon_time: null
+    result_time: null
+    properties: null
+    iot_links:
+      ObservedProperties:
+      - air_humidity
+      Sensors:
+      - <SENSOR_UUID>
+      Things:
+      - Dragino Lsn50v 2S31
+      ProximateFeaturesOfInterest:
+      - <HUMIDITY_AIR_PROXIMATE_FEATURE_OF_INTEREST>
+
+  battery_voltage:
+    name: battery_voltage
+    description: Battery voltage of the sensor node.
+    resultType:
+      type: Quantity
+      uom:
+        symbol: V
+        code: V
+        label: volt
+        definition: https://unitsofmeasure.org/ucum#para-30
+    observedArea: *id002
+    phenomenon_time: null
+    result_time: null
+    properties: null
+    iot_links:
+      ObservedProperties:
+      - battery_voltage
+      Sensors:
+      - <SENSOR_UUID>
+      Things:
+      - Dragino Lsn50v 2S31
+
+ObservedProperties:
+  air_temperature:
+    name: air_temperature
+    definition: https://vocab.nerc.ac.uk/standard_name/air_temperature/
+    description: Ambient air temperature measured by the external SHT31 probe.
+    properties: null
+  air_humidity:
+    name: air_humidity
+    definition: https://vocab.nerc.ac.uk/standard_name/relative_humidity/
+    description: Relative air humidity measured by the external SHT31 probe.
+    properties: null
+  battery_voltage:
+    name: battery_voltage
+    definition: https://qudt.org/vocab/quantitykind/ElectricPotentialDifference
+    description: Supply voltage of the sensor node's Li-SOCI2 battery.
+    properties: null
+
+Features:
+  # All Features are posted to /Features. Proximate vs ultimate is only a
+  # Datastream iot_links role (see Datastreams above).
+  <TEMPERATURE_AIR_PROXIMATE_FEATURE_OF_INTEREST>:
+    name: <TEMPERATURE_AIR_PROXIMATE_FEATURE_OF_INTEREST>
+    definition: <URI>
+    description: <str>
+    encodingType: <IANA-MediaType>
+    feature: <Any>
+    properties: <Object>
+  <HUMIDITY_AIR_PROXIMATE_FEATURE_OF_INTEREST>:
+    name: <HUMIDITY_AIR_PROXIMATE_FEATURE_OF_INTEREST>
+    definition: <URI>
+    description: <str>
+    encodingType: <IANA-MediaType>
+    feature: <Any>
+    properties: <Object>
+  <TEMPERATURE_AIR_ULTIMATE_FEATURES_OF_INTEREST>:
+    name: <str>
+    definition: <URI>
+    description: <str>
+    encodingType: <IANA-MediaType>
+    feature: <Any>
+    properties: <Object>
+  <TEMPERATURE_HUMIDITY_ULTIMATE_FEATURES_OF_INTEREST>:
+    name: <str>
+    definition: <URI>
+    description: <str>
+    encodingType: <IANA-MediaType>
+    feature: <Any>
+    properties: <Object>
+

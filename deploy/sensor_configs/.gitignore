@@ -1,0 +1,7 @@
+*
+!*/
+!.gitignore
+!template*.y*ml
+!*/template*.y*ml
+!*/*/template*.y*ml
+!README.md

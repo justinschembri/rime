@@ -1,0 +1,177 @@
+# TEMPLATE: Milesight AM103L
+# STA API version: 1.1
+# This template contains all standard datastreams and observedProperties for Milesight AM103L sensors.
+# Use this template to generate sensor configuration files - you only need to provide:
+# - Sensor ID/name (device MAC address)
+# - Thing name and description
+# - Location name, description, and coordinates
+#
+# Generate config using: rime generate-config milesight.am103l
+
+Sensors:
+  milesight.am103l:
+    name: <SENSOR_UUID>  # Replace with device MAC address (e.g., 24E124725F068087)
+    description: Milesight AM103L-LoRaWAN Indoor Air Quality Sensor (3 in 1)
+    metadata: https://resource.milesight.com/milesight/iot/document/am30x-datasheet-en.pdf
+    encodingType: application/pdf
+    properties:
+      wireless_transmission:
+        technology: LoRaWAN
+        frequency: CN470/RU864/IN865/EU868/US915/AU915/KR920/AS923-1&2&3&4
+        tx_power: 16dBm(868MHz)/22dBm(915MHz)/19dBm(470MHz)
+        sensitivity: 137dBm @300bps
+        work_mode: OTAA/ABP Class A
+      sensors:
+        temperature:
+          operating_principle: Digital CMOSens technology (MEMS)
+          range: -20°C~60°C
+          accuracy: ± 0.2°C
+          resolution: 0.1°C
+        humidity:
+          operating_principle: Digital CMOSens technology (MEMS)
+          range: 0% ~ 100% RH
+          accuracy: ± 2% RH
+          resolution: 0.5% RH
+        carbon_dioxide:
+          operating_princple: Nondispersive Infrared (NDIR)
+          range: 400 ~ 500 ppm
+          accuracy: ± (30 ppm + 3% of reading) at (0°C~ 50°C, 0% to 85%RH)
+          resolution: 1 ppm
+    iot_links:
+      Datastreams: &datastreams
+        - battery_level
+        - co2
+        - humidity
+        - temperature_indoor
+
+Things:
+  Milesight AM103L:
+    name: Milesight AM103L
+    description: Milesight AM103L-LoRaWAN Indoor Air Quality Sensor (3 in 1)
+    properties:
+      dev_eui: <SENSOR_UUID>
+    iot_links:
+      Datastreams: *datastreams
+      Locations:
+        - <LOCATION_NAME>  # Replace with location name
+
+Locations:
+  <LOCATION_NAME>:  # Replace with location name
+    name: <LOCATION_NAME>  # Must match line above
+    description: <LOCATION_DESCRIPTION>  # Replace with description
+    properties: null  # Replace with dict or null as needed
+    encodingType: application/geo+json
+    location:
+      type: Point  # Replace with Point, Polygon, etc. as needed
+      coordinates: [<LONGITUDE>, <LATITUDE>]  # Replace with [longitude, latitude]
+    iot_links:
+      Things:
+        - Milesight AM103L  # Replace with thing name
+
+Datastreams:
+  temperature_indoor:
+    name: temperature_indoor
+    description: This datastream is measuring the internal room temperature.
+    observationType: http://www.opengis.net/def/observationType/OGC-OM/2.0/OM_Measurement
+    unitOfMeasurement: &temperature
+      name: degree Celsius
+      symbol: °C
+      definition: https://unitsofmeasure.org/ucum#para-30
+    observedArea: &observedArea
+      type: Polygon
+      coordinates: null
+    phenomenon_time: null
+    result_time: null
+    properties: null
+    iot_links:
+      ObservedProperties:
+        - temperature_indoor
+      Sensors:
+        - <SENSOR_UUID>  # Replace with sensor name
+      Things:
+        - Milesight AM103L  # Replace with thing name
+
+  humidity:
+    name: humidity
+    description: Datastream for observations of humidity levels in Milesight AM103L.
+    observationType: http://www.opengis.net/def/observationType/OGC-OM/2.0/OM_Measurement
+    unitOfMeasurement:
+      name: percent
+      symbol: "%"
+      definition: https://unitsofmeasure.org/ucum#para-29
+    observedArea: *observedArea
+    phenomenon_time: null
+    result_time: null
+    properties: null
+    iot_links:
+      ObservedProperties:
+        - internal_humidity
+      Sensors:
+        - <SENSOR_UUID>  # Replace with sensor name
+      Things:
+        - Milesight AM103L  # Replace with thing name
+
+  co2:
+    name: co2
+    description: Datastream for observations of CO2 levels in Milesight AM103L.
+    observationType: http://www.opengis.net/def/observationType/OGC-OM/2.0/OM_Measurement
+    unitOfMeasurement:
+      name: parts per million
+      symbol: ppm
+      definition: https://unitsofmeasure.org/ucum#para-29
+    observedArea: *observedArea
+    phenomenon_time: null
+    result_time: null
+    properties: null
+    iot_links:
+      ObservedProperties:
+        - co2_levels
+      Sensors:
+        - <SENSOR_UUID>  # Replace with sensor name
+      Things:
+        - Milesight AM103L  # Replace with thing name
+
+  battery_level:
+    name: battery_level
+    description: Battery level of the sensor.
+    observationType: http://www.opengis.net/def/observationType/OGC-OM/2.0/OM_Measurement
+    unitOfMeasurement: &percentage
+      name: percentage
+      symbol: percent
+      definition: ...
+    observedArea: *observedArea
+    phenomenon_time: null
+    result_time: null
+    properties: null
+    iot_links:
+      ObservedProperties:
+        - battery_level
+      Sensors:
+        - <SENSOR_UUID>  # Replace with sensor name
+      Things:
+        - Milesight AM103L  # Replace with thing name
+
+ObservedProperties:
+  temperature_indoor:
+    name: temperature_indoor
+    definition: https://qudt.org/vocab/quantitykind/Temperature
+    description: The temperature where the indoor module is placed.
+    properties: null
+
+  internal_humidity:
+    name: internal_humidity
+    definition: https://qudt.org/vocab/quantitykind/RelativeHumidity
+    description: The internal humidity levels wherever the indoor sensor is placed.
+    properties: null
+
+  co2_levels:
+    name: co2_levels
+    definition: http://codes.wmo.int/wmdr/ObservedVariableAtmosphere/194
+    description: The CO2 levels wherever the indoor module is placed.
+    properties: null
+
+  battery_level:
+    name: battery_level
+    definition: https://qudt.org/vocab/quantitykind/DimensionlessRatio
+    description: Remaining charge of the sensor battery expressed as a percentage of full capacity.
+    properties: null

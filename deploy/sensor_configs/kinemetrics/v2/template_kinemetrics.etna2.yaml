@@ -1,0 +1,170 @@
+# TEMPLATE: Kinemetrics ETNA 2
+# STA API version: 2.0
+# This template contains all standard datastreams and observedProperties for Kinemetrics ETNA 2 accelerographs.
+# Use this template to generate sensor configuration files - you only need to provide:
+# - Sensor ID/name (typically network.station code, e.g., RO.TEBL0)
+# - Thing name and description
+# - Location name, description, and coordinates
+#
+# Instrument channels: HNE (east), HNN (north), HNZ (vertical up).
+# Generate config using: rime generate-config kinemetrics.etna2
+
+Sensors:
+  kinemetrics.etna2:
+    name: <SENSOR_UUID>
+    description: Kinemetrics ETNA 2 Strong Motion Accelerograph
+    metadata: https://www.kinemetrics.com/product/etna-2-accelerograph/
+    encodingType: application/pdf
+    properties:
+      sensor:
+        type: Triaxial EpiSensor force balance accelerometers, orthogonally oriented, internal
+        full_scale_range: User selectable at ±1g, ±2g or ±4g
+        bandwidth: DC to 200 Hz
+        dynamic_range: 155 dB+
+        offset: Factory set, software re-zeroing
+      digitizer:
+        channels: 3 24-bit sensor channels
+        dynamic_range: ~130 dB at 100 sps
+        primary_sample_rates: 1, 10, 20, 50, 100, 200, 250, 500 sps
+        acquisition_modes: Continuous (ring buffer) and triggered
+      timing:
+        type: Oscillator digitally locked to GPS/GNSS or PTP master
+        accuracy: <1 microsecond of UTC with GPS/GNSS locked
+      storage:
+        data: Internal 32 GB SDHC card
+        system: Internal 4 GB SDHC card
+        file_formats: MiniSEED, EVT, ASCII
+      interfaces:
+        ethernet: 1 x 10/100BaseT (M12 connector)
+        usb_device: 1 x USB 2.0 device port for data access
+        usb_host: 1 x USB 2.0 host port for peripherals
+      communications:
+        protocols: ORB, SeedLink, Earthworm
+        low_latency: 1s and 0.1s data packets for EEWS applications
+      power:
+        consumption: <3 W operational
+        voltage_range: 9-28 VDC
+      physical:
+        dimensions: 6" x 6" x 3" (15 cm x 15 cm x 7.5 cm)
+        weight: 3.3 lbs (1.5 kg)
+        enclosure_rating: IP67
+      environmental:
+        temperature_range: -20°C to 70°C operational
+        humidity: 0-100% RH (non-condensing)
+    iot_links:
+      Datastreams: &id001
+      - HNE
+      - HNN
+      - HNZ
+Things:
+  Kinemetrics Etna2:
+    name: Kinemetrics Etna2
+    description: Kinemetrics ETNA 2 Strong Motion Accelerograph
+    properties:
+      network_station: <SENSOR_UUID>
+    iot_links:
+      Datastreams: *id001
+      Locations:
+      - <LOCATION_NAME>
+Locations:
+  <LOCATION_NAME>:
+    name: <LOCATION_NAME>
+    description: <LOCATION_DESCRIPTION>
+    properties: null
+    encodingType: application/geo+json
+    location:
+      type: Point
+      coordinates:
+      - <LONGITUDE>
+      - <LATITUDE>
+    iot_links:
+      Things:
+      - Kinemetrics Etna2
+Datastreams:
+  HNE:
+    name: HNE
+    description: High-gain ground acceleration on the east-west axis (SEED channel HNE, azimuth 90°, dip
+      0°).
+    resultType:
+      type: Quantity
+      uom:
+        symbol: m/s²
+        code: m/s²
+        label: meter per second squared
+        definition: https://qudt.org/vocab/unit/M-PER-SEC2
+    observedArea: &id002
+      type: Polygon
+      coordinates: null
+    phenomenon_time: null
+    result_time: null
+    properties: null
+    iot_links:
+      ObservedProperties:
+      - ground_acceleration_east_west
+      Sensors:
+      - <SENSOR_UUID>
+      Things:
+      - Kinemetrics Etna2
+  HNN:
+    name: HNN
+    description: High-gain ground acceleration on the north-south axis (SEED channel HNN, azimuth 0°,
+      dip 0°).
+    resultType:
+      type: Quantity
+      uom:
+        symbol: m/s²
+        code: m/s²
+        label: meter per second squared
+        definition: https://qudt.org/vocab/unit/M-PER-SEC2
+    observedArea: *id002
+    phenomenon_time: null
+    result_time: null
+    properties: null
+    iot_links:
+      ObservedProperties:
+      - ground_acceleration_north_south
+      Sensors:
+      - <SENSOR_UUID>
+      Things:
+      - Kinemetrics Etna2
+  HNZ:
+    name: HNZ
+    description: High-gain ground acceleration on the vertical axis (SEED channel HNZ, azimuth 0°, dip
+      -90°).
+    resultType:
+      type: Quantity
+      uom:
+        symbol: m/s²
+        code: m/s²
+        label: meter per second squared
+        definition: https://qudt.org/vocab/unit/M-PER-SEC2
+    observedArea: *id002
+    phenomenon_time: null
+    result_time: null
+    properties: null
+    iot_links:
+      ObservedProperties:
+      - ground_acceleration_vertical
+      Sensors:
+      - <SENSOR_UUID>
+      Things:
+      - Kinemetrics Etna2
+ObservedProperties:
+  ground_acceleration_east_west:
+    name: ground_acceleration_east_west
+    definition: https://qudt.org/vocab/quantitykind/Acceleration
+    description: Ground acceleration measured on the east-west axis by the internal EpiSensor triaxial
+      deck (HNE).
+    properties: null
+  ground_acceleration_north_south:
+    name: ground_acceleration_north_south
+    definition: https://qudt.org/vocab/quantitykind/Acceleration
+    description: Ground acceleration measured on the north-south axis by the internal EpiSensor triaxial
+      deck (HNN).
+    properties: null
+  ground_acceleration_vertical:
+    name: ground_acceleration_vertical
+    definition: https://qudt.org/vocab/quantitykind/Acceleration
+    description: Ground acceleration measured on the vertical (positive up) axis by the internal EpiSensor
+      triaxial deck (HNZ).
+    properties: null
