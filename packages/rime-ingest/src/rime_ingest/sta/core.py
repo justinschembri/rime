@@ -489,15 +489,30 @@ class ObservationV2(Observation):
     )
     properties: Optional[Dict[str, Any]] = None
 
+    @classmethod
+    def from_frost_entity(cls, entity: dict[str, Any]) -> Self:
+        """Deserialize a FROST v2 entity, converting interval-object times."""
+        entity = dict(entity)
+        pt = entity.get("phenomenonTime")
+        if isinstance(pt, dict):
+            start, end = pt.get("start"), pt.get("end")
+            if start and end:
+                entity["phenomenonTime"] = (
+                    datetime.fromisoformat(str(start)),
+                    datetime.fromisoformat(str(end)),
+                )
+            elif start:
+                entity["phenomenonTime"] = str(start)
+        return _build_from_frost_entity(cls, entity)
+
     def _format_phenomenon_time(self, value: PhenomenonTime) -> Any:
-        # STA 2.0: interval times are complex objects, not ``start/end`` strings.
         if isinstance(value, tuple):
             start, end = value
             return {
                 "start": format_phenomenon_time(start),
                 "end": format_phenomenon_time(end),
             }
-        return format_phenomenon_time(value)
+        return {"start": format_phenomenon_time(value)}
 
     def _format_valid_time(self, value: "TimePeriod") -> Any:
         return {

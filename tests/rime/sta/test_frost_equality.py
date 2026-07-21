@@ -14,6 +14,7 @@ from rime_ingest.sta.core import (
     DatastreamV1,
     LocationV1,
     ObservationV1,
+    ObservationV2,
     ObservedPropertyV1,
     SensorV1,
     ThingV1,
@@ -182,6 +183,73 @@ class TestPartialEq:
         a = ObservationV1(phenomenonTime="2025-03-23T12:14:39Z", result=22.9)
         b = ObservationV1(phenomenonTime="2025-03-23T12:14:39Z", result=99.0)
         assert a.partial_eq(b) is False
+
+    def test_v2_observation_from_frost_entity_instant_dict(self):
+        """FROST v2 returns instants as ``{"start": "<iso>"}``."""
+        payload = {
+            "@id": "http://example/Observations(1)",
+            "id": 1,
+            "phenomenonTime": {"start": "2025-06-01T12:00:00Z"},
+            "resultTime": None,
+            "result": 42.0,
+            "properties": None,
+            "Datastream@navigationLink": "http://example/Observations(1)/Datastream",
+        }
+        obs = ObservationV2.from_frost_entity(payload)
+        assert isinstance(obs, ObservationV2)
+        assert obs.result == 42.0
+        assert obs.phenomenonTime == "2025-06-01T12:00:00Z"
+
+    def test_v2_observation_from_frost_entity_interval_dict(self):
+        """FROST v2 returns intervals as ``{"start": ..., "end": ...}``."""
+        payload = {
+            "@id": "http://example/Observations(2)",
+            "id": 2,
+            "phenomenonTime": {
+                "start": "2025-06-01T12:00:00Z",
+                "end": "2025-06-01T12:05:00Z",
+            },
+            "resultTime": None,
+            "result": [1, 2, 3],
+            "properties": None,
+        }
+        obs = ObservationV2.from_frost_entity(payload)
+        assert isinstance(obs, ObservationV2)
+        assert isinstance(obs.phenomenonTime, tuple)
+        assert len(obs.phenomenonTime) == 2
+
+    def test_v2_observation_partial_eq_with_server_instant(self):
+        """Local instant observation matches v2 server ``{"start": ...}`` form."""
+        local = ObservationV2(
+            result=22.9,
+            phenomenonTime="2025-06-01T12:00:00Z",
+        )
+        from_server = ObservationV2.from_frost_entity(
+            {
+                "id": 1,
+                "@id": "http://example/Observations(1)",
+                "phenomenonTime": {"start": "2025-06-01T12:00:00Z"},
+                "resultTime": None,
+                "result": 22.9,
+                "properties": None,
+            }
+        )
+        assert local.partial_eq(from_server) is True
+
+    def test_v2_observation_partial_eq_different_result(self):
+        """Different results at the same time must not match."""
+        local = ObservationV2(result=22.9, phenomenonTime="2025-06-01T12:00:00Z")
+        from_server = ObservationV2.from_frost_entity(
+            {
+                "id": 1,
+                "@id": "http://example/Observations(1)",
+                "phenomenonTime": {"start": "2025-06-01T12:00:00Z"},
+                "resultTime": None,
+                "result": 99.0,
+                "properties": None,
+            }
+        )
+        assert local.partial_eq(from_server) is False
 
     def test_observation_partial_eq_normalises_datetime_phenomenon_time(self):
         from datetime import datetime, timezone
