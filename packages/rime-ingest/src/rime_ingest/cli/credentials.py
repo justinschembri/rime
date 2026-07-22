@@ -2,6 +2,7 @@
 
 # standard
 import json
+import os
 import subprocess
 
 # external
@@ -13,27 +14,44 @@ from getpass import getpass
 
 # internal
 from ..paths import CREDENTIALS_DIR
+from ..config import FROST_ENDPOINT_DEFAULT
 from .system_checks import PRODUCTION_POSTGIS_VOLUME_CANDIDATES, _check_postgres_persistent_volume
 
 console = Console()
 
 
 def setup_frost_credentials():
-    """Setup FROST credentials."""
+    """Setup FROST credentials for one endpoint."""
     console.print(Panel.fit(
         "[bold]FROST Credentials[/bold]",
         border_style="blue"
     ))
-    
-    frost_username = Prompt.ask("FROST username", default="sta-admin")
-    frost_password = getpass("FROST password: ")
-    
-    frost_creds = {
-        "frost_username": frost_username,
-        "frost_password": frost_password
-    }
-    
+
+    endpoint = Prompt.ask(
+        "FROST endpoint (must match FROST_ENDPOINT env var)",
+        default=os.getenv("FROST_ENDPOINT", FROST_ENDPOINT_DEFAULT).split(",")[0].strip(),
+    )
+    write_username = Prompt.ask("FROST write username", default="write")
+    write_password = getpass("FROST write password: ")
+    read_username = Prompt.ask("FROST read username", default=write_username)
+    read_password = getpass("FROST read password: ") or write_password
+
     frost_file = CREDENTIALS_DIR / "frost_credentials.json"
+    frost_creds: dict = {}
+    if frost_file.exists():
+        try:
+            with open(frost_file, "r") as f:
+                frost_creds = json.load(f)
+        except Exception:
+            pass
+
+    frost_creds[endpoint] = {
+        "frost_write_username": write_username,
+        "frost_write_password": write_password,
+        "frost_read_username": read_username,
+        "frost_read_password": read_password,
+    }
+
     if not frost_file.exists():
         frost_file.touch()
 

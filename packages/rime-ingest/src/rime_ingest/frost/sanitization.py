@@ -1,5 +1,7 @@
 """Sanitization helpers for FROST request URLs."""
 #standard
+import os
+import re
 from urllib.parse import urlparse
 #internal
 from typing import Optional, Mapping, Any
@@ -11,6 +13,29 @@ from rime_ingest.sta.schema import (
     SensorThingsEntity,
     SensorThingsEntityGroups,
 )
+
+def sanitize_frost_endpoint(
+    endpoint: str,
+    version: str | int | float | FrostVersions | None = None,
+) -> tuple[str, str, FrostVersions]:
+    """Parse a FROST endpoint into credential key, root URL, and API version.
+
+    ``endpoint`` may be comma-separated (as in ``FROST_ENDPOINT``); the first
+    entry is used. A trailing ``/vX.Y`` segment, if present, is split off as
+    the API version; otherwise ``version`` or ``FROST_VERSION`` is used.
+
+    Returns:
+        ``(endpoint_key, root_url, version)`` where ``endpoint_key`` is the
+        trimmed endpoint string used for credential lookup.
+    """
+    endpoint = endpoint.split(",")[0].strip().rstrip("/")
+    fallback_version = (
+        version if version is not None else os.getenv("FROST_VERSION", FrostVersions.v1_1)
+    )
+    m = re.match(r"^(.*?)/(v[\d.]+)$", endpoint)
+    if m:
+        return endpoint, m.group(1), FrostVersions.safe_parse(m.group(2))
+    return endpoint, endpoint, FrostVersions.safe_parse(fallback_version)
 
 def sanitize_get_request(
     root_url: str,
