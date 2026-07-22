@@ -24,9 +24,17 @@ class AppCredentialStore(RootModel):
 
     root: Dict[str, AppCredential] = Field(..., min_length=1)
 
-class FrostCredentials(BaseModel):
-    frost_username: str = Field(..., min_length=1)
-    frost_password: str = Field(..., min_length=1)
+class FrostEndpointCredentials(BaseModel):
+    frost_write_username: str = Field(..., min_length=1)
+    frost_write_password: str = Field(..., min_length=1)
+    frost_read_username: str = Field(..., min_length=1)
+    frost_read_password: str = Field(..., min_length=1)
+
+
+class FrostCredentials(RootModel):
+    """Maps each FROST endpoint URL to its read/write credential pairs."""
+
+    root: Dict[str, FrostEndpointCredentials] = Field(..., min_length=1)
 
 class PostgresCredentials(BaseModel):
     postgres_user: str = Field(..., min_length=1)

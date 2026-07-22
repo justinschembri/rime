@@ -42,6 +42,7 @@ own auth in whatever method they need.
 #stdlib
 import inspect
 import logging
+import os
 import queue
 import threading
 import traceback
@@ -50,6 +51,7 @@ from typing import Any, Literal
 #internal
 
 from .buffers import BufferedObservationFlush, TransportBufferStore
+from ..config import FROST_ENDPOINT_DEFAULT
 from ..frost.post import frost_observation_upload
 from ..monitor import netmon
 from ..transformers.ingest_registry import resolve_identified_payload
@@ -72,6 +74,10 @@ main_logger = logging.getLogger("main")
 event_logger = logging.getLogger("events")
 debug_logger = logging.getLogger("debug")
 
+_DEFAULT_FROST_ENDPOINTS: tuple[str, ...] = tuple(
+    e.strip() for e in os.getenv("FROST_ENDPOINT", FROST_ENDPOINT_DEFAULT).split(",")
+)
+
 class SensorTransport(ABC):
     """Abstract base for any managed link to an upstream sensor data source."""
 
@@ -85,6 +91,7 @@ class SensorTransport(ABC):
         self.app_name = app_name
         self.max_retries = max_retries
         self._buffer_store = buffer_store or TransportBufferStore()
+        self.frost_endpoints: list[str] = []
         #TODO: sensor_registry as an attr is a codesmell
         self.sensor_registry: dict[SensorUUID, SupportedSensors] = {}
         self._thread: threading.Thread | None = None
@@ -136,13 +143,19 @@ class SensorTransport(ABC):
         """
         ...
 
-    def start(self, sensor_registry: dict[SensorUUID, SupportedSensors]) -> None:
+    def start(
+        self,
+        sensor_registry: dict[SensorUUID, SupportedSensors],
+        *,
+        frost_endpoints: list[str] | tuple[str, ...] = _DEFAULT_FROST_ENDPOINTS,
+    ) -> None:
         """Start the transport's worker thread.
 
         Skips startup if `_preflight` fails. Idempotent: re-calling while the
         thread is alive is a no-op.
         """
         self.sensor_registry = sensor_registry
+        self.frost_endpoints = list(frost_endpoints)
         if not self._preflight():
             event_logger.warning(
                 f"Preflight check failed for {self.app_name}; not starting connection."
@@ -171,7 +184,7 @@ class SensorTransport(ABC):
                 "sensor registry available."
             )
         self._stop_event.clear()
-        self.start(self.sensor_registry)
+        self.start(self.sensor_registry, frost_endpoints=self.frost_endpoints)
 
     # processing ###############################################################
     def _decode_wire(self, raw: Any) -> Any:
@@ -277,7 +290,12 @@ class SensorTransport(ABC):
         flush: BufferedObservationFlush,
         sensor_model: SupportedSensors,
     ) -> None:
-        frost_observation_upload(flush.sensor_uuid, flush.payload)
+        for endpoint in self.frost_endpoints:
+            frost_observation_upload(
+                flush.sensor_uuid,
+                flush.payload,
+                frost_endpoint=endpoint,
+            )
         self._buffer_store.commit_flush(flush.key)
         event_logger.info(
             f"Received and processed a wire message from {self.app_name} "
@@ -290,7 +308,12 @@ class SensorTransport(ABC):
         for flush in self._buffer_store.drain_pending_for_sensors(self.sensor_registry):
             sensor_uuid, sensor_model, _ = flush.key
             try:
-                frost_observation_upload(flush.sensor_uuid, flush.payload)
+                for endpoint in self.frost_endpoints:
+                    frost_observation_upload(
+                        flush.sensor_uuid,
+                        flush.payload,
+                        frost_endpoint=endpoint,
+                    )
                 self._buffer_store.commit_flush(flush.key)
                 event_logger.info(
                     f"Flushed buffered observations from {self.app_name} "

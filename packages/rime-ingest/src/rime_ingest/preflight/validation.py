@@ -39,7 +39,7 @@ def validate_frost_credentials(file_path: Path) -> Tuple[bool, List[str]]:
         return (False, [f"Error reading {file_path.name}: {str(e)}"])
     
     try:
-        FrostCredentials(**data)
+        FrostCredentials.model_validate(data)
         return (True, [])
     except ValidationError as e:
         errors = [f"Validation errors in {file_path.name}:"]

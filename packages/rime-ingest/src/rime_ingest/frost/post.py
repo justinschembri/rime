@@ -3,14 +3,20 @@
 # standard
 import json
 import logging
+import os
 from datetime import datetime, date
 from typing import Any, Mapping, Optional
 # external
 import requests
-from rime_ingest.config import FROST_ROOT_DEFAULT, FROST_VERSION, get_frost_auth_header, get_frost_root_url
+from rime_ingest.config import (
+    FROST_ENDPOINT_DEFAULT,
+    FROST_ROOT_DEFAULT,
+    FROST_VERSION,
+    get_frost_auth_header,
+)
 from rime_ingest.frost.bridges import ENTITY_TO_FROST_ENDPOINT
 from rime_ingest.frost.helpers import check_object_existence
-from rime_ingest.frost.sanitization import rewrite_to_internal, sanitize_root_url
+from rime_ingest.frost.sanitization import rewrite_to_internal, sanitize_frost_endpoint, sanitize_root_url
 from rime_ingest.frost.types import FrostEntityRef, FrostUrl
 from rime_ingest.frost.versions import FrostVersions
 from rime_ingest.sta.core import Observation, SensorThingsObject
@@ -148,8 +154,7 @@ def make_frost_entity(
 def frost_observation_upload(
         sensor_name: SensorUUID,
         observation_set: tuple[Observation, CanonicalDatastreams | str],
-        root_url: str | None = None,
-        version: str | None = None,
+        frost_endpoint: str = os.getenv("FROST_ENDPOINT", FROST_ENDPOINT_DEFAULT),
         read_auth_headers: Optional[str] = None,
         write_auth_headers: Optional[str] = None,
 ) -> FrostEntityRef:
@@ -157,18 +162,19 @@ def frost_observation_upload(
 
     Resolves the Datastream entity URL from the sensor and datastream names,
     then delegates to ``make_frost_entity``, which appends ``/Observations`` and
-    silently skips duplicates. Connection config defaults to env-var values so callers
-    that set ``FROST_ENDPOINT`` do not need to pass them explicitly.
+    silently skips duplicates. Connection config defaults to ``FROST_ENDPOINT``
+    env var so callers do not need to pass an endpoint explicitly.
 
     Args:
         sensor_name: Unique name of the sensor that owns the datastream.
         observation_set: Tuple of ``(Observation, datastream_name_str)``
             produced by a transformer (``datastream`` is the ``.value`` of an
             ``ObservedProperties`` enum member, i.e. a plain string).
-        root_url: FROST server root URL. Defaults to ``FROST_ENDPOINT`` env var.
-        version: API version. Defaults to ``FROST_VERSION`` env var.
-        auth_headers: Base64-encoded credentials. Defaults to
-            ``FROST_AUTH_HEADER`` env var.
+        frost_endpoint: FROST endpoint URL (from ``FROST_ENDPOINT``).
+        read_auth_headers: Base64-encoded read credentials. Defaults to
+            credentials for ``frost_endpoint`` in ``frost_credentials.json``.
+        write_auth_headers: Base64-encoded write credentials. Defaults to
+            credentials for ``frost_endpoint`` in ``frost_credentials.json``.
 
     Returns:
         Reference to the existing or newly created Observation entity.
@@ -179,11 +185,10 @@ def frost_observation_upload(
     """
     # Deferred import: get.py imports helpers.py, which imports this module.
     from rime_ingest.frost.get import find_datastream_observations_url
-    _root, _version = get_frost_root_url()
-    root_url = root_url or _root
-    version = version or _version
-    write_auth = write_auth_headers or get_frost_auth_header("write")
-    read_auth = read_auth_headers or get_frost_auth_header("read")
+    endpoint, root_url, version = sanitize_frost_endpoint(frost_endpoint)
+
+    write_auth = write_auth_headers or get_frost_auth_header("write", endpoint)
+    read_auth = read_auth_headers or get_frost_auth_header("read", endpoint)
 
     observation, datastream = observation_set
     datastream_name = (

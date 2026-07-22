@@ -47,9 +47,12 @@ def _sync_frost_version_exports() -> None:
 _sync_frost_version_exports()
 
 
-def get_frost_credentials() -> dict[str, str]:
+def get_frost_credentials() -> dict[str, dict[str, str]]:
     """Read FROST credentials from Docker secret or local credentials file.
-    
+
+    The file maps each ``FROST_ENDPOINT`` value to its read/write credential
+    pairs, e.g. ``{"http://host/FROST-Server/v1.1": {"frost_write_username": ...}}``.
+
     Returns an empty dict if the credentials file does not exist or cannot be
     parsed — callers that need auth will receive None from get_frost_auth_header
     and should omit the Authorization header (anonymous / read-only mode).
@@ -65,15 +68,17 @@ def get_frost_credentials() -> dict[str, str]:
         return {}
 
 
-@lru_cache(maxsize=2)
-def get_frost_auth_header(kind: Literal["read", "write"]) -> str | None:
+@lru_cache(maxsize=None)
+def get_frost_auth_header(kind: Literal["read", "write"], endpoint: str) -> str | None:
     """Return base64-encoded credentials for FROST authorization headers.
-    
-    Returns None when credentials are not configured (anonymous mode).
+
+    ``endpoint`` must match a key in ``frost_credentials.json`` (typically a
+    value from ``FROST_ENDPOINT``). Returns None when credentials are not
+    configured for that endpoint (anonymous mode).
     """
-    credentials = get_frost_credentials()
-    frost_user = credentials.get(f"frost_{kind}_username")
-    frost_password = credentials.get(f"frost_{kind}_password")
+    endpoint_creds = get_frost_credentials().get(endpoint, {})
+    frost_user = endpoint_creds.get(f"frost_{kind}_username")
+    frost_password = endpoint_creds.get(f"frost_{kind}_password")
     if not frost_user or not frost_password:
         return None
     return base64.b64encode(f"{frost_user}:{frost_password}".encode()).decode("utf-8")
@@ -83,7 +88,7 @@ FROST_ROOT_DEFAULT = "http://localhost:8080/FROST-Server"
 FROST_ENDPOINT_DEFAULT = "http://localhost:8080/FROST-Server/v1.1"
 
 
-def get_frost_root_url() -> tuple[str, FrostVersions]:
+def sanitize_frost_root_url(frost_url: str) -> tuple[str, FrostVersions]:
     """Return ``(root_url, version)`` from environment variables or defaults.
 
     Resolution order:
@@ -95,7 +100,6 @@ def get_frost_root_url() -> tuple[str, FrostVersions]:
 
     ``version`` is a ``FrostVersions`` member (also a ``str``, e.g. ``"1.1"``).
     """
-    import re
     version_env = os.getenv("FROST_VERSION")
     version = (
         FrostVersions.safe_parse(version_env)
@@ -109,15 +113,12 @@ def get_frost_root_url() -> tuple[str, FrostVersions]:
         return root, frost_versions.FROST_VERSION
     endpoint = os.getenv("FROST_ENDPOINT")
     if endpoint:
-        m = re.match(r"^(.*?)/(v[\d.]+)$", endpoint)
-        if m:
-            version = FrostVersions.safe_parse(m.group(2))
-            frost_versions.configure_frost_version(version)
-            _sync_frost_version_exports()
-            return m.group(1), frost_versions.FROST_VERSION
-        frost_versions.configure_frost_version(version)
+        from rime_ingest.frost.sanitization import sanitize_frost_endpoint
+
+        _, root, parsed_version = sanitize_frost_endpoint(endpoint, version=version)
+        frost_versions.configure_frost_version(parsed_version)
         _sync_frost_version_exports()
-        return endpoint, frost_versions.FROST_VERSION
+        return root, frost_versions.FROST_VERSION
     frost_versions.configure_frost_version(version)
     _sync_frost_version_exports()
     return FROST_ROOT_DEFAULT, frost_versions.FROST_VERSION
