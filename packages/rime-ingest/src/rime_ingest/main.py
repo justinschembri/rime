@@ -1,4 +1,5 @@
 # standard
+from copy import deepcopy
 from typing import List, Optional
 import logging
 from pathlib import Path
@@ -125,7 +126,7 @@ def push_available(
         sensor_registry[sensor_config.name] = SupportedSensors(sensor_config.model)
         netmon.expected_sensors.add(sensor_config.name)
         for endpoint in endpoints:
-            _setup_sensor_arrangements(sensor_config, endpoint)
+            _setup_sensor_arrangements(deepcopy(sensor_config), endpoint)
     # generate a list of connections
     sensor_connections = parse_application_config(APPLICATION_CONFIG_FILE)
 
