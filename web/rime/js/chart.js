@@ -220,19 +220,71 @@ async function loadChartData(datastreamId) {
     }
 }
 
-const CHART_OBSERVATIONS_PAGE_SIZE = 10;
+// Array observations can unpack into thousands of points each, so page them
+// one entity at a time. Scalar streams use a single $top=pointLimit request.
 
-async function fetchChartPoints(datastreamId, pointLimit) {
-    let nextUrl =
+function finalizeChartPoints(collected, pointLimit) {
+    if (collected.length === 0) return [];
+    collected.sort((a, b) => a.x.getTime() - b.x.getTime());
+    if (collected.length > pointLimit) {
+        return collected.slice(-pointLimit);
+    }
+    return collected;
+}
+
+function observationsUrl(datastreamId, top) {
+    return (
         `${state.frostRoot}/Datastreams(${datastreamId})/Observations` +
-        `?$top=${CHART_OBSERVATIONS_PAGE_SIZE}&$orderby=phenomenonTime%20desc`;
+        `?$top=${top}&$orderby=phenomenonTime%20desc`
+    );
+}
+
+async function fetchObservationsPage(url) {
+    const response = await frostFetch(url);
+    if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+    return response.json();
+}
+
+// Probe the newest observation: array result → careful paging; scalar → one shot.
+async function fetchChartPoints(datastreamId, pointLimit) {
+    const probeUrl = observationsUrl(datastreamId, 1);
+    const probeData = await fetchObservationsPage(probeUrl);
+    const probePage = probeData.value || [];
+    if (probePage.length === 0) return [];
+
+    const newest = probePage[0];
+    if (isArrayResult(newest.result)) {
+        return fetchArrayChartPoints(pointLimit, newest, probeData, probeUrl);
+    }
+    return fetchScalarChartPoints(datastreamId, pointLimit);
+}
+
+async function fetchScalarChartPoints(datastreamId, pointLimit) {
+    const obsData = await fetchObservationsPage(observationsUrl(datastreamId, pointLimit));
+    const page = obsData.value || [];
+    if (page.length === 0) return [];
+
+    const collected = [];
+    for (const obs of page) {
+        collected.push(...expandObservationToPoints(obs));
+    }
+    return finalizeChartPoints(collected, pointLimit);
+}
+
+async function fetchArrayChartPoints(pointLimit, firstObs, firstPageData, firstPageUrl) {
     const collected = [];
 
-    while (nextUrl) {
-        const obsResponse = await frostFetch(nextUrl);
-        if (!obsResponse.ok) throw new Error(`HTTP error! Status: ${obsResponse.status}`);
+    collected.push(...expandObservationToPoints(firstObs, pointLimit));
+    if (collected.length >= pointLimit) {
+        return finalizeChartPoints(collected, pointLimit);
+    }
 
-        const obsData = await obsResponse.json();
+    let nextUrl = frostNextLink(firstPageData, firstPageUrl);
+    if (nextUrl) nextUrl = nextUrl.replace(/^http:/, window.location.protocol);
+
+    // Probe used $top=1; follow next-links one observation at a time.
+    while (nextUrl && collected.length < pointLimit) {
+        const obsData = await fetchObservationsPage(nextUrl);
         const page = obsData.value || [];
         if (page.length === 0) break;
 
@@ -242,19 +294,11 @@ async function fetchChartPoints(datastreamId, pointLimit) {
             if (collected.length >= pointLimit) break;
         }
 
-        if (collected.length >= pointLimit) break;
-
         nextUrl = frostNextLink(obsData, nextUrl);
         if (nextUrl) nextUrl = nextUrl.replace(/^http:/, window.location.protocol);
     }
 
-    if (collected.length === 0) return [];
-
-    collected.sort((a, b) => a.x.getTime() - b.x.getTime());
-    if (collected.length > pointLimit) {
-        return collected.slice(-pointLimit);
-    }
-    return collected;
+    return finalizeChartPoints(collected, pointLimit);
 }
 
 function medianOf(sortedValues) {
