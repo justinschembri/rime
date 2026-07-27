@@ -6,6 +6,7 @@ const state = {
     currentDatastream: null,
     currentChart: null,
     currentLimit: 1000,
+    chartPointCache: null,       // { datastreamId, points, unitSymbol, datastreamName }
     map: null,
     markerCluster: null,
     maxClusterSize: 1,

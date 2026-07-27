@@ -177,6 +177,9 @@ function destroyChartInstance() {
     }
 }
 
+// Maximum points to fetch and cache (matches highest UI limit button).
+const CHART_MAX_POINTS = 2500;
+
 async function loadChartData(datastreamId) {
     updateStatus('Loading chart data...', '');
     showChartOverlay('<div class="no-data-message"><div class="loading"></div> Loading trace…</div>');
@@ -189,25 +192,10 @@ async function loadChartData(datastreamId) {
         const unitSymbol = frostUnitSymbol(dsData);
         const datastreamName = formatDatastreamName(dsData.name || 'Unknown');
 
-        const points = await fetchChartPoints(datastreamId, state.currentLimit);
-        if (points.length === 0) {
-            destroyChartInstance();
-            document.getElementById('chartPanelContent').innerHTML = `
-                <div class="no-data-message">
-                    <h3>No observations found</h3>
-                    <p>This datastream has no observation data available.</p>
-                </div>`;
-            updateStatus('No data available', 'warning');
-            return;
-        }
+        const allPoints = await fetchChartPoints(datastreamId, CHART_MAX_POINTS);
+        state.chartPointCache = { datastreamId, points: allPoints, unitSymbol, datastreamName };
 
-        const cadenceMs = estimateCadenceMs(points);
-        const segments = splitTraceSegments(points, cadenceMs);
-        const stats = calculateChartStats(points, segments.length, unitSymbol, cadenceMs);
-
-        renderOrUpdateChart(points, cadenceMs, unitSymbol, datastreamName, stats);
-        hideChartOverlay();
-        updateStatus(`Loaded ${stats.totalPoints} observations`, 'success');
+        renderFromCache();
     } catch (error) {
         console.error('Error loading chart data:', error);
         destroyChartInstance();
@@ -220,19 +208,97 @@ async function loadChartData(datastreamId) {
     }
 }
 
-const CHART_OBSERVATIONS_PAGE_SIZE = 10;
+function renderFromCache() {
+    const cache = state.chartPointCache;
+    if (!cache || cache.points.length === 0) {
+        destroyChartInstance();
+        document.getElementById('chartPanelContent').innerHTML = `
+            <div class="no-data-message">
+                <h3>No observations found</h3>
+                <p>This datastream has no observation data available.</p>
+            </div>`;
+        updateStatus('No data available', 'warning');
+        return;
+    }
 
-async function fetchChartPoints(datastreamId, pointLimit) {
-    let nextUrl =
+    const points = cache.points.length > state.currentLimit
+        ? cache.points.slice(-state.currentLimit)
+        : cache.points;
+
+    const cadenceMs = estimateCadenceMs(points);
+    const segments = splitTraceSegments(points, cadenceMs);
+    const stats = calculateChartStats(points, segments.length, cache.unitSymbol, cadenceMs);
+
+    renderOrUpdateChart(points, cadenceMs, cache.unitSymbol, cache.datastreamName, stats);
+    hideChartOverlay();
+    updateStatus(`Loaded ${stats.totalPoints} observations`, 'success');
+}
+
+// Array observations can unpack into thousands of points each, so page them
+// one entity at a time. Scalar streams use a single $top=pointLimit request.
+
+function finalizeChartPoints(collected, pointLimit) {
+    if (collected.length === 0) return [];
+    collected.sort((a, b) => a.x.getTime() - b.x.getTime());
+    if (collected.length > pointLimit) {
+        return collected.slice(-pointLimit);
+    }
+    return collected;
+}
+
+function observationsUrl(datastreamId, top) {
+    return (
         `${state.frostRoot}/Datastreams(${datastreamId})/Observations` +
-        `?$top=${CHART_OBSERVATIONS_PAGE_SIZE}&$orderby=phenomenonTime%20desc`;
+        `?$top=${top}&$orderby=phenomenonTime%20desc`
+    );
+}
+
+async function fetchObservationsPage(url) {
+    const response = await frostFetch(url);
+    if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+    return response.json();
+}
+
+// Probe the newest observation: array result → careful paging; scalar → one shot.
+async function fetchChartPoints(datastreamId, pointLimit) {
+    const probeUrl = observationsUrl(datastreamId, 1);
+    const probeData = await fetchObservationsPage(probeUrl);
+    const probePage = probeData.value || [];
+    if (probePage.length === 0) return [];
+
+    const newest = probePage[0];
+    if (isArrayResult(newest.result)) {
+        return fetchArrayChartPoints(pointLimit, newest, probeData, probeUrl);
+    }
+    return fetchScalarChartPoints(datastreamId, pointLimit);
+}
+
+async function fetchScalarChartPoints(datastreamId, pointLimit) {
+    const obsData = await fetchObservationsPage(observationsUrl(datastreamId, pointLimit));
+    const page = obsData.value || [];
+    if (page.length === 0) return [];
+
+    const collected = [];
+    for (const obs of page) {
+        collected.push(...expandObservationToPoints(obs));
+    }
+    return finalizeChartPoints(collected, pointLimit);
+}
+
+async function fetchArrayChartPoints(pointLimit, firstObs, firstPageData, firstPageUrl) {
     const collected = [];
 
-    while (nextUrl) {
-        const obsResponse = await frostFetch(nextUrl);
-        if (!obsResponse.ok) throw new Error(`HTTP error! Status: ${obsResponse.status}`);
+    collected.push(...expandObservationToPoints(firstObs, pointLimit));
+    if (collected.length >= pointLimit) {
+        return finalizeChartPoints(collected, pointLimit);
+    }
 
-        const obsData = await obsResponse.json();
+    let nextUrl = frostNextLink(firstPageData, firstPageUrl);
+    if (nextUrl) nextUrl = nextUrl.replace(/^http:/, window.location.protocol);
+
+    // Probe used $top=1; follow next-links one observation at a time.
+    while (nextUrl && collected.length < pointLimit) {
+        const obsData = await fetchObservationsPage(nextUrl);
         const page = obsData.value || [];
         if (page.length === 0) break;
 
@@ -242,19 +308,11 @@ async function fetchChartPoints(datastreamId, pointLimit) {
             if (collected.length >= pointLimit) break;
         }
 
-        if (collected.length >= pointLimit) break;
-
         nextUrl = frostNextLink(obsData, nextUrl);
         if (nextUrl) nextUrl = nextUrl.replace(/^http:/, window.location.protocol);
     }
 
-    if (collected.length === 0) return [];
-
-    collected.sort((a, b) => a.x.getTime() - b.x.getTime());
-    if (collected.length > pointLimit) {
-        return collected.slice(-pointLimit);
-    }
-    return collected;
+    return finalizeChartPoints(collected, pointLimit);
 }
 
 function medianOf(sortedValues) {
@@ -591,7 +649,9 @@ function setChartLimit(limit) {
         btn.classList.toggle('active', parseInt(btn.dataset.limit, 10) === limit);
     });
 
-    if (state.currentDatastream) {
+    if (state.chartPointCache && state.chartPointCache.datastreamId === state.currentDatastream) {
+        renderFromCache();
+    } else if (state.currentDatastream) {
         loadChartData(state.currentDatastream);
     }
 }
