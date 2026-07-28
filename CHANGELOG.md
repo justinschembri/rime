@@ -10,6 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Add a **generic SeedLink provider**
+- **rime-client** becomes a standalone nginx service serving `web/rime/` on port 8081,
+  replacing the Tomcat webapp mount in the frost container. Proxies `/FROST-Server/`
+  to the internal frost container.
 
 ### Changed
 
