@@ -2,7 +2,7 @@ services:
   frost:
     image: fraunhoferiosb/frost-server:2.6
     environment:
-      - serviceRootUrl=${FROST_URL:-http://localhost:${FROST_BIND_PORT:-8080}/FROST-Server}
+      - serviceRootUrl=${FROST_URL:-http://localhost:${CLIENT_BIND_PORT:-8081}/FROST-Server}
       - plugins_multiDatastream.enable=false
       - http_cors_enable=true
       - http_cors_allowed_origins=*
@@ -13,8 +13,6 @@ services:
       - ${FROST_BIND_PORT:-8080}:8080
     volumes:
       - ./init-frost.sh:/init-frost.sh
-      - ../web/rime:/usr/local/tomcat/webapps/rime #TODO: migrate away from deploying the frontend via Tomcat.
-      - rime-ingest_logs:/usr/local/tomcat/webapps/rime/logs:ro #TODO: migrate away from deploying the frontend via Tomcat.
     entrypoint: ["/init-frost.sh"]
     secrets:
       - postgres_credentials
@@ -50,6 +48,17 @@ services:
     secrets:
       - application_credentials
       - frost_credentials 
+
+  rime-client:
+    image: rime-client
+    build:
+      context: ..
+      dockerfile: packages/rime-client/Dockerfile
+    ports:
+      - ${CLIENT_BIND_PORT:-8081}:80
+    depends_on:
+      - frost
+    restart: unless-stopped
 
   database:
     image: postgis/postgis:16-3.4-alpine
