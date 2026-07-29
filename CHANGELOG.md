@@ -11,8 +11,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Add a **generic SeedLink provider**
 - **rime-client** becomes a standalone nginx service serving `web/rime/` on port 8081,
-  replacing the Tomcat webapp mount in the frost container. Proxies `/FROST-Server/`
-  to the internal frost container.
+  replacing the Tomcat webapp mount in the frost container. It is a generic
+  SensorThings API client with no build-time dependency on FROST or on any other
+  STA implementation, and runs on its own with no server present.
+  - Serves static files only; no reverse proxy and no upstream. The browser
+    talks to the STA server directly, so that server must send CORS headers.
+  - A deployment default endpoint is set with the optional `STA_ENDPOINT` and
+    `STA_VERSION` environment variables, rendered into `js/runtime-config.js` at
+    container start by nginx's built-in envsubst templating. With neither set the
+    page loads blank and asks the user for a server URL.
+  - The STA endpoint can also be set per-session from the endpoint switcher, or
+    deep-linked with `?sta=<url>&version=<v1.0|v1.1|v2.0>`.
+  - If the configured server does not answer on load (stopped, or a stored
+    endpoint from another deployment), the connect prompt opens explaining why,
+    instead of a dead error screen. Servers the user picks themselves still
+    report failures directly.
+  - Static files are served `Cache-Control: no-cache` so a redeploy is picked up
+    on the next load; filenames are unversioned, so browsers would otherwise keep
+    running old JS.
 
 ### Changed
 
@@ -29,6 +45,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **CLI indentation error** - Fixed `IndentationError` in `src/rime/cli/commands.py`
   at line 196 that prevented `rime setup` from running.
+- **Client forgot its STA server on reload** - the endpoint chosen in the switcher
+  is now persisted to `localStorage`. Credentials are not persisted; they remain
+  in memory for the session only.
 
 ## [v0.6.0]
 

@@ -768,6 +768,18 @@ body {
   background: rgba(34, 211, 238, 0.08);
 }
 
+/* Explains why the popover opened itself (unreachable server) */
+.endpoint-hint-warn {
+  color: #facc15;
+}
+
+/* No STA server chosen yet — draw attention to the switcher */
+.endpoint-display.unconfigured {
+  border-color: rgba(250, 204, 21, 0.55);
+  background: rgba(250, 204, 21, 0.1);
+  color: #facc15;
+}
+
 .endpoint-hint {
   font-size: 0.68rem;
   color: var(--txt-mute);

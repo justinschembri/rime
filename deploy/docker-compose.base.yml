@@ -2,7 +2,7 @@ services:
   frost:
     image: fraunhoferiosb/frost-server:2.6
     environment:
-      - serviceRootUrl=${FROST_URL:-http://localhost:${CLIENT_BIND_PORT:-8081}/FROST-Server}
+      - serviceRootUrl=${FROST_URL:-http://localhost:${FROST_BIND_PORT:-8080}/FROST-Server}
       - plugins_multiDatastream.enable=false
       - http_cors_enable=true
       - http_cors_allowed_origins=*
@@ -56,8 +56,11 @@ services:
       dockerfile: packages/rime-client/Dockerfile
     ports:
       - ${CLIENT_BIND_PORT:-8081}:80
-    depends_on:
-      - frost
+    environment:
+      # This line is the only thing pointing it at the
+      # FROST server in this file; drop it (or run the image on its own) and it
+      # serves a blank page that asks the user for a server URL.
+      - STA_ENDPOINT=${STA_ENDPOINT:-http://localhost:${FROST_BIND_PORT:-8080}/FROST-Server}
     restart: unless-stopped
 
   database:
