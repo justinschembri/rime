@@ -29,6 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Static files are served `Cache-Control: no-cache` so a redeploy is picked up
     on the next load; filenames are unversioned, so browsers would otherwise keep
     running old JS.
+  - Unknown paths return `404` instead of falling back to `index.html`.
 
 ### Changed
 
