@@ -10,8 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Add a **generic SeedLink provider**
-- **rime-client** becomes a standalone nginx service serving `web/rime/` on port 8081,
-  replacing the Tomcat webapp mount in the frost container. It is a generic
+- **rime-client** becomes a standalone nginx service on port 8081, replacing the Tomcat
+  webapp mount in the frost container. The client itself moves from `web/rime/` to
+  `packages/rime-client/src/`, making the package self-contained. It is a generic
   SensorThings API client with no build-time dependency on FROST or on any other
   STA implementation, and runs on its own with no server present.
   - Serves static files only; no reverse proxy and no upstream. The browser

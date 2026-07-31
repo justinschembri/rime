@@ -52,8 +52,7 @@ services:
   rime-client:
     image: rime-client
     build:
-      context: ..
-      dockerfile: packages/rime-client/Dockerfile
+      context: ../packages/rime-client
     ports:
       - ${CLIENT_BIND_PORT:-8081}:80
     environment:

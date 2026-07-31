@@ -15,7 +15,7 @@ the `STA_ENDPOINT` environment variable is set.
 ### On its own — starts blank
 
 ```bash
-docker build -f packages/rime-client/Dockerfile -t rime-client .
+docker build -t rime-client packages/rime-client
 docker run --rm -p 8081:80 rime-client
 ```
 
@@ -128,14 +128,13 @@ Two things in the Dockerfile look redundant but are not:
   `styles.css`), so browsers otherwise keep running old code after a redeploy. It still
   caches; it just revalidates, so unchanged files come back `304`.
 
-Serving `web/rime/` outside Docker works too: the checked-in `js/runtime-config.js` is the
-unconfigured default.
+Serving `src/` outside Docker works too — it is plain static files, no build step. The
+checked-in `src/js/runtime-config.js` is the unconfigured default.
 
 ## Build
 
-The build context is the **repository root** — the image copies from both
-`packages/rime-client/` and `web/rime/`:
+The package is self-contained, so the build context is the package directory:
 
 ```bash
-docker build -f packages/rime-client/Dockerfile -t rime-client .
+docker build -t rime-client packages/rime-client
 ```

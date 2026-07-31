@@ -7,6 +7,6 @@ ENV STA_VERSION="v1.1"
 # nginx.conf itself needs no templating; rime-client serves static files only.
 ENV NGINX_ENVSUBST_OUTPUT_DIR=/usr/share/nginx/html/js
 
-COPY packages/rime-client/nginx.conf /etc/nginx/conf.d/default.conf
-COPY packages/rime-client/runtime-config.js.template /etc/nginx/templates/
-COPY web/rime /usr/share/nginx/html
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY runtime-config.js.template /etc/nginx/templates/
+COPY src /usr/share/nginx/html

@@ -12,9 +12,11 @@ The current codebase is a single Python application (`packages/rime-ingest/`) th
 - Runs a decode → deserialize → decapsulate → normalise pipeline on each payload.
 - POSTs observations to a FROST SensorThings server running in Docker.
 - Is operated entirely via the `rime` CLI and a set of Docker Compose files under `deploy/`.
-- Has a static read-only browser dashboard (`web/rime/`) served through Tomcat.
+- Has a static browser client (`packages/rime-client/src/`) served by its own nginx
+  container, `rime-client`. It is a standalone SensorThings client: the browser calls the
+  STA server directly, and it can be pointed at any endpoint (or none) without redeploying.
 
-The deployment is Docker Compose only. Auth is fragmented across three independent systems (Tomcat BasicAuth, FROST BasicAuth, Mosquitto ACL files). The Mosquitto integration is a stub. There is no web-based management interface.
+The deployment is Docker Compose only. Auth is fragmented across independent systems (FROST BasicAuth, Mosquitto ACL files); the client holds STA read credentials in session memory only. The Mosquitto integration is a stub. There is no web-based management interface.
 
 ---
 
