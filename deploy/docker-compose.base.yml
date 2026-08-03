@@ -87,8 +87,8 @@ volumes:
 
 secrets:
   postgres_credentials:
-    file: ./secrets/credentials/postgres_credentials.json
+    file: ${POSTGRES_CREDENTIALS_FILE:-./secrets/credentials/postgres_credentials.json}
   frost_credentials:
-    file: ./secrets/credentials/frost_credentials.json
+    file: ${FROST_CREDENTIALS_FILE:-./secrets/credentials/frost_credentials.json}
   application_credentials:
-    file: ./secrets/credentials/application_credentials.json
+    file: ${APPLICATION_CREDENTIALS_FILE./secrets/credentials/application_credentials.json}
