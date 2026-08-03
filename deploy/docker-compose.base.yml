@@ -91,4 +91,4 @@ secrets:
   frost_credentials:
     file: ${FROST_CREDENTIALS_FILE:-./secrets/credentials/frost_credentials.json}
   application_credentials:
-    file: ${APPLICATION_CREDENTIALS_FILE./secrets/credentials/application_credentials.json}
+    file: ${APPLICATION_CREDENTIALS_FILE:-./secrets/credentials/application_credentials.json}
