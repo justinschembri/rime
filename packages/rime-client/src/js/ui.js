@@ -117,6 +117,31 @@ function hideLoadingOverlay(force = false) {
     }, 460);
 }
 
+// Assigned by initializeEndpointSwitcher() so callers outside it (app.js on an
+// unconfigured or unreachable boot) can open the popover.
+let _openEndpointPopover = null;
+
+const ENDPOINT_HINT_DEFAULT = 'Enter connects. Version is appended automatically.';
+
+// Open the endpoint switcher, optionally explaining why. `message` is shown in
+// the popover footer until the next time it opens cleanly.
+function promptForEndpoint(message) {
+    const hint = document.getElementById('endpointHint');
+    if (hint) {
+        hint.textContent = message || ENDPOINT_HINT_DEFAULT;
+        hint.classList.toggle('endpoint-hint-warn', !!message);
+    }
+    if (_openEndpointPopover) _openEndpointPopover();
+}
+
+// Drop a previous failure message once a server responds.
+function clearEndpointHint() {
+    const hint = document.getElementById('endpointHint');
+    if (!hint) return;
+    hint.textContent = ENDPOINT_HINT_DEFAULT;
+    hint.classList.remove('endpoint-hint-warn');
+}
+
 function initializeEndpointSwitcher() {
     const display = document.getElementById('endpointDisplay');
     const popover = document.getElementById('endpointPopover');
@@ -132,8 +157,15 @@ function initializeEndpointSwitcher() {
     const passwordInput = document.getElementById('endpointPassword');
 
     function syncLabel() {
+        if (!state.isConfigured) {
+            label.textContent = 'Connect to a server';
+            display.classList.add('unconfigured');
+            display.classList.remove('has-auth');
+            return;
+        }
         const host = state.frostBase.replace(/^https?:\/\//, '');
         label.textContent = `${host} @ ${state.frostVersion}`;
+        display.classList.remove('unconfigured');
         display.classList.toggle('has-auth', !!state.frostReadAuth);
     }
     syncLabel();
@@ -231,10 +263,17 @@ function initializeEndpointSwitcher() {
         state.frostBase = raw;
         state.frostReadAuth = (user || pass) ? btoa(`${user}:${pass}`) : null;
 
+        // Remember the server across reloads. Credentials are deliberately not
+        // persisted — they stay in memory for this session only.
+        storeEndpoint(state.frostBase, state.frostVersion);
+
         syncLabel();
         closePopover();
         resetAndReload();
     }
+
+    // Let the rest of the app open the switcher (e.g. on an unconfigured boot).
+    _openEndpointPopover = openPopover;
 
     applyBtn.addEventListener('click', applyEndpoint);
     [input, usernameInput, passwordInput].forEach(el => {
@@ -246,6 +285,10 @@ function initializeEndpointSwitcher() {
 }
 
 function resetAndReload() {
+    // The user picked this endpoint, so report failures against it directly
+    // rather than falling back to the connect prompt (see app.js).
+    isInitialLoad = false;
+
     hideThingMetadata();
     document.getElementById('chartPanel')?.classList.remove('expanded');
 

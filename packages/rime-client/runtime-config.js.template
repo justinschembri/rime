@@ -1,0 +1,14 @@
+// Deployment defaults for rime-client — GENERATED AT CONTAINER START.
+//
+// nginx's own entrypoint (/docker-entrypoint.d/20-envsubst-on-templates.sh)
+// substitutes the variables below from the environment and writes the result to
+// js/runtime-config.js. Set STA_ENDPOINT / STA_VERSION on the container to
+// point the client at a server; leave them unset and the page starts blank and
+// asks the user for one.
+//
+// STA_ENDPOINT is browser-facing and takes no version segment — use
+// "https://sta.example.org", not "https://sta.example.org/v1.1".
+window.RIME_CONFIG = {
+    staEndpoint: "${STA_ENDPOINT}",
+    staVersion: "${STA_VERSION}"
+};

@@ -13,8 +13,6 @@ services:
       - ${FROST_BIND_PORT:-8080}:8080
     volumes:
       - ./init-frost.sh:/init-frost.sh
-      - ../web/rime:/usr/local/tomcat/webapps/rime #TODO: migrate away from deploying the frontend via Tomcat.
-      - rime-ingest_logs:/usr/local/tomcat/webapps/rime/logs:ro #TODO: migrate away from deploying the frontend via Tomcat.
     entrypoint: ["/init-frost.sh"]
     secrets:
       - postgres_credentials
@@ -51,6 +49,19 @@ services:
       - application_credentials
       - frost_credentials 
 
+  rime-client:
+    image: rime-client
+    build:
+      context: ../packages/rime-client
+    ports:
+      - ${CLIENT_BIND_PORT:-8081}:80
+    environment:
+      # This line is the only thing pointing it at the
+      # FROST server in this file; drop it (or run the image on its own) and it
+      # serves a blank page that asks the user for a server URL.
+      - STA_ENDPOINT=${STA_ENDPOINT:-http://localhost:${FROST_BIND_PORT:-8080}/FROST-Server}
+    restart: unless-stopped
+
   database:
     image: postgis/postgis:16-3.4-alpine
     environment:
@@ -76,8 +87,8 @@ volumes:
 
 secrets:
   postgres_credentials:
-    file: ./secrets/credentials/postgres_credentials.json
+    file: ${POSTGRES_CREDENTIALS_FILE:-./secrets/credentials/postgres_credentials.json}
   frost_credentials:
-    file: ./secrets/credentials/frost_credentials.json
+    file: ${FROST_CREDENTIALS_FILE:-./secrets/credentials/frost_credentials.json}
   application_credentials:
-    file: ./secrets/credentials/application_credentials.json
+    file: ${APPLICATION_CREDENTIALS_FILE:-./secrets/credentials/application_credentials.json}

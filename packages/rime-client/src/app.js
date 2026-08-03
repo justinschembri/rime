@@ -5,8 +5,23 @@
 document.addEventListener('DOMContentLoaded', () => {
     initializeMap();
     initializeEventListeners();
-    fetchThings();
+    // With no STA server configured there is nothing to fetch — show an empty
+    // map and let the endpoint switcher collect a server URL. Applying one
+    // calls resetAndReload(), which starts the normal fetch path.
+    if (state.isConfigured) {
+        fetchThings();
+    } else {
+        promptForEndpoint();
+    }
 });
+
+// True until the user picks an endpoint themselves. A boot-time endpoint comes
+// from stored or deployed config that nobody typed in this session, so if it
+// turns out to be unreachable the right response is to ask for a server — not
+// to show a dead error screen. Once the user has chosen one, failures are their
+// answer and get reported normally. Cleared by resetAndReload() (ui.js), which
+// only runs from the endpoint switcher. See the catch block in fetchThings().
+let isInitialLoad = true;
 
 // Initialize Leaflet map
 function initializeMap() {
@@ -641,9 +656,24 @@ async function fetchThings() {
         // "Check health" button (see runHealthCheck). Enable it now.
         setHealthCheckButtonState('ready');
 
+        // A server answered — drop any "could not reach ..." message.
+        clearEndpointHint();
+
     } catch (error) {
         if (stale()) return;
-        
+
+        // Boot-time endpoint that nobody chose in this session and that does not
+        // answer: the STA server may be stopped, or the stored endpoint may
+        // belong to a different deployment. Fall back to the connect prompt.
+        if (isInitialLoad) {
+            const host = state.frostBase.replace(/^https?:\/\//, '');
+            hideLoadingOverlay(true);
+            updateStatus('No server connected', 'error');
+            promptForEndpoint(`Could not reach ${host} — choose a server.`);
+            console.error('Error fetching things:', error);
+            return;
+        }
+
         // Show overlay for network/CORS errors which throw TypeErrors, or other HTTP errors
         if (!document.getElementById('loadingOverlay')?.classList.contains('status-error')) {
             if (error instanceof TypeError || error.message.startsWith('HTTP error') || error.message.includes('Failed to fetch')) {
