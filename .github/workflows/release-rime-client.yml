@@ -1,42 +1,18 @@
-# Build and push rime-ingest to GHCR when a package version tag is pushed.
-# Git tag is the source of truth: rime-ingest-vX.Y.Z → image :vX.Y.Z
-# Publish only runs after tests pass on the tagged commit.
-name: Release rime-ingest
+# Build and push rime-client to GHCR when a package version tag is pushed.
+# Git tag is the source of truth: rime-client-vX.Y.Z → image :vX.Y.Z
+name: Release rime-client
 
 on:
   push:
     tags:
-      - "rime-ingest-v*"
+      - "rime-client-v*"
 
 permissions:
   contents: read
   packages: write
 
 jobs:
-  tests:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Set up uv
-        uses: astral-sh/setup-uv@v5
-        with:
-          enable-cache: true
-
-      - name: Install dependencies
-        run: uv sync --group dev
-
-      - name: Run non-auth tests
-        run: uv run pytest -m "not real and not online and not docker"
-
   release:
-    needs: tests
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
@@ -46,7 +22,7 @@ jobs:
         id: version
         run: |
           tag="${{ github.ref_name }}"
-          prefix="rime-ingest-"
+          prefix="rime-client-"
           if [[ "$tag" != ${prefix}* ]]; then
             echo "Tag '$tag' does not start with '$prefix'" >&2
             exit 1
@@ -56,6 +32,7 @@ jobs:
             echo "Expected SemVer after prefix, got '$semver' (want vX.Y.Z)" >&2
             exit 1
           fi
+          # Strip leading v for the container ENV (v0.1.0 → 0.1.0)
           echo "semver=$semver" >> "$GITHUB_OUTPUT"
           echo "version=${semver#v}" >> "$GITHUB_OUTPUT"
 
@@ -70,13 +47,13 @@ jobs:
         id: image
         run: |
           owner="$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')"
-          echo "name=ghcr.io/${owner}/rime-ingest" >> "$GITHUB_OUTPUT"
+          echo "name=ghcr.io/${owner}/rime-client" >> "$GITHUB_OUTPUT"
 
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
-          context: packages/rime-ingest
-          file: packages/rime-ingest/Dockerfile
+          context: packages/rime-client
+          file: packages/rime-client/Dockerfile
           push: true
           tags: ${{ steps.image.outputs.name }}:${{ steps.version.outputs.semver }}
           build-args: |

@@ -1,7 +1,7 @@
 [project]
 name = "rime-ingest"
-version = "0.7.1"
-description = "RIME — ingest layer for Fraunhofer FROST Server (SensorThings)."
+version = "0.0.0"
+description = "rime-ingest | an OGC SensorThings API ingestion pipeline for heterogeneous IoT networks."
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [

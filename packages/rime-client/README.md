@@ -138,3 +138,39 @@ The package is self-contained, so the build context is the package directory:
 ```bash
 docker build -t rime-client packages/rime-client
 ```
+
+## Versioning and release
+
+`rime-client` versions independently of other monorepo packages.
+
+**Git tags are the source of truth.** Pushing `rime-client-vX.Y.Z` builds and
+pushes `ghcr.io/<owner>/rime-client:vX.Y.Z` and stamps `RIME_CLIENT_VERSION`
+into the image (see Dockerfile `ARG VERSION`).
+
+| Item | Value |
+|------|--------|
+| Changelog | [`CHANGELOG.md`](CHANGELOG.md) |
+| Git tag | `rime-client-vX.Y.Z` |
+| Image | `ghcr.io/<owner>/rime-client:vX.Y.Z` |
+| Runtime | `RIME_CLIENT_VERSION` (e.g. `0.1.0`; `dev` for local builds) |
+
+SemVer tracks the **image contract**: major for breaking env/query/behaviour
+changes, minor for features, patch for fixes. Static asset filenames stay
+unversioned; `Cache-Control: no-cache` handles cache busting.
+
+### Cut a release
+
+1. Update `CHANGELOG.md` (`Unreleased` → new section).
+2. Commit on the branch you intend to tag (usually `main`).
+3. Tag and push: `git tag rime-client-vX.Y.Z && git push origin rime-client-vX.Y.Z`.
+4. CI (`.github/workflows/release-rime-client.yml`) builds and pushes the image.
+
+### Run a pinned image
+
+```bash
+docker run --rm -p 8081:80 ghcr.io/<owner>/rime-client:v0.1.0
+```
+
+Local `deploy/docker-compose.base.yml` still builds from source (`VERSION=dev`).
+To pin a published image, set the service `image` to the GHCR tag and drop (or
+comment out) `build:` for that service.
