@@ -1,5 +1,9 @@
 FROM nginx:alpine
 
+# Release identity comes from the git tag via CI --build-arg (default: local/dev).
+ARG VERSION=dev
+ENV RIME_CLIENT_VERSION=${VERSION}
+
 ENV STA_ENDPOINT=""
 ENV STA_VERSION="v1.1"
 

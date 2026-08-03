@@ -2,6 +2,13 @@
 
 rime is in active development.
 
+Shippable packages version **independently** with package-scoped SemVer tags
+(`rime-ingest-vX.Y.Z`, `rime-client-vX.Y.Z`). The tag is the release source of
+truth: CI builds GHCR images and stamps `RIME_INGEST_VERSION` /
+`RIME_CLIENT_VERSION` into the containers. See each package’s README and
+changelog; the root [`CHANGELOG.md`](CHANGELOG.md) is an index only. Legacy
+shared `v*` tags have been retired.
+
 ## What is it?
 
 **rime** is the **R**ealtime **I**ngestion and **M**anagement **E**ngine for

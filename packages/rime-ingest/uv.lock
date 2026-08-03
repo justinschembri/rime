@@ -930,7 +930,7 @@ wheels = [
 
 [[package]]
 name = "rime-ingest"
-version = "0.6.1"
+version = "0.0.0"
 source = { editable = "." }
 dependencies = [
     { name = "lnetatmo" },

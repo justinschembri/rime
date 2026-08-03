@@ -28,6 +28,42 @@ docker build -t rime-ingest .
 In production, use the compose overlays under `deploy/` at the monorepo root.
 Compose mounts host paths into the container runtime directories below.
 
+## Versioning and release
+
+`rime-ingest` versions independently of other monorepo packages.
+
+**Git tags are the source of truth.** Pushing `rime-ingest-vX.Y.Z` runs tests,
+then builds and pushes `ghcr.io/<owner>/rime-ingest:vX.Y.Z` and stamps
+`RIME_INGEST_VERSION` into the image (see Dockerfile `ARG VERSION`).
+
+`pyproject.toml` `version` is a placeholder (`0.0.0`) for local installs — it
+does not track releases (images are not published as PyPI libraries).
+
+| Item | Value |
+|------|--------|
+| Changelog | [`CHANGELOG.md`](CHANGELOG.md) |
+| Git tag | `rime-ingest-vX.Y.Z` |
+| Image | `ghcr.io/<owner>/rime-ingest:vX.Y.Z` |
+| Runtime | `RIME_INGEST_VERSION` (e.g. `0.8.2`; `dev` for local builds) |
+
+### Cut a release
+
+1. Update `CHANGELOG.md` (`Unreleased` → new section).
+2. Commit on the branch you intend to tag (usually `main`).
+3. Tag and push: `git tag rime-ingest-vX.Y.Z && git push origin rime-ingest-vX.Y.Z`.
+4. CI (`.github/workflows/release-rime-ingest.yml`) tests, then builds and pushes
+   the image.
+
+### Run a pinned image
+
+```bash
+docker run --rm ghcr.io/<owner>/rime-ingest:v0.8.2
+```
+
+Local `deploy/docker-compose.base.yml` still builds from source (`VERSION=dev`).
+To pin a published image, set the service `image` to the GHCR tag and drop (or
+comment out) `build:` for that service.
+
 ## Runtime paths
 
 When `CONTAINER_ENVIRONMENT=true` (set in the Dockerfile), defaults are:
