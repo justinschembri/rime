@@ -35,7 +35,13 @@ from .normalizers.kinemetrics import KinemetricsEtna2
 from .normalizers.netatmo import NetatmoNWS03
 from .parsers import MilesightAm103lParser, MilesightAm308lParser, NetatmoNWS03Parser, Parser
 from .parsers.kinemetrics import KinemetricsEtna2Parser
-from .types import SensorUUID, SupportedSensors
+from .parsers.probes import HeatFluxPlateParser, ThermocoupleKParser, ThermocoupleTParser
+from .normalizers.probes import (
+    HeatFluxPlateNormalizer,
+    ThermocoupleKNormalizer,
+    ThermocoupleTNormalizer,
+)
+from .types import SensorRegistry, SensorUUID, SupportedSensors
 
 
 @dataclass(frozen=True, slots=True)
@@ -71,22 +77,34 @@ INGEST_COMPONENT_MAP: dict[SupportedSensors, IngestModelComponents] = {
         parser=DraginoLSN50v2_S31Parser, 
         normalizer=DraginoLSN50v2_S31Normalizer
     ),
+    SupportedSensors.HEAT_FLUX_PLATE: IngestModelComponents(
+        parser=HeatFluxPlateParser,
+        normalizer=HeatFluxPlateNormalizer,
+    ),
+    SupportedSensors.THERMOCOUPLE_T: IngestModelComponents(
+        parser=ThermocoupleTParser,
+        normalizer=ThermocoupleTNormalizer,
+    ),
+    SupportedSensors.THERMOCOUPLE_K: IngestModelComponents(
+        parser=ThermocoupleKParser,
+        normalizer=ThermocoupleKNormalizer,
+    ),
 }
 
 
 def _lookup_ingest_components(
     sensor_uuid: SensorUUID,
-    sensor_registry: dict[SensorUUID, SupportedSensors],
+    sensor_registry: SensorRegistry,
 ) -> tuple[SupportedSensors, IngestModelComponents]:
-    sensor_model = sensor_registry.get(sensor_uuid)
-    if sensor_model is None:
+    entry = sensor_registry.get(sensor_uuid)
+    if entry is None:
         raise UnregisteredSensorError
-    return sensor_model, INGEST_COMPONENT_MAP[sensor_model]
+    return entry.model, INGEST_COMPONENT_MAP[entry.model]
 
 
 def resolve_identified_payload(
     identified: IdentifiedPayload | IdentifiedTimeSeriesPayload,
-    sensor_registry: dict[SensorUUID, SupportedSensors],
+    sensor_registry: SensorRegistry,
 ) -> IdentifiedPayload | IdentifiedTimeSeriesPayload:
     """Attach ``sensor_model`` and ``components`` from deployment + code registries."""
     sensor_model, components = _lookup_ingest_components(
@@ -97,7 +115,7 @@ def resolve_identified_payload(
 
 def resolve_time_series_payload(
     identified: IdentifiedTimeSeriesPayload,
-    sensor_registry: dict[SensorUUID, SupportedSensors],
+    sensor_registry: SensorRegistry,
 ) -> IdentifiedTimeSeriesPayload:
     """Attach ``sensor_model`` and ``components`` for a time-series carrier."""
     sensor_model, components = _lookup_ingest_components(

@@ -14,7 +14,12 @@ import yaml
 from rime_ingest.exceptions import FailedSensorConfigValidation
 from rime_ingest.frost.versions import FROST_VERSION, FrostVersions
 from rime_ingest.sta.maps import class_map_for
-from rime_ingest.transformers.types import CanonicalDatastreams, SensorUUID, SupportedSensors
+from rime_ingest.transformers.types import (
+    CanonicalDatastreams,
+    SensorRegistryEntry,
+    SensorUUID,
+    SupportedSensors,
+)
 
 if TYPE_CHECKING:
     from .core import (
@@ -36,9 +41,20 @@ debug_logger = logging.getLogger("debug")
 if TYPE_CHECKING:
     ...
 
-__all__ = ["SensorConfig"]
+__all__ = ["SensorConfig", "parse_sensor_model_key"]
 
 main_logger = logging.getLogger("main")
+
+
+def parse_sensor_model_key(yaml_key: str) -> str:
+    """Return the SupportedSensors value encoded in a Sensors YAML key.
+
+    Keys may be bare model ids (``netatmo.nws03``) or ``model/<disambiguator>``
+    when a file declares multiple Sensors of the same model. Only the segment
+    before the first ``/`` is significant for ingest; the suffix is YAML-only.
+    """
+    return yaml_key.split("/", 1)[0]
+
 
 #TODO: this is a mammoth of a class, and a confusing one at that that could do 
 #with a refactor.
@@ -48,11 +64,16 @@ class SensorConfig:
 
     Class is responsible for parsing, validating and serving sensor configuration.
 
-    Args
-        - data (Dict[str, Any]) - contents of the sensor config.
-        - is_valid (bool)
-        - model (str) - sensor model
-        - name (str) - sensor name
+    A file may declare one or many STA Sensors. YAML keys under ``Sensors`` are
+    ``SupportedSensors`` values, optionally followed by ``/<disambiguator>``
+    for uniqueness within the file. Registry identity is each Sensor's
+    ``name`` field (SensorUUID).
+
+    Attributes:
+        data: Raw YAML contents.
+        is_valid: Whether validation passed.
+        sensors: Map of each Sensor UUID (``name``) to model + linked datastreams.
+        thing_name: Name of the (first) Thing in the config, when present.
     """
 
     def __init__(self, filepath: str | Path) -> None:
@@ -64,14 +85,69 @@ class SensorConfig:
         self.is_valid = self.check_validity()[0]
         self._set_metadata()
         # below metadata attrs set by fn above
-        self.model: SupportedSensors
-        self.name: SensorUUID
+        self.sensors: dict[SensorUUID, SensorRegistryEntry]
+        self.thing_name: str | None
 
     def _set_metadata(self) -> None:
-        """Set sensor metadata attrs."""
-        model = next(iter(self.data["Sensors"]))
-        self.model = SupportedSensors(model)
-        self.name = self.data["Sensors"][self.model.value]["name"]
+        """Build Sensor UUID → model + linked Datastream names from YAML."""
+        sensors_yaml = self.data.get("Sensors") or {}
+        models: dict[SensorUUID, SupportedSensors] = {}
+        for yaml_key, fields in sensors_yaml.items():
+            if not isinstance(fields, dict) or "name" not in fields:
+                raise ValueError(
+                    f"{self._filepath}: Sensors.{yaml_key} must define a name field."
+                )
+            model = SupportedSensors(parse_sensor_model_key(yaml_key))
+            uuid = fields["name"]
+            if uuid in models:
+                raise ValueError(
+                    f"{self._filepath}: duplicate Sensor name {uuid!r}."
+                )
+            models[uuid] = model
+        if not models:
+            raise ValueError(f"{self._filepath}: Sensors section is empty.")
+
+        datastreams_by_sensor: dict[SensorUUID, list[CanonicalDatastreams]] = {
+            uuid: [] for uuid in models
+        }
+        for instance_key, fields in (self.data.get("Datastreams") or {}).items():
+            if not isinstance(fields, dict):
+                continue
+            name = fields.get("name")
+            links = fields.get("iot_links") or {}
+            linked_sensors = links.get("Sensors") or links.get("sensors") or []
+            if not isinstance(linked_sensors, list):
+                linked_sensors = [linked_sensors]
+            try:
+                canonical = CanonicalDatastreams(name)
+            except ValueError as e:
+                raise ValueError(
+                    f"{self._filepath}: Datastreams.{instance_key} "
+                    f"name {name!r} is not canonical."
+                ) from e
+            for sensor_uuid in linked_sensors:
+                if sensor_uuid not in datastreams_by_sensor:
+                    main_logger.warning(
+                        f"{self._filepath}: Datastreams.{instance_key} "
+                        f"links unknown Sensor {sensor_uuid!r}; skipping."
+                    )
+                    continue
+                datastreams_by_sensor[sensor_uuid].append(canonical)
+
+        self.sensors = {
+            uuid: SensorRegistryEntry(
+                model=model,
+                datastreams=tuple(datastreams_by_sensor[uuid]),
+            )
+            for uuid, model in models.items()
+        }
+
+        things = self.data.get("Things") or {}
+        self.thing_name = None
+        if things:
+            first = next(iter(things.values()))
+            if isinstance(first, dict):
+                self.thing_name = first.get("name")
 
     def _load(self) -> Dict:
         """Safely load configuration file."""
@@ -320,15 +396,24 @@ class SensorConfig:
         return (True, []) if not invalid else (False, error_list)
     
     def _validate_datastream_names(self) -> bool:
-        """Check if non-canonical datastreams are in the config."""
-        invalid_datastreams = (
-                set(self.data["Datastreams"]) - 
-                set(member.value for member in CanonicalDatastreams)
-                )
+        """Check that each Datastream ``name`` field is a CanonicalDatastreams value.
+
+        YAML map keys under ``Datastreams`` may be any unique strings; STA
+        identity / ingest routing uses the ``name`` field.
+        """
+        canonical = {member.value for member in CanonicalDatastreams}
+        invalid_datastreams: set[str] = set()
+        for instance_key, fields in (self.data.get("Datastreams") or {}).items():
+            if not isinstance(fields, dict):
+                invalid_datastreams.add(str(instance_key))
+                continue
+            name = fields.get("name")
+            if name not in canonical:
+                invalid_datastreams.add(repr(name) if name is not None else instance_key)
 
         if invalid_datastreams:
             main_logger.error(
-                    f"{self._filepath.name} is non-canonical datastream names: "
+                    f"{self._filepath.name} has non-canonical datastream name fields: "
                     f"{invalid_datastreams}"
                     )
             return False

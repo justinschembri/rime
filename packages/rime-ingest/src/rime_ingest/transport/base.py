@@ -68,18 +68,30 @@ from ..exceptions import (
         UnregisteredSensorError
         )
 
-from ..transformers.types import SensorUUID, SupportedSensors
+from ..transformers.types import SensorRegistry, SensorUUID, SupportedSensors
 
 main_logger = logging.getLogger("main")
 event_logger = logging.getLogger("events")
 debug_logger = logging.getLogger("debug")
 
+#TODO: this constant should not be private, nor defined here. 
 _DEFAULT_FROST_ENDPOINTS: tuple[str, ...] = tuple(
     e.strip() for e in os.getenv("FROST_ENDPOINT", FROST_ENDPOINT_DEFAULT).split(",")
 )
 
 class SensorTransport(ABC):
-    """Abstract base for any managed link to an upstream sensor data source."""
+    """Abstract base for any managed link to an upstream sensor data source.
+
+    Owns the worker thread, wire-message ingest pipeline, observation buffering,
+    and exception policy. Subclasses specialise the interaction model (poll vs.
+    subscription) and must implement :meth:`_run` and :meth:`_decapsulate_wire`.
+
+    Attributes:
+        app_name: Application identifier; also used as the worker thread name.
+        max_retries: Consecutive failure budget interpreted by concrete transports.
+        frost_endpoints: FROST STA endpoints set at :meth:`start`.
+        sensor_registry: Map of sensor UUID to registry entry, set at :meth:`start`.
+    """
 
     def __init__(
         self,
@@ -88,20 +100,30 @@ class SensorTransport(ABC):
         max_retries: int = 1,
         buffer_store: TransportBufferStore | None = None,
     ):
+        """Initialize transport state without starting the worker thread.
+
+        Args:
+            app_name: Application identifier for logging and thread naming.
+            max_retries: Consecutive failure budget for concrete transports.
+            buffer_store: Optional shared observation buffer store; a private
+                store is created when omitted.
+        """
         self.app_name = app_name
         self.max_retries = max_retries
         self._buffer_store = buffer_store or TransportBufferStore()
         self.frost_endpoints: list[str] = []
         #TODO: sensor_registry as an attr is a codesmell
-        self.sensor_registry: dict[SensorUUID, SupportedSensors] = {}
+        self.sensor_registry: SensorRegistry = {}
         self._thread: threading.Thread | None = None
         self._stop_event = threading.Event()
 
     # dunder ###################################################################
     def __hash__(self) -> int:
+        """Return a hash based on ``app_name``."""
         return hash(self.app_name)
 
     def __eq__(self, other) -> bool:
+        """Return True when ``other`` is a transport with the same ``app_name``."""
         if not isinstance(other, SensorTransport):
             return False
         return other.app_name == self.app_name
@@ -109,11 +131,17 @@ class SensorTransport(ABC):
     # construction #############################################################
     @classmethod
     def from_config(cls, app_name: str, config: dict[str, Any]) -> "SensorTransport":
-        """Build a transport from a YAML application config dict.
+        """Instantiate a transport from a YAML application config dict.
 
-        Constructor parameters are discovered via `inspect.signature`; any keys
-        in `config` whose names match a parameter are forwarded. Unknown keys
-        are ignored so callers do not have to filter them out.
+        Constructor parameters are discovered via ``inspect.signature``; config
+        keys that match a parameter are forwarded. Unknown keys are ignored.
+
+        Args:
+            app_name: Application identifier passed to the constructor.
+            config: Application config mapping; matching keys become kwargs.
+
+        Returns:
+            A new instance of ``cls``.
         """
         sig = inspect.signature(cls)
         kwargs: dict[str, Any] = {"app_name": app_name}
@@ -124,35 +152,41 @@ class SensorTransport(ABC):
 
     # lifecycle ################################################################
     def _preflight(self) -> bool:
-        """Optional pre-start checks. Return False to abort startup."""
+        """Run optional checks before the worker thread starts.
+
+        Returns:
+            False to abort startup; True to continue. Default always returns True.
+        """
         return True
 
     @property
     def is_alive(self) -> bool:
+        """Whether the worker thread exists and is currently running."""
         return self._thread is not None and self._thread.is_alive()
 
     @abstractmethod
     def _run(self) -> None:
-        """
-        Implemented in a direct descendant of `SensorTransport`.
-        This method must receive a wire message and pass it to 
-        the implemented _process_wire_message(). 
+        """Drive data acquisition in the worker thread.
 
-        Long-running loop that drives data acquisition and processing.
-
+        Implemented by a direct descendant. The loop must obtain wire messages
+        and pass each to :meth:`_process_wire_message`.
         """
         ...
 
     def start(
         self,
-        sensor_registry: dict[SensorUUID, SupportedSensors],
+        sensor_registry: SensorRegistry,
         *,
         frost_endpoints: list[str] | tuple[str, ...] = _DEFAULT_FROST_ENDPOINTS,
     ) -> None:
         """Start the transport's worker thread.
 
-        Skips startup if `_preflight` fails. Idempotent: re-calling while the
-        thread is alive is a no-op.
+        Skips startup if :meth:`_preflight` fails. Idempotent: re-calling while
+        the thread is alive is a no-op.
+
+        Args:
+            sensor_registry: Map of sensor UUID to model + linked datastreams.
+            frost_endpoints: FROST STA base URLs to upload observations to.
         """
         self.sensor_registry = sensor_registry
         self.frost_endpoints = list(frost_endpoints)
@@ -171,10 +205,19 @@ class SensorTransport(ABC):
         self._thread.start()
 
     def stop(self) -> None:
+        """Signal the worker to stop and flush pending observation buffers."""
         self._stop_event.set()
         self._flush_sensor_buffers()
 
     def restart(self, join_timeout: int = 15) -> None:
+        """Stop the worker thread, then start it again with the same registry.
+
+        Args:
+            join_timeout: Seconds to wait for the old thread to exit.
+
+        Raises:
+            AttributeError: If no sensor registry was set by a prior :meth:`start`.
+        """
         self._stop_event.set()
         if self._thread is not None:
             self._thread.join(join_timeout)
@@ -188,46 +231,63 @@ class SensorTransport(ABC):
 
     # processing ###############################################################
     def _decode_wire(self, raw: Any) -> Any:
-        """Convert raw wire data to a decoded form suitable for deserialization.
+        """Convert raw wire data to a form suitable for deserialization.
 
-        Default: identity. Override when the transport delivers opaque bytes
-        that require a codec (e.g. base64, UTF-8) before deserialization.
+        Default is identity. Override when the transport delivers opaque bytes
+        that need a codec (e.g. base64, UTF-8) first.
+
+        Args:
+            raw: Provider-native wire payload.
+
+        Returns:
+            Decoded wire data for :meth:`_deserialize_wire`.
         """
         return raw
 
     def _deserialize_wire(self, decoded: Any) -> Any:
         """Parse decoded wire data into a Python object.
 
-        Default: identity. Override when the wire format is a serialized
-        representation (JSON, CBOR, Protobuf, ...) that needs parsing into
-        an in-memory object before decapsulation. ``MQTTTransport`` overrides
-        this with ``json.loads``; SeedLink and HTTP leave it as the identity
-        because their libraries already return Python objects.
+        Default is identity. Override for serialized formats (JSON, CBOR,
+        Protobuf, ...). ``MQTTTransport`` uses ``json.loads``; SeedLink and HTTP
+        leave this as identity because their libraries already return objects.
+
+        Args:
+            decoded: Output of :meth:`_decode_wire`.
+
+        Returns:
+            In-memory object for :meth:`_decapsulate_wire`.
         """
         return decoded
 
     @abstractmethod
     def _decapsulate_wire(self, wire_message: Any) -> DecapsulatedMessage:
-        """
-        Implement in a concrete providers.
+        """Strip the provider envelope into identified sensor payloads.
 
-        Strip the provider envelope; return a :class:`~rime.transformers.messages.DecapsulatedMessage`.
+        Implemented by a concrete provider. Receives the output of
+        :meth:`_deserialize_wire` (a Python object, never raw bytes).
 
-        Receives the output of ``_deserialize_wire`` — always a Python object,
-        never raw bytes.  The returned message's ``identified_payloads`` list
-        carries one :class:`~rime.transformers.messages.IdentifiedPayload` per
-        logical sensor present in the wire message.
+        Args:
+            wire_message: Deserialized provider message.
 
+        Returns:
+            A :class:`~rime.transformers.messages.DecapsulatedMessage` whose
+            ``identified_payloads`` list has one entry per logical sensor in
+            the wire message.
         """
 
     def _process_wire_message(self, wire_message: Any) -> None:
         """Run the full two-stage ingest pipeline for a single wire message.
 
-        Provider tier:
+        Provider tier::
+
             _decode_wire → _deserialize_wire → _decapsulate_wire
 
-        Model tier (per sample after any time-series fan-out):
+        Model tier (per sample after any time-series fan-out)::
+
             parser.parse → normalizer.from_record → frost_observation_upload
+
+        Args:
+            wire_message: Raw provider payload as received by the transport.
         """
         decoded_wire = self._decode_wire(wire_message)
         deserialized_wire = self._deserialize_wire(decoded_wire)
@@ -250,6 +310,18 @@ class SensorTransport(ABC):
         identified: IdentifiedPayload | IdentifiedTimeSeriesPayload,
         envelope: EnvelopeMetadata | None,
     ) -> None:
+        """Run model-tier ingest for one resolved identified payload.
+
+        Optionally deserializes/decodes, expands time-series carriers into
+        point-in-time samples, then parses, normalizes, buffers, and uploads.
+
+        Args:
+            identified: Registry-resolved payload with ingest components set.
+            envelope: Optional provider envelope metadata (timestamps, channel).
+
+        Raises:
+            UnpackError: If the payload was not resolved before model ingest.
+        """
         components = identified.components
         sensor_model = identified.sensor_model
         sensor_uuid = identified.sensor_uuid
@@ -290,6 +362,12 @@ class SensorTransport(ABC):
         flush: BufferedObservationFlush,
         sensor_model: SupportedSensors,
     ) -> None:
+        """Upload a ready buffer flush to every configured FROST endpoint.
+
+        Args:
+            flush: Buffer snapshot ready for STA upload.
+            sensor_model: Sensor model used for success logging.
+        """
         for endpoint in self.frost_endpoints:
             frost_observation_upload(
                 flush.sensor_uuid,
@@ -304,7 +382,7 @@ class SensorTransport(ABC):
         netmon.add_named_count("push_success", f"{flush.sensor_uuid}", 1)
 
     def _flush_sensor_buffers(self) -> None:
-        """Upload any in-flight or partial buffer contents for this transport's sensors."""
+        """Upload any in-flight or partial buffers for this transport's sensors."""
         for flush in self._buffer_store.drain_pending_for_sensors(self.sensor_registry):
             sensor_uuid, sensor_model, _ = flush.key
             try:
@@ -324,7 +402,16 @@ class SensorTransport(ABC):
 
     #TODO: reconsider exception handler as part of the class, should be a global concern
     def _exception_handler(self, e: Exception | None, **kwargs) -> Literal[0, 1]:
-        """Classify an exception. Return 0 if transient, 1 if a real failure."""
+        """Classify and log an ingest exception.
+
+        Args:
+            e: Exception raised during ingest, or None.
+            **kwargs: Extra fields merged into the debug context (e.g.
+                ``sensor_id``, ``stage``).
+
+        Returns:
+            ``0`` for a transient/skippable failure, ``1`` for a real failure.
+        """
 
         def _log(msg: str, debug_context: dict[str, str]):
             main_logger.error(msg)

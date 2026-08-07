@@ -1,18 +1,23 @@
 # SENSOR TYPE: <Sensor Type>
 # INSTRUCTIONS
 # 1 - Replace all placeholder values (indicated by <...> and comments)
-# 2 - ONE (1) Sensor per config file
-# 3 - Filename should match the sensor name (typically device MAC address)
-# 4 - Sensor key (in sensors section) can be <model>.<type> format (e.g., netatmo.nws03, milesight.am308l)
+# 2 - One or more Sensors per config file (multi-probe loggers: many Sensors, one Thing)
+# 3 - Filename should match the Thing name when the Thing is a device/logger id
+# 4 - Sensors YAML key is the ingest model (SupportedSensors value), e.g. netatmo.nws03.
+#     For multiple Sensors of the same model in one file, use model/<disambiguator>
+#     (e.g. heat_flux.plate/0). Only the segment before "/" is the model; the suffix
+#     is YAML-only. STA Sensor identity is the name field (SensorUUID).
 # 5 - iot_links shall use entity NAMES to refer to other entities
-# 6 - Use YAML anchors (&) and aliases (*) to avoid repetition (see datastreams example)
+# 6 - Datastream YAML keys may be any unique strings; the name field must be a
+#     CanonicalDatastreams quantity (may repeat across Sensors)
+# 7 - Use YAML anchors (&) and aliases (*) to avoid repetition (see datastreams example)
 
 sensors:
-  # Sensor key format: <model>.<type> or use MAC address
-  # Example: netatmo.nws03, milesight.am308l, or 70:ee:50:7f:9d:32
-  <sensor_key>:  # Replace with actual sensor key
-    name: <sensor_name>  # Replace with sensor name (typically MAC address, must match filename)
-    description: <sensor_description>  # Replace with description
+  # Key: <model> or <model>/<disambiguator>
+  # Example: netatmo.nws03, heat_flux.plate/0
+  <sensor_key>:  # Replace with model[/disambiguator]
+    name: <sensor_name>  # STA Sensor UUID (registry key); not necessarily the filename
+    description: <sensor_description>  # Instrument detail (probe type, channel, …)
     metadata: <metadata_url_or_none>  # Replace with URL or "none"
     encodingType: <encoding_type>  # Replace with encoding type, e.g., "text", "application/pdf"
     properties:  # Replace with dict or null
@@ -24,9 +29,9 @@ sensors:
       #  humidity: 3%
     iot_links:
       datastreams: &datastreams  # Use YAML anchor for reuse
-        - <datastream_name_1>  # Replace with actual datastream name
-        - <datastream_name_2>  # Replace with actual datastream name
-        # Add all datastream names here - one per measurement type
+        - <datastream_name_1>  # Canonical quantity name (Datastream.name)
+        - <datastream_name_2>
+        # One entry per Datastream name linked to this Sensor
 
 things:
   # The physical Thing that the sensor monitors (building, room, component, etc.)

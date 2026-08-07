@@ -5,6 +5,7 @@ from pathlib import Path
 
 # internal
 from rime_ingest.sta.extensions import SensorConfig
+from rime_ingest.transformers.types import CanonicalDatastreams, SupportedSensors
 
 TEST_DATA_DIR = Path(__file__).parent / "data"
 GOOD_CONFIG_FILE = TEST_DATA_DIR / "valid_sensor_config.yaml"
@@ -23,7 +24,10 @@ class TestSensorConfig:
         bad_config = SensorConfig(EMPTY_IOT_LINK_CONFIG_FILE)
         assert bad_config.is_valid is False
 
-    def test_ingestion_sets_model_and_name_metadata(self):
+    def test_ingestion_sets_sensors_registry_metadata(self):
         good_config = SensorConfig(GOOD_CONFIG_FILE)
-        assert good_config.model.value == "netatmo.nws03"
-        assert good_config.name == "sensor-001"
+        assert set(good_config.sensors) == {"sensor-001"}
+        entry = good_config.sensors["sensor-001"]
+        assert entry.model == SupportedSensors.NETATMO_NWS03
+        assert entry.datastreams == (CanonicalDatastreams.TEMP_IN,)
+        assert good_config.thing_name == "room-120"

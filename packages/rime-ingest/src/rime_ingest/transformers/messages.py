@@ -62,7 +62,7 @@ from obspy.core import Trace
 
 from rime_ingest.exceptions import UnpackError
 
-from .types import SensorUUID, SupportedSensors
+from .types import CanonicalDatastreams, SensorUUID, SupportedSensors, ThingUUID
 
 if TYPE_CHECKING:
     from .ingest_registry import IngestModelComponents
@@ -83,8 +83,9 @@ class IdentifiedPayload:
     :func:`~rime.transformers.ingest_registry.resolve_identified_payload`.
     """
 
-    sensor_uuid: SensorUUID
     payload: Any
+    thing_uuid : ThingUUID | None = None
+    sensor_uuid: SensorUUID | None = None
     sensor_model: SupportedSensors | None = None
     components: IngestModelComponents | None = None
 
@@ -141,9 +142,10 @@ class IdentifiedTimeSeriesPayload:
     :func:`~rime.transformers.ingest_registry.resolve_time_series_payload`.
     """
 
-    sensor_uuid: SensorUUID
     payload: list[Any] | ndarray | Trace
     time_axis: TimeAxis
+    thing_uuid: ThingUUID | None = None
+    sensor_uuid: SensorUUID | None = None
     sensor_model: SupportedSensors | None = None
     components: IngestModelComponents | None = None
     _decoded: bool = False
@@ -182,6 +184,7 @@ class IdentifiedTimeSeriesPayload:
             yield (
                 IdentifiedPayload(
                     sensor_uuid=self.sensor_uuid,
+                    thing_uuid=self.thing_uuid,
                     payload=element,
                     sensor_model=self.sensor_model,
                     components=self.components,
@@ -201,7 +204,7 @@ class EnvelopeMetadata:
     """
 
     app_name: Optional[str] = None
-    datastream_name: Optional[str] = None
+    datastream_name: Optional[str | CanonicalDatastreams] = None
     provider_timestamp: Optional[datetime] = None
     phenomenon_timestamp: Optional[datetime] = None
     other: Optional[Any] = None
@@ -265,8 +268,8 @@ class ObservationRecord:
     names and stripping everything that is not an observation field.
     """
 
-    sensor_uuid: SensorUUID
-    observations: dict[str, Any]
+    sensor_uuid: SensorUUID | None
+    observations: dict[str | CanonicalDatastreams, Any]
     provider_timestamp: datetime | None = None
     phenomenon_timestamp: datetime | None = None
     time_axis: TimeAxis | None = None
