@@ -22,11 +22,10 @@ from zoneinfo import ZoneInfo
 
 from rime_ingest.transformers.messages import (
     DecapsulatedMessage,
-    EnvelopeMetadata,
     IdentifiedTimeSeriesPayload,
     IrregularTimeAxis,
 )
-from rime_ingest.transformers.types import CanonicalDatastreams, SensorUUID
+from rime_ingest.transformers.types import SensorUUID
 
 from ..transport.poll.fs import FileWatcher
 
@@ -38,10 +37,9 @@ class EltekGPRSServerProvider(FileWatcher):
     """Poll Eltek GPRS Server CSV output → one time-series message per channel Sensor.
 
     `channel_sensor_map` maps vendor channel ids (e.g. ``Ch-013``) to STA Sensor
-    UUIDs (e.g. ``K02212-12943-Ch-013``). After start, each Sensor's linked
-    Datastream ``name`` from the sensor registry (SensorConfig) is placed on
-    ``EnvelopeMetadata.datastream_name`` (expects exactly one Datastream per
-    channel Sensor). The logger id in the CSV header is the Thing.
+    UUIDs (e.g. ``K02212-12943-Ch-013``). Quantity routing is model-tier
+    (parser / normalizer for each Sensor's ``SupportedSensors`` value); this
+    provider only strips CSV framing and attaches Thing / Sensor identity.
     """
 
     def __init__(
@@ -70,20 +68,6 @@ class EltekGPRSServerProvider(FileWatcher):
                 f"Got bad timezone for {app_name}: {iana_timezone}. "
                 f"Use IANA timezones. {e}"
             ) from e
-
-    def _datastream_for_sensor(self, sensor_uuid: SensorUUID) -> CanonicalDatastreams:
-        entry = self.sensor_registry.get(sensor_uuid)
-        if entry is None:
-            raise KeyError(
-                f"{self.app_name}: sensor {sensor_uuid!r} not in sensor_registry."
-            )
-        if len(entry.datastreams) != 1:
-            raise ValueError(
-                f"{self.app_name}: sensor {sensor_uuid!r} must link exactly one "
-                f"Datastream in SensorConfig for channel ingest, "
-                f"got {list(entry.datastreams)!r}."
-            )
-        return entry.datastreams[0]
 
     def _decode_wire(self, raw: bytes) -> str:
         """Parent Filewatcher returns UTF-8 encoded bytes."""
@@ -133,9 +117,6 @@ class EltekGPRSServerProvider(FileWatcher):
         ]
         # One series per Sensor instance (not per quantity — quantities may repeat).
         series: dict[SensorUUID, list[Any]] = {uuid: [] for _, _, uuid in wanted}
-        datastream_by_sensor = {
-            uuid: self._datastream_for_sensor(uuid) for _, _, uuid in wanted
-        }
         timestamps: list[datetime] = []
         for row in wire_message:
             timestamps.append(
@@ -156,9 +137,6 @@ class EltekGPRSServerProvider(FileWatcher):
                         sensor_uuid=sensor_uuid,
                     )
                 ],
-                envelope_metadata=EnvelopeMetadata(
-                    datastream_name=datastream_by_sensor[sensor_uuid]
-                ),
             )
             for sensor_uuid, values in series.items()
         ]

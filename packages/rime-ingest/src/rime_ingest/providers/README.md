@@ -163,9 +163,8 @@ The logger id in the CSV header is the **Thing**; each mapped channel is a
 - `file_path`, `iana_timezone`
 - `channel_sensor_map`: vendor channel id → Sensor `name` (e.g. `Ch-005` → `K02212-12943-Ch-005`)
 
-Quantity datastreams come from each Sensor’s linked Datastream ``name`` in
-SensorConfig (exactly one Datastream per channel Sensor).
-
+Quantity routing is model-tier (each channel Sensor’s ``SupportedSensors``
+parser / normalizer). SensorConfig still links Datastreams for STA provisioning.
 ## See also
 
 - [`../transport/`](../transport/README.md) — abstract transports that

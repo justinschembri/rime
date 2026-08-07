@@ -15,10 +15,9 @@ from ...sta.schema import SensorThingsEntity
 def st_observations_from_record(
     record: ObservationRecord,
 ) -> list[Tuple[Any, CanonicalDatastreams]]:
-    """Build STA observations when the parser already emitted canonical keys.
+    """Build STA observations when ``IngestModelComponents.normalizer`` is ``None``.
 
-    Used when ``IngestModelComponents.normalizer`` is ``None`` (envelope-carried
-    datastream identity; no vendor-field rename step).
+    Observation keys must already be canonical Datastream names (enum or value).
     """
     observation_cls = class_map_for()[SensorThingsEntity.OBSERVATION]
     phenomenon_time = record.phenomenon_timestamp or record.provider_timestamp

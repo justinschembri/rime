@@ -38,6 +38,7 @@ cannot carry (e.g. the TTN gateway receive time).
 | [`MilesightAm103lParser`](milesight.py) | Validates AM103L fields; timestamps from envelope. |
 | [`MilesightAm308lParser`](milesight.py) | Validates AM308L fields; timestamps from envelope. |
 | [`NetatmoNWS03Parser`](netatmo.py) | Lowercases keys, extracts `time_utc`, drops trend fields. |
+| [`HeatFluxPlateParser`](probes.py) / thermocouple parsers | Coerce a scalar reading into the model’s single observation field. |
 
 ## Where it sits in the pipeline
 
