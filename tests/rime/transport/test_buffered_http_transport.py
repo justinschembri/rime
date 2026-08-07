@@ -58,8 +58,8 @@ class _ConcreteTransport(BufferedHTTPTransport):
     def _ack(self, ids: list[str]) -> None:
         self.acked.append(ids)
 
-    def _decapsulate_wire(self, wire_message: Any) -> DecapsulatedMessage:
-        return _make_decapsulated()
+    def _decapsulate_wire(self, wire_message: Any) -> list[DecapsulatedMessage]:
+        return [_make_decapsulated()]
 
 
 # ---------------------------------------------------------------------------
