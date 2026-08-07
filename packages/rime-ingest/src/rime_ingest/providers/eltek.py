@@ -1,0 +1,153 @@
+"""Support for Eltek SRV450 data loggers (append-only CSV)."""
+
+from __future__ import annotations
+
+import csv
+import io
+from collections import defaultdict
+from datetime import datetime
+from typing import Any
+from zoneinfo import ZoneInfo
+
+from rime_ingest.transformers.messages import (
+    DecapsulatedMessage,
+    EnvelopeMetadata,
+    IdentifiedTimeSeriesPayload,
+    IrregularTimeAxis,
+)
+from rime_ingest.transformers.types import CanonicalDatastreams, SensorUUID
+
+from ..transport.poll.fs import FileWatcher
+
+_TS = "%d/%m/%Y %H:%M:%S"
+_HEADER_KEYS = frozenset({"chan", "unit", "ID", "TX Serial Number", "TX Channel"})
+
+
+class EltekSrv450Provider(FileWatcher):
+    """File-backed Eltek CSV → one time-series message per mapped channel Sensor.
+
+    `channel_sensor_map` maps vendor channel ids (e.g. ``Ch-013``) to STA Sensor
+    UUIDs (e.g. ``K02212-12943-Ch-013``). After start, each Sensor's linked
+    Datastream ``name`` from the sensor registry (SensorConfig) is placed on
+    ``EnvelopeMetadata.datastream_name`` (expects exactly one Datastream per
+    channel Sensor).
+    """
+
+    def __init__(
+        self,
+        app_name: str,
+        *,
+        file_path,
+        poll_interval: float = 300,
+        iana_timezone: str,
+        channel_sensor_map: dict[str, str],
+        max_retries: int = 10,
+    ):
+        super().__init__(
+            app_name,
+            file_path=file_path,
+            poll_interval=poll_interval,
+            max_retries=max_retries,
+        )
+        self._headers: dict[str, Any] = defaultdict(str)
+        self._header_loaded = False
+        self._channel_sensor_map: dict[str, SensorUUID] = dict(channel_sensor_map)
+        try:
+            self._timezone = ZoneInfo(iana_timezone)
+        except Exception as e:
+            raise ValueError(
+                f"Got bad timezone for {app_name}: {iana_timezone}. "
+                f"Use IANA timezones. {e}"
+            ) from e
+
+    def _datastream_for_sensor(self, sensor_uuid: SensorUUID) -> CanonicalDatastreams:
+        entry = self.sensor_registry.get(sensor_uuid)
+        if entry is None:
+            raise KeyError(
+                f"{self.app_name}: sensor {sensor_uuid!r} not in sensor_registry."
+            )
+        if len(entry.datastreams) != 1:
+            raise ValueError(
+                f"{self.app_name}: sensor {sensor_uuid!r} must link exactly one "
+                f"Datastream in SensorConfig for channel ingest, "
+                f"got {list(entry.datastreams)!r}."
+            )
+        return entry.datastreams[0]
+
+    def _decode_wire(self, raw: bytes) -> str:
+        """Parent Filewatcher returns UTF-8 encoded bytes."""
+        return raw.decode()
+
+    def _deserialize_wire(self, decoded: str) -> list[list[str]]:
+        data_rows: list[list[str]] = []
+        for row in csv.reader(io.StringIO(decoded)):
+            if not row:
+                continue
+
+            # File re-read from start (failed ingest / rotate) re-presents headers.
+            if self._header_loaded and (
+                len(row) == 1 or row[0] == "ID" or row[0] in _HEADER_KEYS
+            ):
+                self._header_loaded = False
+                self._headers.clear()
+
+            if not self._header_loaded:
+                if len(row) == 1:
+                    self._headers["thing_uuid"] = row[0]
+                elif row[0] == "ID":
+                    self._headers["channel"] = row[1:]
+                elif row[0] in _HEADER_KEYS:
+                    continue
+                if (
+                    "thing_uuid" in self._headers
+                    and "channel" in self._headers
+                    and row[0] not in _HEADER_KEYS
+                    and len(row) > 1
+                ):
+                    self._header_loaded = True
+                    data_rows.append(row)
+                continue
+            # row: timestamp, value_1, ..., value_n (index → channel / Sensor)
+            data_rows.append(row)
+        return data_rows
+
+    def _decapsulate_wire(
+        self, wire_message: list[list[str]]
+    ) -> list[DecapsulatedMessage]:
+        channels: list[str] = self._headers["channel"]
+        wanted = [
+            (i, ch, self._channel_sensor_map[ch])
+            for i, ch in enumerate(channels)
+            if ch in self._channel_sensor_map
+        ]
+        # One series per Sensor instance (not per quantity — quantities may repeat).
+        series: dict[SensorUUID, list[Any]] = {uuid: [] for _, _, uuid in wanted}
+        datastream_by_sensor = {
+            uuid: self._datastream_for_sensor(uuid) for _, _, uuid in wanted
+        }
+        timestamps: list[datetime] = []
+        for row in wire_message:
+            timestamps.append(
+                datetime.strptime(row[0], _TS).replace(tzinfo=self._timezone)
+            )
+            for i, _ch, uuid in wanted:
+                series[uuid].append(row[i + 1])
+
+        time_axis = IrregularTimeAxis(timestamps=timestamps)
+        logger_id = self._headers["thing_uuid"]
+        return [
+            DecapsulatedMessage(
+                identified_payloads=[
+                    IdentifiedTimeSeriesPayload(
+                        payload=values,
+                        time_axis=time_axis,
+                        thing_uuid=logger_id,
+                        sensor_uuid=sensor_uuid,
+                    )
+                ],
+                envelope_metadata=EnvelopeMetadata(
+                    datastream_name=datastream_by_sensor[sensor_uuid]
+                ),
+            )
+            for sensor_uuid, values in series.items()
+        ]

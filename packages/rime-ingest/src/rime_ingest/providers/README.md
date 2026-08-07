@@ -17,6 +17,7 @@ possible.
 | `GenericHTTPProvider` | `HTTPTransport` (poll)         | Config headers  | Generic JSON HTTP pull + field-mapped decapsulation. |
 | `NetatmoProvider` | `HTTPTransport` (poll)             | OAuth tokens    | Polls `WeatherStationData.rawData` via lnetatmo. |
 | `TTSProvider`     | `MQTTTransport` (subscription)     | API key         | Subscribes to `v3/<app>/devices/+/up` topics.    |
+| `EltekSrv450Provider` | `FileWatcher` (poll)           | none            | Append-only CSV; `channel_sensor_map` → Sensor UUIDs; logger is the Thing. |
 
 ## What a provider owns
 
@@ -147,6 +148,17 @@ field mapping is sufficient:
 
 The CLI (`rime setup`) prefers to write this file for you and will
 introspect `auth_method` to know which credential setup to invoke.
+
+### `eltek-srv450` provider config
+
+Multi-channel CSV logger. The logger id is the **Thing**; each mapped channel
+is a **Sensor** UUID. Required keys:
+
+- `file_path`, `iana_timezone`
+- `channel_sensor_map`: vendor channel id → Sensor `name` (e.g. `Ch-005` → `K02212-12943-Ch-005`)
+
+Quantity datastreams come from each Sensor’s linked Datastream ``name`` in
+SensorConfig (exactly one Datastream per channel Sensor).
 
 ## See also
 
