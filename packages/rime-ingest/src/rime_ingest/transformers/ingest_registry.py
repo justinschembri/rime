@@ -48,7 +48,7 @@ from .types import SensorRegistry, SensorUUID, SupportedSensors
 class IngestModelComponents:
     """Components of model-level ingestion pipeline."""
     parser: Type[Parser]
-    normalizer: Type[Normalizer] | None = None
+    normalizer: Type[Normalizer]
     deserializer: Type[Deserializer] | None = None
     decoder: Type[Decoder] | None = None
 

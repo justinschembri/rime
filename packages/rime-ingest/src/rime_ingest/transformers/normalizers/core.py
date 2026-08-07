@@ -12,37 +12,6 @@ from ...sta.maps import class_map_for
 from ...sta.schema import SensorThingsEntity
 
 
-def st_observations_from_record(
-    record: ObservationRecord,
-) -> list[Tuple[Any, CanonicalDatastreams]]:
-    """Build STA observations when ``IngestModelComponents.normalizer`` is ``None``.
-
-    Observation keys must already be canonical Datastream names (enum or value).
-    """
-    observation_cls = class_map_for()[SensorThingsEntity.OBSERVATION]
-    phenomenon_time = record.phenomenon_timestamp or record.provider_timestamp
-    observations: list[Tuple[Any, CanonicalDatastreams]] = []
-    for key, value in record.observations.items():
-        if value is None:
-            continue
-        datastream = (
-            key if isinstance(key, CanonicalDatastreams) else CanonicalDatastreams(key)
-        )
-        if datastream == CanonicalDatastreams.PHENOMENON_TIME:
-            continue
-        observations.append(
-            (
-                observation_cls(
-                    id=None,
-                    result=value,
-                    phenomenonTime=phenomenon_time,
-                ),
-                datastream,
-            )
-        )
-    return observations
-
-
 class Normalizer(BaseModel):
     """Maps vendor observation fields (``ObservationRecord.observations``) to SensorThings observations."""
 

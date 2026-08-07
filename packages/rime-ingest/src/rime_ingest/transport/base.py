@@ -23,7 +23,6 @@ Model tier (per IdentifiedPayload, keyed by sensor model from INGEST_COMPONENT_M
 
     parser.parse          →  ObservationRecord (sensor_uuid + observations + timestamps)
     normalizer.from_record  →  vendor fields → SensorThings observations
-                          (skipped when normalizer is None; keys already canonical)
     frost_observation_upload →  push to FROST
 
 Time-series carriers (:class:`~rime.transformers.messages.IdentifiedTimeSeriesPayload`)
@@ -62,7 +61,6 @@ from ..transformers.messages import (
     IdentifiedPayload,
     IdentifiedTimeSeriesPayload,
 )
-from ..transformers.normalizers.core import st_observations_from_record
 from ..exceptions import (
         FrostUploadFailure, 
         UnexpectedProviderMessage,
@@ -342,11 +340,8 @@ class SensorTransport(ABC):
 
         for sample_identified, sample_envelope in point_in_time_inputs:
             record = components.parser.parse(sample_identified, sample_envelope)
-            if components.normalizer is None:
-                st_observations = st_observations_from_record(record)
-            else:
-                normalizer = components.normalizer.from_record(record)
-                st_observations = normalizer.to_stObservations()
+            normalizer = components.normalizer.from_record(record)
+            st_observations = normalizer.to_stObservations()
             for st_obs in st_observations:
                 try:
                     debug_logger.debug(f"{st_obs=} {sensor_uuid=}")
