@@ -72,10 +72,7 @@ class TestNetatmoDecapsulator:
 
 def test_netatmo_provider_decapsulate_delegates():
     raw = [_station("70:ff", True)]
-    messages = NetatmoProvider("test")._decapsulate_wire(raw)
-    assert isinstance(messages, list)
-    assert len(messages) == 1
-    decapped = messages[0]
+    decapped = NetatmoProvider("test")._decapsulate_wire(raw)
     assert isinstance(decapped, DecapsulatedMessage)
     assert len(decapped.identified_payloads) == 1
     identified = decapped.identified_payloads[0]

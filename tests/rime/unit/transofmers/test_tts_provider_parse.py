@@ -101,12 +101,10 @@ class TestTTSProviderPayload:
             host="eu1.cloud.thethings.network",
             topic="v3/test-app@ttn/devices/+/up",
         )
-        messages = provider._decapsulate_wire(valid_payload)
+        decapped = provider._decapsulate_wire(valid_payload)
 
-        assert isinstance(messages, list)
-        assert len(messages) == 1
-        assert isinstance(messages[0], DecapsulatedMessage)
-        assert len(messages[0].identified_payloads) == 1
+        assert isinstance(decapped, DecapsulatedMessage)
+        assert len(decapped.identified_payloads) == 1
 
     def test_identified_payload_sensor_uuid(self, valid_payload):
         provider = TTSProvider(
@@ -114,8 +112,8 @@ class TestTTSProviderPayload:
             host="eu1.cloud.thethings.network",
             topic="v3/test-app@ttn/devices/+/up",
         )
-        messages = provider._decapsulate_wire(valid_payload)
-        identified = messages[0].identified_payloads[0]
+        decapped = provider._decapsulate_wire(valid_payload)
+        identified = decapped.identified_payloads[0]
 
         assert isinstance(identified, IdentifiedPayload)
         assert identified.sensor_uuid == "24E124707D378803"
@@ -126,8 +124,8 @@ class TestTTSProviderPayload:
             host="eu1.cloud.thethings.network",
             topic="v3/test-app@ttn/devices/+/up",
         )
-        messages = provider._decapsulate_wire(valid_payload)
-        sensor_data = messages[0].identified_payloads[0].payload
+        decapped = provider._decapsulate_wire(valid_payload)
+        sensor_data = decapped.identified_payloads[0].payload
 
         assert sensor_data["battery"] == 53
         assert sensor_data["co2"] == 4665
@@ -146,8 +144,8 @@ class TestTTSProviderPayload:
             host="eu1.cloud.thethings.network",
             topic="v3/test-app@ttn/devices/+/up",
         )
-        messages = provider._decapsulate_wire(valid_payload)
-        env = messages[0].envelope_metadata
+        decapped = provider._decapsulate_wire(valid_payload)
+        env = decapped.envelope_metadata
 
         assert env is not None
         assert env.provider_timestamp == datetime(

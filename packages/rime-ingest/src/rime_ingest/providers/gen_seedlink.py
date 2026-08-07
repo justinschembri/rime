@@ -8,5 +8,5 @@ from ..transport import SeedLinkTransport
 
 class GenericSeedLinkProvider(SeedLinkTransport):
 
-    def _decapsulate_wire(self, wire_message: Trace) -> list[DecapsulatedMessage]:
-        return [GenericSeedLinkDecapsulator.decapsulate(wire_message)]
+    def _decapsulate_wire(self, wire_message: Trace) -> DecapsulatedMessage:
+        return GenericSeedLinkDecapsulator.decapsulate(wire_message)

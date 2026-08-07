@@ -108,7 +108,7 @@ class EltekGPRSServerProvider(FileWatcher):
 
     def _decapsulate_wire(
         self, wire_message: list[list[str]]
-    ) -> list[DecapsulatedMessage]:
+    ) -> DecapsulatedMessage:
         channels: list[str] = self._headers["channel"]
         wanted = [
             (i, ch, self._channel_sensor_map[ch])
@@ -127,16 +127,14 @@ class EltekGPRSServerProvider(FileWatcher):
 
         time_axis = IrregularTimeAxis(timestamps=timestamps)
         logger_id = self._headers["thing_uuid"]
-        return [
-            DecapsulatedMessage(
-                identified_payloads=[
-                    IdentifiedTimeSeriesPayload(
-                        payload=values,
-                        time_axis=time_axis,
-                        thing_uuid=logger_id,
-                        sensor_uuid=sensor_uuid,
-                    )
-                ],
-            )
-            for sensor_uuid, values in series.items()
-        ]
+        return DecapsulatedMessage(
+            identified_payloads=[
+                IdentifiedTimeSeriesPayload(
+                    payload=values,
+                    time_axis=time_axis,
+                    thing_uuid=logger_id,
+                    sensor_uuid=sensor_uuid,
+                )
+                for sensor_uuid, values in series.items()
+            ],
+        )

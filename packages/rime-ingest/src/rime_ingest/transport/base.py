@@ -261,9 +261,8 @@ class SensorTransport(ABC):
         """
         return decoded
 
-    #TODO: this refactor (from DecapsulatedMessage to list[DecapsulatedMessage] must be propogated)
     @abstractmethod
-    def _decapsulate_wire(self, wire_message: Any) -> list[DecapsulatedMessage]:
+    def _decapsulate_wire(self, wire_message: Any) -> DecapsulatedMessage:
         """Strip the provider envelope into identified sensor payloads.
 
         Implemented by a concrete provider. Receives the output of
@@ -273,9 +272,9 @@ class SensorTransport(ABC):
             wire_message: Deserialized provider message.
 
         Returns:
-            A list of :class:`~rime.transformers.messages.DecapsulatedMessage` whose
+            A :class:`~rime.transformers.messages.DecapsulatedMessage` whose
             ``identified_payloads`` list has one entry per logical sensor in
-            the wire message. 
+            the wire message.
         """
 
     def _process_wire_message(self, wire_message: Any) -> None:
@@ -294,20 +293,19 @@ class SensorTransport(ABC):
         """
         decoded_wire = self._decode_wire(wire_message)
         deserialized_wire = self._deserialize_wire(decoded_wire)
-        decapsulated_messages = self._decapsulate_wire(deserialized_wire)
+        decapsulated = self._decapsulate_wire(deserialized_wire)
 
-        for decapsulated in decapsulated_messages:
-            for identified in decapsulated.identified_payloads:
-                sensor_uuid = identified.sensor_uuid
-                try:
-                    envelope = decapsulated.envelope_metadata
-                    self.run_payload_ingest(
-                        resolve_identified_payload(identified, self.sensor_registry),
-                        envelope,
-                    )
-                except (UnregisteredSensorError, UnpackError, KeyError) as e:
-                    self._exception_handler(e, sensor_id=sensor_uuid, stage="model_ingest")
-                    continue
+        for identified in decapsulated.identified_payloads:
+            sensor_uuid = identified.sensor_uuid
+            try:
+                envelope = decapsulated.envelope_metadata
+                self.run_payload_ingest(
+                    resolve_identified_payload(identified, self.sensor_registry),
+                    envelope,
+                )
+            except (UnregisteredSensorError, UnpackError, KeyError) as e:
+                self._exception_handler(e, sensor_id=sensor_uuid, stage="model_ingest")
+                continue
 
     def run_payload_ingest(
         self,

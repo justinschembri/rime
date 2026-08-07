@@ -143,8 +143,8 @@ class RimeServerHttpProvider(BufferedHTTPTransport):
     # Ingest pipeline hook
     # ------------------------------------------------------------------
 
-    def _decapsulate_wire(self, wire_message: Any) -> list[DecapsulatedMessage]:
-        return [self._decapsulator.decapsulate_envelope(wire_message)]
+    def _decapsulate_wire(self, wire_message: Any) -> DecapsulatedMessage:
+        return self._decapsulator.decapsulate_envelope(wire_message)
 
     # ------------------------------------------------------------------
     # Internal helpers
