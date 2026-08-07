@@ -22,7 +22,7 @@ from rime_ingest.frost.orchestrators import initial_setup
 from rime_ingest.frost.sanitization import sanitize_frost_endpoint
 from rime_ingest.transport import SensorTransport
 from rime_ingest.monitor import netmon
-from rime_ingest.transformers.types import SensorUUID, SupportedSensors
+from rime_ingest.transformers.types import SensorRegistry, SensorUUID
 
 
 # import from config.py:
@@ -118,13 +118,14 @@ def push_available(
     )
     time.sleep(start_delay)
     # INITIAL SETUP ############################################################
-    sensor_registry: dict[SensorUUID, SupportedSensors] = {}
+    sensor_registry: SensorRegistry = {}
     for f in sensor_config_paths:
         if exclude and f.name in exclude:
             continue
         sensor_config = SensorConfig(f)
-        sensor_registry[sensor_config.name] = SupportedSensors(sensor_config.model)
-        netmon.expected_sensors.add(sensor_config.name)
+        for uuid, entry in sensor_config.sensors.items():
+            sensor_registry[uuid] = entry
+            netmon.expected_sensors.add(uuid)
         for endpoint in endpoints:
             _setup_sensor_arrangements(deepcopy(sensor_config), endpoint)
     # generate a list of connections

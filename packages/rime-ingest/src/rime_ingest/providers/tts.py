@@ -38,7 +38,7 @@ class TTSProvider(MQTTTransport):
             return False
         return True
 
-    def _decapsulate_wire(self, wire_message: dict[str, Any]) -> DecapsulatedMessage:
+    def _decapsulate_wire(self, wire_message: dict[str, Any]) -> list[DecapsulatedMessage]:
         decapped = TTNDecapsulator.decapsulate(wire_message)
         if len(decapped.identified_payloads) != 1:
             raise UnpackError(
@@ -46,7 +46,7 @@ class TTSProvider(MQTTTransport):
                     "TTN uplink must decapsulate to exactly one logical device payload."
                 )
             )
-        return decapped
+        return [decapped]
 
     def _auth(self) -> None:
         if not self._credentials_file.exists():

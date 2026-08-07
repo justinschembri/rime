@@ -45,8 +45,10 @@ class NetatmoProvider(HTTPTransport):
         self._authenticated = True
         return self._auth_obj
 
-    def _decapsulate_wire(self, wire_message: Any) -> DecapsulatedMessage:
-        return NetatmoDecapsulator.decapsulate(wire_message)
+    def _decapsulate_wire(self, wire_message: Any) -> list[DecapsulatedMessage]:
+        # TODO: architectural question, why not implement the decapsulators in the
+        # class body if we're fine with defining deserializers there too?
+        return [NetatmoDecapsulator.decapsulate(wire_message)]
 
     def _pull_data(self) -> list[dict[str, Any]] | None:
         if not self._authenticated:

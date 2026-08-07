@@ -11,10 +11,11 @@ from .normalizers import milesight, netatmo, kinemetrics, dragino
 from .types import SupportedSensors
 
 #TODO: is this mapping relevant at all?
+# Models with normalizer=None in INGEST_COMPONENT_MAP are omitted here.
 NORMALIZER_MAP: dict[SupportedSensors, Type[Normalizer]] = {
     SupportedSensors.MILESIGHT_AM103L: milesight.MilesightAm103lNormalizer,
     SupportedSensors.MILESIGHT_AM308L: milesight.MilesightAm308lNormalizer,
     SupportedSensors.NETATMO_NWS03: netatmo.NetatmoNWS03,
     SupportedSensors.KINEMETRICS_ETNA2: kinemetrics.KinemetricsEtna2,
-    SupportedSensors.DRAGINO_LSN50V2_S31: dragino.DraginoLSN50v2_S31Normalizer
+    SupportedSensors.DRAGINO_LSN50V2_S31: dragino.DraginoLSN50v2_S31Normalizer,
 }
