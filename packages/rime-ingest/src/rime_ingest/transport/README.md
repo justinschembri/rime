@@ -17,7 +17,8 @@ TCP stream, a CoAP poller, or a directory watcher.
 transport/
 ├── base.py                  # SensorTransport (ABC) -- protocol-agnostic core
 ├── poll/                    # caller drives the rhythm; stateless requests
-│   └── http.py              # HTTPTransport (ABC)
+│   ├── http.py              # HTTPTransport (ABC)
+│   └── fs.py                # FileWatcher (single path); DirectoryWatcher (stub)
 └── subscription/            # source pushes to caller; persistent connection
     ├── mqtt.py              # MQTTTransport (ABC)
     └── seedlink.py          # SeedLinkTransport (ABC, ObsPy SeedLink TCP)
@@ -34,7 +35,7 @@ The package is organised in two layers:
    format.
 2. **Protocol implementation** (`http.py`, `mqtt.py`, `seedlink.py`, ...) — the
    concrete abstract class that handles a specific wire protocol within an
-   interaction model. Filesystem polling would land in `poll/filesystem.py`.
+   interaction model. Filesystem polling lives in `poll/fs.py`.
 
 ## Ingest pipeline (transport → FROST)
 

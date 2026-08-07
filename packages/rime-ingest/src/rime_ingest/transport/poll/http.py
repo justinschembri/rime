@@ -60,7 +60,7 @@ class HTTPTransport(SensorTransport):
                 wire_message = self._pull_data()
                 if self._last_payload == wire_message:
                     # a bit of a 'magic number' here:
-                    time.sleep(self.request_interval / 4)
+                    self._stop_event.wait(self.request_interval / 4)
                     continue
                 self._last_payload = wire_message
                 self._process_wire_message(wire_message)
