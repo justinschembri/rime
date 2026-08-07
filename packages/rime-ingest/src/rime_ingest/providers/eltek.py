@@ -1,4 +1,15 @@
-"""Support for Eltek SRV450 data loggers (append-only CSV)."""
+"""Support for Eltek Gateway GPRS Server CSV exports (append-only files).
+
+The Eltek Gateway GPRS Server (often just “GPRS Server”) is a relatively old
+Windows utility shipped with GenII receiver loggers (SRV250 / SRV450 and
+related). Loggers push readings over mobile data to a host running the
+Gateway; the software writes one Windows CSV (or Eltek DAT) file per logger
+under a configured directory. This provider does not talk to the logger or
+the Gateway process — it polls those CSV files via :class:`FileWatcher`.
+
+The Gateway’s CSV layout is stable but not formally versioned; treat timezone,
+channel headers, and sentinel “no data” strings as deployment-specific.
+"""
 
 from __future__ import annotations
 
@@ -23,14 +34,14 @@ _TS = "%d/%m/%Y %H:%M:%S"
 _HEADER_KEYS = frozenset({"chan", "unit", "ID", "TX Serial Number", "TX Channel"})
 
 
-class EltekSrv450Provider(FileWatcher):
-    """File-backed Eltek CSV → one time-series message per mapped channel Sensor.
+class EltekGPRSServerProvider(FileWatcher):
+    """Poll Eltek GPRS Server CSV output → one time-series message per channel Sensor.
 
     `channel_sensor_map` maps vendor channel ids (e.g. ``Ch-013``) to STA Sensor
     UUIDs (e.g. ``K02212-12943-Ch-013``). After start, each Sensor's linked
     Datastream ``name`` from the sensor registry (SensorConfig) is placed on
     ``EnvelopeMetadata.datastream_name`` (expects exactly one Datastream per
-    channel Sensor).
+    channel Sensor). The logger id in the CSV header is the Thing.
     """
 
     def __init__(

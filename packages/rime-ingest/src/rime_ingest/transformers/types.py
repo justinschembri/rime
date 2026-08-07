@@ -79,3 +79,4 @@ class SupportedProviders(Enum):
     NETATMO = "netatmo"
     THE_THINGS_NETWORK = "ttn"
     RIME_HTTP = "rime-http"
+    ELTEK_GPRS_SERVER = "eltek-gprs-server"

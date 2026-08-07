@@ -17,7 +17,7 @@ possible.
 | `GenericHTTPProvider` | `HTTPTransport` (poll)         | Config headers  | Generic JSON HTTP pull + field-mapped decapsulation. |
 | `NetatmoProvider` | `HTTPTransport` (poll)             | OAuth tokens    | Polls `WeatherStationData.rawData` via lnetatmo. |
 | `TTSProvider`     | `MQTTTransport` (subscription)     | API key         | Subscribes to `v3/<app>/devices/+/up` topics.    |
-| `EltekSrv450Provider` | `FileWatcher` (poll)           | none            | Append-only CSV; `channel_sensor_map` → Sensor UUIDs; logger is the Thing. |
+| `EltekGPRSServerProvider` | `FileWatcher` (poll)       | none            | Watches CSV written by Eltek Gateway GPRS Server; channel → Sensor UUIDs. |
 
 ## What a provider owns
 
@@ -149,10 +149,16 @@ field mapping is sufficient:
 The CLI (`rime setup`) prefers to write this file for you and will
 introspect `auth_method` to know which credential setup to invoke.
 
-### `eltek-srv450` provider config
+### `eltek-gprs-server` provider config
 
-Multi-channel CSV logger. The logger id is the **Thing**; each mapped channel
-is a **Sensor** UUID. Required keys:
+Ingests CSV files produced by **Eltek Gateway GPRS Server** (also called GPRS
+Server / Gateway): an older Windows host utility that receives data pushed by
+GenII receiver loggers (SRV250, SRV450, …) and writes one append-oriented
+Windows CSV per logger. This provider does not speak to the logger or Gateway
+over the network; it only polls the file the Gateway already wrote.
+
+The logger id in the CSV header is the **Thing**; each mapped channel is a
+**Sensor** UUID. Required keys:
 
 - `file_path`, `iana_timezone`
 - `channel_sensor_map`: vendor channel id → Sensor `name` (e.g. `Ch-005` → `K02212-12943-Ch-005`)
